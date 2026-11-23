@@ -227,7 +227,8 @@ const Tank = (() => {
 
   /* ================= The open tank ================= */
   let api = null;
-  let isOpen = false, sc = null, cv = null, ctx = null, layer = null, lctx = null;
+  let isOpen = false, sc = null, cv = null, ctx = null, layer = null, lctx = null, glc = null, glOn = false;
+  const ptr = [0.5, 0.5], ptrTo = [0.5, 0.5];
   let W = 0, H = 0, DPR = 1, T = 0, U = 1;
   let fish = [], parts = [], lifts = [], ints = [];
   let sel = null, view = 'tank', dirty = false, saveT = 0, socialT = 0, ambT = 3, cardT = 0;
@@ -530,7 +531,8 @@ const Tank = (() => {
     const sr = clamp(v / base, 0, 3);
     f.phase += dt * (2 + sr * 4.2); f.wave += dt * (2.6 + sr * 5);
     f.sr = sr;
-    if (sr > 0.35 && (f.brushT = (f.brushT || 0) - dt) <= 0) { f.brushT = 0.18; TankEnv.brush(sc, f.x, f.y, f.len * 0.5, 0.12 * sr); }
+    // swimming through plants leans them gently aside, the way the fish is going
+    if (sr > 0.35 && (f.brushT = (f.brushT || 0) - dt) <= 0) { f.brushT = 0.2; TankEnv.brush(sc, f.x, f.y, f.len * 0.4, 0.06 * Math.min(sr, 1.6), Math.sign(f.vx)); }
   }
   function leap(f) {
     f.free = true; f.vy = -U * rand(17, 22); f.vx = f.face * U * rand(7, 11); f.above = false;
@@ -1101,7 +1103,16 @@ const Tank = (() => {
   };
 
   /* ================= Pointer ================= */
-  function local(e) { const b = cv.getBoundingClientRect(); return [(e.clientX - b.left) * W / b.width, (e.clientY - b.top) * H / b.height]; }
+  function local(e) {
+    const b = cv.getBoundingClientRect();
+    let x = (e.clientX - b.left) * W / b.width, y = (e.clientY - b.top) * H / b.height;
+    // through the bowl's lens, a point on screen shows what is a little nearer its middle
+    if (sc && sc.gl && sc.bowl) {
+      const B = sc.bowl, dx = (x - B.cx) / B.R, dy = (y - B.cy) / B.R, r2 = dx * dx + dy * dy;
+      if (r2 < 1) { const k = 0.9 + 0.1 * r2 * r2; x = B.cx + dx * k * B.R; y = B.cy + dy * k * B.R; }
+    }
+    return [x, y];
+  }
   function onDown(e) {
     if (!sc) return;
     const [x, y] = local(e);
@@ -1109,8 +1120,9 @@ const Tank = (() => {
     try { cv.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
   }
   function onMove(e) {
-    if (!down) return;
     const [x, y] = local(e);
+    ptrTo[0] = clamp(x / W, 0, 1); ptrTo[1] = clamp(y / H, 0, 1);
+    if (!down) return;
     if (!down.moved && Math.hypot(x - down.x, y - down.y) > 10) {
       down.moved = true;
       // a finger trailed through the water: the curious and the playful follow it
@@ -1370,6 +1382,15 @@ const Tank = (() => {
 
   /* ================= Opening and closing ================= */
   let rT = 0, idleT = 0;
+  /* If the tank keeps missing about 38 frames a second, it renders at a lower resolution (up to three times). */
+  const perf = { acc: 0, n: 0, k: 1, cuts: 0 };
+  function govern(dt) {
+    perf.acc += dt; perf.n += 1;
+    if (perf.acc < 2.5) return;
+    const avg = perf.acc / perf.n;
+    perf.acc = 0; perf.n = 0;
+    if (avg > 1 / 38 && perf.cuts < 3 && DPR > 1.01) { perf.cuts += 1; perf.k *= 0.8; sc = null; layout(); }
+  }
   function layout() {
     const stage = $('#tank-stage'), card = stage.closest('.card'), w = Math.max(200, stage.clientWidth);
     const narrow = window.innerWidth < 600;
@@ -1384,11 +1405,14 @@ const Tank = (() => {
     if (sc && sc.id === id && Math.abs(sc.W - w) < 2 && Math.abs(sc.H - h) < 2) { syncFish(null); return; }
     const old = sc;
     W = w; H = h;
-    DPR = Math.max(1, Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(2.6e6 / (w * h))));
+    DPR = Math.max(1, Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(2.6e6 / (w * h))) * perf.k);
     cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
     layer.width = cv.width; layer.height = cv.height;
-    sc = TankEnv.build(id, W, H, DPR);
+    const gl = glOn && TankGL.ok;
+    sc = TankEnv.build(id, W, H, DPR, { gl });
     U = sc.U;
+    $('#tank-stage').classList.toggle('gl', gl);
+    if (gl) { TankGL.resize(cv.width, cv.height); TankGL.setScene(TankEnv.glScene(sc)); }
     sc.above = new Path2D();
     sc.above.moveTo(sc.ix0 - 10, -10); sc.above.lineTo(sc.ix1 + 10, -10);
     for (let x = sc.ix1 + 10; x >= sc.ix0 - 10; x -= 4) sc.above.lineTo(x, sc.floor(clamp(x, sc.ix0, sc.ix1)) + U * 0.3);
@@ -1476,9 +1500,17 @@ const Tank = (() => {
       return;
     }
     dt = Math.min(dt, 0.05);
+    if (!document.hidden) govern(dt);
     bake(6);
     update(dt);
-    if (view === 'tank') render();
+    if (view === 'tank') {
+      render();
+      if (sc.gl) {
+        ptr[0] += (ptrTo[0] - ptr[0]) * Math.min(1, dt * 3); ptr[1] += (ptrTo[1] - ptr[1]) * Math.min(1, dt * 3);
+        // if the GPU is lost, carry on with the painting alone
+        if (!TankGL.render(cv, T, ptr)) { glOn = false; sc = null; layout(); }
+      }
+    }
     S.last = Date.now();
     if ((cardT -= dt) <= 0) {
       cardT = 0.5;
@@ -1523,6 +1555,9 @@ const Tank = (() => {
     api = a;
     S = api.save.tank;
     cv = $('#tank-canvas'); ctx = cv.getContext('2d');
+    glc = $('#tank-gl');
+    glOn = !/nogl/.test(location.hash) && TankGL.init(glc);
+    cv.addEventListener('pointerleave', () => { ptrTo[0] = 0.5; ptrTo[1] = 0.5; });
     layer = document.createElement('canvas'); lctx = layer.getContext('2d');
     cv.addEventListener('pointerdown', onDown);
     cv.addEventListener('pointermove', onMove);

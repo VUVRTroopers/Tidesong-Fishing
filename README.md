@@ -198,7 +198,7 @@ bottom-dwellers wait for them to sink.
 | Tank | Fish | Price | What is in it |
 | --- | --- | --- | --- |
 | Glass Bowl | 8 | free | A round bowl on a windowsill at night: coloured glass pebbles and a sprig of green |
-| Reed Tank | 12 | 200 | Swaying reeds, a hollow mossy log, an air stone and a snail on the glass |
+| Reed Tank | 12 | 200 | Swaying reeds, a hollow mossy log, an air stone and a snail crawling on the sand |
 | Lily Garden | 16 | 500 | Lily pads and lotus overhead, a frog, a driftwood arch, rolling moss balls, a visiting dragonfly |
 | Coral Reef | 24 | 1,200 | Branching corals, a sea fan, an anemone, a giant clam and a treasure chest, under bright sunbeams |
 | Shipwreck Cove | 32 | 3,000 | A sunken ship in a kelp forest, a ship's bell, portholes, an anchor and a diver's helmet that breathes bubbles |
@@ -238,7 +238,7 @@ The game explains almost none of what follows; players find it by watching and t
 
 - **Glass Bowl:** tapping the pebbles makes them hop; tapping the glass draws curious fish.
 - **Reed Tank:** the air stone bursts and lifts playful fish to the surface; knocking on the log
-  flushes out whoever is hiding in it; the snail pulls into its shell.
+  flushes out whoever is hiding in it; the snail, crawling along the sand, pulls into its shell.
 - **Lily Garden:** pads bob, the frog croaks and hops to another pad, the dragonfly flies off (an
   archerfish will try to knock it down first), moss balls roll, and knocking the arch sends a few
   fish through it.
@@ -283,6 +283,31 @@ leaping fish are lit by it:
 
 Phones render the scene at reduced resolution, and a governor lowers it further if the frame rate
 drops. Without WebGL, or with `#nogl` in the URL, the game falls back to a 2D renderer.
+
+### The aquariums
+
+Each tank is painted on a 2D canvas (`js/tank-env.js` for the scenery, `js/tank.js` for the fish)
+and then lit on the GPU by `js/tank-gl.js`:
+
+- **Water:** caustics that fall hardest on the sand and decor and dapple the fish as they pass, a
+  faint shimmer that is strongest just under the surface, and light shafts scattered from the bright
+  water at the top, so fish and leaves near the surface throw shadows down the beams. Bright
+  things (lanterns, pearls, glints) bloom.
+- **Glass:** the thick edge of each pane doubles the picture and turns it faintly green, colour
+  fringes grow toward the edges, the polished edge catches the light, and soft reflections and
+  smudges drift as the pointer moves. The round bowl is a lens: its middle swells and its sides
+  crowd toward the rim (taps are mapped through it, so a tap lands on the fish you see).
+- **The Glass Bowl's room:** the moon's path glitters on the lake outside, stars twinkle, a cloud
+  drifts past the moon, the shore's lights shiver in the water, a sheer curtain breathes, the
+  lamp flickers, moonbeams slant in with dust turning in them, and the bowl throws rippling light
+  on the sill. The moon's rays scatter across the room.
+- **Scenery:** plants are ribbons, kelp blades, whorled stems and fans, shaded from root to
+  sunlit tip; plants at the back fade into the water's colour. Each plant rides a soft spring, so a
+  passing fish leans it gently aside and it sways back. Planted tanks bead tiny oxygen bubbles from
+  leaf tips, and motes drift in the water.
+
+Without WebGL (or with `#nogl`) the tanks keep their 2D light shafts, caustics and glass. Like the
+lake, a tank that keeps missing about 38 frames a second renders at a lower resolution.
 
 ### Interface
 
@@ -360,6 +385,7 @@ js/
   ui.js             Interface motion: cards glide to new sizes and new sections slide in
   shop.js           The Driftwood Market: bait, gear and aquariums
   tank-env.js       The six aquariums: glass, water, sand, plants and decor that can be touched
+  tank-gl.js        The aquariums' light and glass on the GPU: caustics, shafts, bloom, lensing, glass
   tank.js           The aquarium's life: swimming, temperaments, meetings, bonds, pearls, feeding
   game.js           Game loop, cast, bite, reel and catch logic, input, saving, map and journal
 docs/

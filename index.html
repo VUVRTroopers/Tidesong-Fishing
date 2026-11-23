@@ -680,7 +680,11 @@
     box-shadow: 0 0 0 1px rgba(2, 7, 12, 0.6), 0 12px 30px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
   #tank-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: pointer; -webkit-user-select: none; user-select: none; }
-  .tank-stage.listing #tank-canvas { visibility: hidden; }
+  #tank-gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+  .tank-stage:not(.gl) #tank-gl { display: none; }
+  /* with the GPU lighting it, the painted tank is drawn but not shown, and still takes every touch */
+  .tank-stage.gl #tank-canvas { opacity: 0; }
+  .tank-stage.listing #tank-canvas, .tank-stage.listing #tank-gl { visibility: hidden; }
   .tank-list { position: absolute; inset: 0; overflow: auto; overscroll-behavior: contain; padding: 12px; background: var(--grain), var(--slab-deep); }
   .tank-hint {
     position: absolute; left: 50%; top: 14%; transform: translateX(-50%); margin: 0; padding: 8px 15px; border-radius: 999px; white-space: nowrap;
@@ -937,6 +941,7 @@
         <button class="close-btn" type="button" data-close aria-label="Close aquarium"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       <div class="tank-stage" id="tank-stage">
+        <canvas id="tank-gl" aria-hidden="true"></canvas>
         <canvas id="tank-canvas" aria-label="Your aquarium. Tap a fish to see it up close, or use the list."></canvas>
         <p class="tank-hint" id="tank-hint" hidden>Tap a fish to see it up close</p>
         <div class="fish-card" id="fish-card" hidden aria-live="polite"></div>
@@ -985,5 +990,6 @@
 <script src="js/ui.js"></script>
 <script src="js/shop.js"></script>
 <script src="js/tank-env.js"></script>
+<script src="js/tank-gl.js"></script>
 <script src="js/tank.js"></script>
 <script src="js/game.js"></script>
