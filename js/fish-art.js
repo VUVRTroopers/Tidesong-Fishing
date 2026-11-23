@@ -978,6 +978,13 @@ const FishArt = (() => {
     return [w[0] * P[0][0] + w[1] * P[1][0] + w[2] * P[2][0] + w[3] * P[3][0], w[0] * P[0][1] + w[1] * P[1][1] + w[2] * P[2][1] + w[3] * P[3][1]];
   }
 
+  /* The y of a standard body's top (or bottom) edge at x, so fins can grow straight out of the outline. */
+  function edgeY(b, x, bottom) {
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 22; i++) { const m = (lo + hi) / 2; if (bodyEdge(b, m, bottom)[0] > x) lo = m; else hi = m; }
+    return bodyEdge(b, (lo + hi) / 2, bottom)[1];
+  }
+
   function spiny(ctx, from, pts, to) {
     ctx.beginPath(); ctx.moveTo(from[0], from[1]);
     for (const p of pts) ctx.lineTo(p[0], p[1]);
@@ -1750,10 +1757,841 @@ const FishArt = (() => {
     for (const [x, y, ph] of [[30, -36, 0], [86, -18, 2.1], [-40, -26, 4.2]]) sparkle(ctx, x, y + bend(x), 6, '#ffffff', Math.max(0, Math.sin(t * 1.7 + ph)) * 0.9);
   }
 
+  /* ---------- the third wave: two new commons for every water ---------- */
+
+  // Mistwillow: the roach, silver with a red eye and red fins
+  function roach(ctx, t) {
+    const sw = Math.sin(t * 2.8) * 0.08;
+    const b = { n: 90, t: -72, th: 10, top: 46, bot: 40, fb: 0.12, rr: 0.4, ny: 4 };
+    const red = '#d9563c', E = (x, bot) => edgeY(b, x, bot) + (bot ? -3 : 3);
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(14, E(14)); ctx.quadraticCurveTo(8, E(14) - 28, -12, E(-12) - 30); ctx.quadraticCurveTo(-16, E(-16) - 14, -24, E(-24)); ctx.closePath(); }, '#8a7a72', { fan: [-2, E(0), 'rgba(60,40,40,0.3)'], edge: 'rgba(210,90,60,0.5)' });
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(-28, E(-28, 1)); ctx.quadraticCurveTo(-38, E(-38, 1) + 24, -58, E(-58, 1) + 22); ctx.quadraticCurveTo(-56, E(-56, 1) + 8, -54, E(-54, 1)); ctx.closePath(); }, red, { fan: [-44, E(-44, 1), 'rgba(110,30,20,0.3)'] });
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(12, E(12, 1)); ctx.quadraticCurveTo(6, E(6, 1) + 22, -10, E(-10, 1) + 20); ctx.quadraticCurveTo(-6, E(-6, 1) + 8, -6, E(-6, 1)); ctx.closePath(); }, red, { fan: [4, E(4, 1), 'rgba(110,30,20,0.3)'] });
+    tail(ctx, -70, 'fork', 48, 38, sw, lg(ctx, 0, -38, 0, 38, [[0, '#6e7a86'], [0.5, '#a8a2a0'], [1, '#c8705a']]), { rays: 'rgba(50,50,60,0.25)' });
+    bodyShade(ctx, b, [[0, '#2c4658'], [0.28, '#5e8098'], [0.48, '#b9c8d2'], [0.7, '#eef2f4'], [1, '#faf8f2']], 'rgba(40,55,70,0.5)', {
+      sheen: 0.36,
+      pattern: () => {
+        scales(ctx, -72, 84, -42, 36, 10, 'rgba(60,80,100,0.28)', 0.8, 'rgba(255,255,255,0.35)');
+        line(ctx, [-70, 4, 0, 10, 76, -2], 'rgba(60,80,100,0.3)', 1);
+        ctx.fillStyle = 'rgba(255,215,140,0.14)'; ctx.beginPath(); ctx.ellipse(0, 6, 70, 14, 0, 0, TAU); ctx.fill();
+      },
+    });
+    gill(ctx, 58, 30, 30, 'rgba(50,65,80,0.45)', 10);
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(50, 16); ctx.quadraticCurveTo(38, 32, 22, 34); ctx.quadraticCurveTo(32, 20, 46, 10); ctx.closePath(); }, 'rgba(230,110,80,0.92)');
+    eye(ctx, 74, -8, 6.4, '#e23c28', { irisEdge: '#8a1a10' });
+    line(ctx, [89, 6, 84, 10, 78, 9], 'rgba(50,50,60,0.6)', 1.4);
+  }
+
+  // Mistwillow: the tench, olive and velvet-smooth, with round soft fins and a ruby eye
+  function tench(ctx, t) {
+    const sw = Math.sin(t * 2.2) * 0.07;
+    const b = { n: 94, t: -72, th: 16, top: 42, bot: 40, fb: 0.14, rr: 0.42, ny: 6 };
+    const fc = '#36421e', fo = { edge: 'rgba(20,26,10,0.45)' }, E = (x, bot) => edgeY(b, x, bot) + (bot ? -3 : 3);
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(12, E(12)); ctx.bezierCurveTo(10, E(10) - 30, -26, E(-26) - 32, -30, E(-30)); ctx.closePath(); }, fc, { ...fo, fan: [-8, E(-8), 'rgba(10,14,4,0.3)', 24] });
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(-32, E(-32, 1)); ctx.bezierCurveTo(-34, E(-34, 1) + 26, -62, E(-62, 1) + 30, -60, E(-60, 1)); ctx.closePath(); }, fc, { ...fo, fan: [-46, E(-46, 1), 'rgba(10,14,4,0.3)', 24] });
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(16, E(16, 1)); ctx.bezierCurveTo(16, E(16, 1) + 26, -10, E(-10, 1) + 28, -8, E(-8, 1)); ctx.closePath(); }, '#46521f', fo);
+    tail(ctx, -70, 'square', 42, 38, sw, lg(ctx, 0, -38, 0, 38, [[0, '#2c3816'], [0.5, '#4a5a24'], [1, '#2c3816']]), { rays: 'rgba(10,14,4,0.3)', edge: 'rgba(20,26,10,0.5)' });
+    bodyShade(ctx, b, [[0, '#1f2c10'], [0.35, '#4c6224'], [0.62, '#93943c'], [0.85, '#d0b866'], [1, '#e8d49a']], 'rgba(25,32,10,0.55)', {
+      sheen: 0.46,
+      pattern: () => {
+        scales(ctx, -72, 86, -40, 36, 6, 'rgba(30,40,12,0.16)', 0.6, 'rgba(255,250,200,0.14)');
+        ctx.fillStyle = 'rgba(230,200,90,0.16)'; ctx.beginPath(); ctx.ellipse(10, 12, 70, 16, 0, 0, TAU); ctx.fill();
+      },
+    });
+    gill(ctx, 62, 30, 30, 'rgba(25,32,10,0.45)', 10);
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(54, 18); ctx.bezierCurveTo(52, 40, 28, 46, 28, 30); ctx.quadraticCurveTo(38, 22, 50, 12); ctx.closePath(); }, 'rgba(70,84,34,0.95)', fo);
+    line(ctx, [90, 10, 95, 16, 91, 22], 'rgba(150,120,60,0.9)', 1.6);
+    eye(ctx, 78, -8, 5, '#e2482a', { irisEdge: '#8a200e' });
+    line(ctx, [93, 7, 88, 11, 82, 10], 'rgba(25,30,10,0.65)', 1.5);
+  }
+
+  // Lanternfen: the lyretail killifish, a jewel of the shallows
+  function killifish(ctx, t) {
+    const sw = Math.sin(t * 3.2) * 0.09;
+    const b = { n: 86, t: -60, th: 11, top: 30, bot: 28, fb: 0.12, rr: 0.42, ny: 3 };
+    const finBlue = lg(ctx, 0, -70, 0, 70, [[0, '#ffb43a'], [0.16, '#3a78e8'], [0.5, '#2aa6dc'], [0.84, '#3a78e8'], [1, '#ffb43a']]);
+    const redDots = (seed, x0, x1, y0, y1) => spots(ctx, seed, 16, x0, x1, y0, y1, 1, 2, 'rgba(225,40,50,0.85)');
+    const E = (x, bot) => edgeY(b, x, bot) + (bot ? -2.5 : 2.5);
+    const dors = () => { ctx.beginPath(); ctx.moveTo(-10, E(-10)); ctx.bezierCurveTo(-22, E(-22) - 32, -50, E(-50) - 44, -66, E(-66) - 36); ctx.quadraticCurveTo(-60, E(-60) - 12, -54, E(-54)); ctx.closePath(); };
+    fin(ctx, dors, finBlue, { fan: [-30, -20, 'rgba(10,40,90,0.3)', 24], edge: 'rgba(255,160,50,0.9)', ew: 1.8 });
+    clipTo(ctx, dors, () => redDots(61, -66, -12, -62, -20));
+    const anal = () => { ctx.beginPath(); ctx.moveTo(-6, E(-6, 1)); ctx.bezierCurveTo(-20, E(-20, 1) + 34, -50, E(-50, 1) + 44, -66, E(-66, 1) + 34); ctx.quadraticCurveTo(-60, E(-60, 1) + 12, -54, E(-54, 1)); ctx.closePath(); };
+    fin(ctx, anal, finBlue, { fan: [-30, 18, 'rgba(10,40,90,0.3)', 24], edge: 'rgba(255,160,50,0.9)', ew: 1.8 });
+    clipTo(ctx, anal, () => redDots(62, -66, -8, 18, 62));
+    // the lyre: two streamers sweeping out from the tips of the tail
+    for (const d of [-1, 1]) {
+      ribbon(ctx, -97, d * 35, Math.PI + d * 0.36, 34, s => 2.6 * (1 - s) + 0.5, t, { freq: 3, k: 3, amp: 5, phase: d });
+      ctx.fillStyle = '#ff9a2a'; ctx.fill();
+    }
+    tail(ctx, -58, 'fork', 42, 38, sw, finBlue, { rays: 'rgba(10,40,90,0.3)', edge: 'rgba(240,70,40,0.85)', ew: 2.2, deco: (L, s) => spots(ctx, 63, 14, -L, -4, -s * 0.6, s * 0.6, 1, 1.8, 'rgba(225,40,50,0.8)') });
+    bodyShade(ctx, b, [[0, '#183e7a'], [0.35, '#2a7ac8'], [0.62, '#5cc0e6'], [0.85, '#b8ecf0'], [1, '#e6f8f4']], 'rgba(10,30,70,0.5)', {
+      sheen: 0.4,
+      pattern: () => {
+        spots(ctx, 64, 40, -60, 70, -26, 16, 1, 2.2, 'rgba(220,36,48,0.85)');
+        for (let i = 0; i < 4; i++) line(ctx, [64 - i * 6, -18, 60 - i * 6, -4, 64 - i * 6, 10], 'rgba(220,36,48,0.6)', 1.4);
+        scales(ctx, -60, 80, -26, 24, 7, 'rgba(180,230,255,0.25)', 0.7);
+      },
+    });
+    gill(ctx, 58, 20, 22, 'rgba(10,30,70,0.45)', 8);
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(52, 8); ctx.quadraticCurveTo(42, 22, 28, 22); ctx.quadraticCurveTo(36, 12, 48, 4); ctx.closePath(); }, 'rgba(120,200,240,0.8)');
+    eye(ctx, 72, -6, 6.2, '#f0c84a', { irisEdge: '#a87a18' });
+    line(ctx, [85, 3, 81, 7, 76, 6], 'rgba(10,30,70,0.6)', 1.3);
+  }
+
+  // Lanternfen: the ghost glassfish, so clear you can see its bones
+  function glassfish(ctx, t) {
+    const sw = Math.sin(t * 3) * 0.08;
+    const b = { n: 84, t: -64, th: 10, top: 40, bot: 36, fb: 0.14, rr: 0.42, ny: 4 };
+    const clear = 'rgba(220,236,250,0.28)', rim = 'rgba(205,232,255,0.7)';
+    const E = (x, bot) => edgeY(b, x, bot) + (bot ? -2 : 2);
+    const dors = () => { ctx.beginPath(); ctx.moveTo(22, E(22)); ctx.lineTo(12, E(12) - 30); ctx.lineTo(4, E(4) - 4); ctx.quadraticCurveTo(-20, E(-20) - 32, -46, E(-46)); ctx.closePath(); };
+    fin(ctx, dors, clear, { fan: [-10, -26, 'rgba(230,245,255,0.35)', 30], edge: rim });
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(10, E(10, 1)); ctx.quadraticCurveTo(-20, E(-20, 1) + 30, -44, E(-44, 1)); ctx.closePath(); }, clear, { fan: [-14, E(-14, 1), 'rgba(230,245,255,0.35)', 30], edge: rim });
+    tail(ctx, -62, 'fork', 44, 36, sw, clear, { rays: 'rgba(230,245,255,0.4)', edge: rim });
+    const body = () => bodyPath(ctx, b);
+    body();
+    ctx.fillStyle = lg(ctx, 0, -40, 0, 36, [[0, 'rgba(190,215,240,0.34)'], [0.5, 'rgba(232,244,255,0.16)'], [1, 'rgba(210,230,250,0.3)']]);
+    ctx.fill();
+    clipTo(ctx, body, () => {
+      const sy = x => -6 + Math.pow(x / 64, 2) * 5;
+      // the swim bladder and the silvery gut sack
+      ctx.fillStyle = lg(ctx, 0, -8, 0, 6, [[0, 'rgba(255,255,255,0.85)'], [1, 'rgba(190,205,225,0.7)']]);
+      ctx.beginPath(); ctx.ellipse(6, -1, 26, 7, -0.04, 0, TAU); ctx.fill();
+      ctx.fillStyle = lg(ctx, 10, 0, 46, 22, [[0, 'rgba(210,225,245,0.92)'], [0.5, 'rgba(255,255,255,0.95)'], [1, 'rgba(170,190,230,0.85)']]);
+      ctx.beginPath(); ctx.ellipse(32, 11, 20, 12, 0.25, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(160,220,255,0.28)'; ctx.beginPath(); ctx.ellipse(28, 8, 12, 5, 0.25, 0, TAU); ctx.fill();
+      // spine, vertebrae and ribs
+      ctx.strokeStyle = 'rgba(240,248,255,0.8)'; ctx.lineWidth = 2;
+      ctx.beginPath(); for (let x = 58; x >= -66; x -= 4) { if (x === 58) ctx.moveTo(x, sy(x)); else ctx.lineTo(x, sy(x)); } ctx.stroke();
+      ctx.lineWidth = 0.9;
+      for (let x = 52; x > -62; x -= 6.5) {
+        const y = sy(x);
+        ctx.strokeStyle = 'rgba(235,245,255,0.75)';
+        ctx.beginPath(); ctx.moveTo(x - 1, y - 2); ctx.lineTo(x + 1, y + 2); ctx.stroke();
+        ctx.strokeStyle = 'rgba(225,238,255,0.5)';
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x - 6, y - 14, x - 12, y - 26 + Math.abs(x) * 0.08); ctx.stroke();
+        const below = x > -14 ? 30 - (x - 20) * 0.1 : 16;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x - 4, y + below * 0.5, x - 10, y + below); ctx.stroke();
+      }
+      // a glint sliding through the glass
+      const sx = ((t * 45) % 240) - 120;
+      ctx.fillStyle = lg(ctx, sx - 24, -30, sx + 24, 30, [[0, 'rgba(200,235,255,0)'], [0.5, 'rgba(220,245,255,0.38)'], [1, 'rgba(200,235,255,0)']]);
+      ctx.fillRect(-80, -50, 180, 100);
+    });
+    body(); ctx.strokeStyle = rim; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.strokeStyle = 'rgba(140,200,255,0.5)'; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(70, 18); ctx.quadraticCurveTo(10, 40, -60, 10); ctx.stroke();
+    gill(ctx, 56, 26, 26, 'rgba(200,225,250,0.6)', 9, 1.4);
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(50, 10); ctx.quadraticCurveTo(38, 24, 24, 24); ctx.quadraticCurveTo(34, 14, 46, 6); ctx.closePath(); }, 'rgba(225,240,255,0.4)', { edge: rim });
+    eye(ctx, 66, -8, 7.2, '#dce8f4', { irisEdge: '#8aa2c0', ring: 'rgba(140,170,210,0.5)' });
+    line(ctx, [84, 4, 79, 9, 73, 8], 'rgba(150,180,215,0.8)', 1.3);
+  }
+
+  // Coralspire: the regal blue tang, sapphire with a black "palette" and a lemon tail
+  function tang(ctx, t) {
+    const sw = Math.sin(t * 2.8) * 0.08;
+    const b = { n: 78, t: -62, th: 12, top: 52, bot: 46, fb: 0.22, rr: 0.42, ny: 6 };
+    const blue = '#1b56d6', black = '#0c1430';
+    // dorsal and anal fins run the length of the back and belly, growing out of the outline
+    const ridge = (x0, x1, h, bot) => () => {
+      const sg = bot ? 1 : -1, pts = [];
+      for (let i = 0; i <= 12; i++) { const x = x0 + (x1 - x0) * (i / 12); pts.push([x, edgeY(b, x, bot) - sg * 3]); }
+      ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 12; i >= 0; i--) { const [x, y] = pts[i], u = i / 12; ctx.lineTo(x - 4 * u, y + sg * h * Math.sin(Math.min(1, u * 1.25) * Math.PI * 0.55) * (0.4 + 0.6 * u)); }
+      for (const p of pts) ctx.lineTo(p[0], p[1]);
+      ctx.closePath();
+    };
+    const dors = ridge(46, -58, 16, false), anal = ridge(30, -58, 15, true);
+    fin(ctx, dors, blue, { fan: [-10, 0, 'rgba(10,20,60,0.3)', 60], edge: black, ew: 2.4 });
+    fin(ctx, anal, blue, { fan: [-10, 0, 'rgba(10,20,60,0.3)', 60], edge: black, ew: 2.4 });
+    tail(ctx, -60, 'square', 36, 34, sw, lg(ctx, 0, -34, 0, 34, [[0, '#ffd21a'], [0.5, '#ffe45a'], [1, '#ffd21a']]), { edge: black, ew: 2.6, rays: 'rgba(160,110,0,0.25)' });
+    bodyShade(ctx, b, [[0, '#123ea8'], [0.4, '#1f62e0'], [0.75, '#3a86f0'], [1, '#6aa8f6']], 'rgba(8,16,50,0.6)', {
+      sheen: 0.36,
+      pattern: () => {
+        ctx.fillStyle = black;
+        ctx.beginPath(); ctx.moveTo(64, -16); ctx.bezierCurveTo(40, -46, -20, -48, -64, -14); ctx.lineTo(-64, 6); ctx.bezierCurveTo(-46, -4, -30, 6, -12, 4); ctx.bezierCurveTo(14, 2, 38, -2, 64, -6); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#2a6ae8'; ctx.beginPath(); ctx.ellipse(-4, -19, 30, 8.5, -0.05, 0, TAU); ctx.fill();
+        ctx.fillStyle = black; ctx.beginPath(); ctx.moveTo(-40, -6); ctx.quadraticCurveTo(-58, 12, -64, 34); ctx.lineTo(-54, 30); ctx.quadraticCurveTo(-52, 12, -34, -2); ctx.closePath(); ctx.fill();
+      },
+    });
+    gill(ctx, 46, 34, 34, 'rgba(8,16,50,0.5)', 8);
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(42, 10); ctx.quadraticCurveTo(28, 26, 14, 28); ctx.quadraticCurveTo(24, 14, 38, 4); ctx.closePath(); }, '#ffd21a', { edge: 'rgba(120,80,0,0.6)' });
+    ctx.beginPath(); ctx.ellipse(-54, 4, 5, 2, 0.2, 0, TAU); ctx.fillStyle = '#ffd21a'; ctx.fill();
+    eye(ctx, 62, -14, 6.4, '#1c1c28', { pupil: 0.72, ring: 'rgba(0,0,20,0.6)' });
+    line(ctx, [78, 6, 75, 9, 70, 8], 'rgba(8,16,50,0.7)', 1.4);
+  }
+
+  // Coralspire: the copperband butterflyfish, banded in copper, with a false eye and a tweezer snout
+  function butterflyfish(ctx, t) {
+    const sw = Math.sin(t * 2.6) * 0.07;
+    const disc = () => { ctx.beginPath(); ctx.moveTo(52, -4); ctx.bezierCurveTo(46, -34, 18, -50, -10, -50); ctx.bezierCurveTo(-36, -48, -52, -24, -56, -8); ctx.lineTo(-56, 8); ctx.bezierCurveTo(-52, 24, -36, 48, -10, 50); ctx.bezierCurveTo(18, 50, 46, 34, 52, 8); ctx.closePath(); };
+    const band = (x, w, col) => {
+      ctx.fillStyle = 'rgba(20,20,30,0.85)'; ctx.beginPath(); ctx.ellipse(x, 0, w + 2.2, 90, 0.06, 0, TAU); ctx.fill();
+      ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(x, 0, w, 90, 0.06, 0, TAU); ctx.fill();
+    };
+    const bands = () => { band(30, 5, '#f07a1e'); band(4, 7, '#f07a1e'); band(-24, 7, '#f07a1e'); band(-48, 4, '#e8661a'); };
+    const dors = () => { ctx.beginPath(); ctx.moveTo(20, -44); ctx.bezierCurveTo(-2, -72, -46, -74, -68, -30); ctx.lineTo(-56, -18); ctx.closePath(); };
+    const anal = () => { ctx.beginPath(); ctx.moveTo(10, 46); ctx.bezierCurveTo(-10, 68, -46, 68, -66, 28); ctx.lineTo(-56, 18); ctx.closePath(); };
+    for (const f of [dors, anal]) { fin(ctx, f, 'rgba(250,246,236,0.95)', { fan: [-20, 0, 'rgba(120,110,90,0.25)', 50], edge: 'rgba(30,30,40,0.6)' }); clipTo(ctx, f, bands); }
+    clipTo(ctx, dors, () => { circle(ctx, -46, -48, 7); ctx.fillStyle = '#0e0e16'; ctx.fill(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke(); });
+    tail(ctx, -56, 'square', 30, 28, sw, 'rgba(240,236,226,0.75)', {
+      rays: 'rgba(120,110,90,0.3)', edge: 'rgba(30,30,40,0.4)',
+      deco: L => { ctx.fillStyle = '#121218'; ctx.fillRect(-L * 0.42 - 4, -60, 3, 120); ctx.fillStyle = '#e8661a'; ctx.fillRect(-L * 0.42, -60, 5, 120); },
+    });
+    ctx.beginPath(); ctx.moveTo(44, -10); ctx.quadraticCurveTo(64, -8, 88, -3); ctx.lineTo(89, 2); ctx.quadraticCurveTo(64, 6, 44, 10); ctx.closePath();
+    ctx.fillStyle = lg(ctx, 0, -10, 0, 10, [[0, '#f0dccc'], [1, '#fff8ee']]); ctx.fill(); ctx.strokeStyle = 'rgba(40,30,30,0.5)'; ctx.lineWidth = 1.1; ctx.stroke();
+    shadeBody(ctx, disc, [-56, -50, 52, 50], [[0, '#e8e2d6'], [0.4, '#fbf8f0'], [1, '#e6dfd0']], 'rgba(40,36,40,0.55)', {
+      sheen: 0.4,
+      pattern: () => { bands(); band(52, 4, '#e8661a'); scales(ctx, -56, 50, -46, 46, 7, 'rgba(120,100,80,0.15)', 0.7); },
+    });
+    gill(ctx, 36, 30, 30, 'rgba(40,36,40,0.35)', 7);
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(26, 8); ctx.quadraticCurveTo(14, 22, 2, 22); ctx.quadraticCurveTo(12, 12, 22, 4); ctx.closePath(); }, 'rgba(248,244,236,0.8)', { edge: 'rgba(40,36,40,0.4)' });
+    eye(ctx, 46, -8, 5, '#18161c', { pupil: 0.75 });
+  }
+
+  // Frostveil: the herring, a flash of silver and rainbow
+  function herring(ctx, t) {
+    const sw = Math.sin(t * 3) * 0.08;
+    const b = { n: 96, t: -76, th: 8, top: 30, bot: 30, fb: 0.14, rr: 0.42, ny: 4 };
+    const fc = 'rgba(150,170,190,0.85)', E = (x, bot) => edgeY(b, x, bot) + (bot ? -2.5 : 2.5);
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(8, E(8)); ctx.quadraticCurveTo(2, E(2) - 22, -18, E(-18) - 22); ctx.quadraticCurveTo(-20, E(-20) - 8, -24, E(-24)); ctx.closePath(); }, fc, { fan: [-8, E(-8), 'rgba(40,60,80,0.3)'] });
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(-36, E(-36, 1)); ctx.quadraticCurveTo(-44, E(-44, 1) + 16, -58, E(-58, 1) + 14); ctx.quadraticCurveTo(-56, E(-56, 1) + 4, -56, E(-56, 1)); ctx.closePath(); }, fc);
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(4, E(4, 1)); ctx.quadraticCurveTo(-2, E(-2, 1) + 14, -14, E(-14, 1) + 12); ctx.quadraticCurveTo(-12, E(-12, 1) + 4, -10, E(-10, 1)); ctx.closePath(); }, fc);
+    tail(ctx, -74, 'fork', 46, 36, sw, lg(ctx, 0, -36, 0, 36, [[0, '#3a5a74'], [0.5, '#9ab0c2'], [1, '#5a7088']]), { rays: 'rgba(30,50,70,0.25)' });
+    bodyShade(ctx, b, [[0, '#1c3a56'], [0.3, '#3a6688'], [0.45, '#a8c0d0'], [0.6, '#e8eef2'], [1, '#f6f8f8']], 'rgba(30,50,70,0.5)', {
+      sheen: 0.42,
+      pattern: () => {
+        scales(ctx, -76, 86, -26, 26, 9, 'rgba(60,90,120,0.22)', 0.7, 'rgba(255,255,255,0.4)');
+        const sx = Math.sin(t * 0.8) * 50;
+        ctx.fillStyle = lg(ctx, -80 + sx, -20, 80 + sx, 20, [[0, 'rgba(120,255,220,0)'], [0.35, 'rgba(140,220,255,0.28)'], [0.6, 'rgba(255,190,240,0.22)'], [1, 'rgba(255,240,180,0)']]);
+        ctx.fillRect(-90, -40, 190, 80);
+        line(ctx, [-74, -10, 0, -16, 80, -14], 'rgba(30,60,90,0.35)', 1);
+      },
+    });
+    gill(ctx, 64, 22, 24, 'rgba(30,50,70,0.4)', 9);
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(56, 10); ctx.quadraticCurveTo(44, 22, 30, 22); ctx.quadraticCurveTo(40, 14, 52, 6); ctx.closePath(); }, 'rgba(190,205,220,0.9)');
+    eye(ctx, 80, -4, 7, '#d8e2ea', { irisEdge: '#7a8a9a' });
+    line(ctx, [96, 4, 90, 10, 84, 10], 'rgba(30,40,50,0.6)', 1.4);
+  }
+
+  // Frostveil: the sculpin, a mottled, spiny, big-headed sitter with fins like fans
+  function sculpin(ctx, t) {
+    const sw = Math.sin(t * 2) * 0.06;
+    const fan = 1 + Math.sin(t * 1.6) * 0.05;
+    const b = { n: 94, t: -96, th: 6, top: 42, bot: 32, fb: 0.0, rr: 0.56, ny: 8, k: 1.05 };
+    const E = (x, bot) => edgeY(b, x, bot) + (bot ? -2.5 : 2.5);
+    const mott = seed => {
+      const rnd = seeded(seed);
+      for (let i = 0; i < 30; i++) {
+        ctx.fillStyle = ['rgba(130,44,30,0.45)', 'rgba(56,66,36,0.5)', 'rgba(244,226,186,0.4)'][i % 3];
+        ctx.beginPath(); ctx.ellipse(-104 + rnd() * 210, -44 + rnd() * 80, 4 + rnd() * 9, 3 + rnd() * 6, rnd() * 3, 0, TAU); ctx.fill();
+      }
+    };
+    const d1 = () => { const y = E(36); spiny(ctx, [54, E(54)], [[50, y - 18], [45, y - 8], [40, y - 20], [34, y - 8], [28, y - 18], [22, y - 6], [16, y - 12]], [12, E(12)]); ctx.closePath(); };
+    const d2 = () => { ctx.beginPath(); ctx.moveTo(6, E(6)); ctx.quadraticCurveTo(-36, E(-36) - 26, -84, E(-84) - 6); ctx.lineTo(-84, E(-84)); ctx.closePath(); };
+    for (const [f, s] of [[d1, 401], [d2, 402]]) { fin(ctx, f, 'rgba(118,84,52,0.92)', { fan: [12, 0, 'rgba(40,25,15,0.35)', 50] }); clipTo(ctx, f, () => mott(s)); }
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(-6, E(-6, 1)); ctx.quadraticCurveTo(-46, E(-46, 1) + 20, -84, E(-84, 1) + 4); ctx.lineTo(-84, E(-84, 1)); ctx.closePath(); }, 'rgba(170,130,88,0.85)', { fan: [-40, 0, 'rgba(40,25,15,0.3)', 40] });
+    tail(ctx, -94, 'round', 30, 22, sw, lg(ctx, 0, -22, 0, 22, [[0, '#5a4030'], [1, '#8a6a48']]), { rays: 'rgba(40,25,15,0.35)', deco: () => mott(403) });
+    bodyShade(ctx, b, [[0, '#4a3524'], [0.4, '#7a5a3a'], [0.7, '#b89870'], [1, '#e8d8b8']], 'rgba(40,25,15,0.55)', { sheen: 0.24, pattern: () => mott(404) });
+    // spines on the cheek, and a pair of little horns over the eyes
+    ctx.fillStyle = '#d8c09a'; ctx.strokeStyle = 'rgba(40,25,15,0.6)'; ctx.lineWidth = 1;
+    for (const [x, y, dx, dy] of [[62, -18, -16, -6], [64, 12, -18, 4], [60, 0, -14, 0]]) { ctx.beginPath(); ctx.moveTo(x, y - 3); ctx.lineTo(x + dx, y + dy); ctx.lineTo(x, y + 3); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+    for (const x of [72, 80]) { const y = E(x) + 1; ctx.beginPath(); ctx.moveTo(x - 3, y); ctx.lineTo(x - 1, y - 10); ctx.lineTo(x + 2, y); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+    // the great banded fan of a pectoral fin, spread wide behind the head
+    const pec = () => {
+      ctx.beginPath(); ctx.moveTo(48, -6);
+      ctx.bezierCurveTo(46, 26 * fan, 26, 50 * fan, 0, 54 * fan);
+      ctx.bezierCurveTo(-20, 56 * fan, -34, 40 * fan, -30, 22 * fan);
+      ctx.quadraticCurveTo(8, 18, 44, 12); ctx.closePath();
+    };
+    fin(ctx, pec, 'rgba(176,128,82,0.95)', { fan: [48, 0, 'rgba(50,30,15,0.4)', 70], edge: 'rgba(40,25,15,0.55)' });
+    clipTo(ctx, pec, () => { ctx.lineWidth = 4.5; for (let r = 16; r < 96; r += 14) { ctx.strokeStyle = 'rgba(96,40,24,0.38)'; ctx.beginPath(); ctx.arc(48, -2, r, 0, TAU); ctx.stroke(); } });
+    eye(ctx, 76, E(76) + 8, 6.6, '#e8c048', { irisEdge: '#9a6a10' });
+    ctx.strokeStyle = 'rgba(40,25,15,0.75)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(98, 10); ctx.quadraticCurveTo(88, 20, 70, 16); ctx.stroke();
+  }
+
+  // Dragonmere: the dojo loach, a golden, whiskered weather-teller
+  function loach(ctx, t) {
+    const prof = s => (s < 0.08 ? 10.5 + s * 36 : 13.4 * Math.pow(1 - (s - 0.08) / 0.92, 0.42) + 2.6);
+    const opts = { freq: 2.2, k: 4.6, amp: 8, segs: 28 };
+    const finW = s => prof(s) + (s > 0.55 ? Math.min(6, (s - 0.55) * 30) * (s > 0.96 ? (1 - s) / 0.04 : 1) : 0);
+    const fr = ribbon(ctx, 100, 0, Math.PI, 200, finW, t, opts);
+    ctx.fillStyle = 'rgba(196,156,84,0.7)'; ctx.fill();
+    ribbonRays(ctx, fr, 3, 'rgba(90,60,20,0.3)');
+    const res = ribbon(ctx, 100, 0, Math.PI, 200, prof, t, opts);
+    // a small rounded tail at the end of the body
+    const C = res.C, e = C[C.length - 1], p = C[C.length - 3], a = Math.atan2(e[1] - p[1], e[0] - p[0]);
+    ctx.save(); ctx.translate(e[0], e[1]); ctx.rotate(a);
+    ctx.beginPath(); ctx.ellipse(8, 0, 12, 9, 0, 0, TAU); ctx.fillStyle = 'rgba(176,136,70,0.9)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(80,50,15,0.4)'; ctx.lineWidth = 0.8; for (let i = -3; i <= 3; i++) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(18, i * 2.6); ctx.stroke(); }
+    spots(ctx, 903, 6, 2, 18, -7, 7, 0.8, 1.4, 'rgba(70,45,15,0.6)');
+    ctx.restore();
+    res.build();
+    ctx.fillStyle = lg(ctx, 0, -12, 0, 12, [[0, '#6a4a1e'], [0.4, '#b08a42'], [0.75, '#e0c478'], [1, '#f2e2b2']]); ctx.fill();
+    ctx.save(); res.build(); ctx.clip();
+    spots(ctx, 902, 90, -110, 100, -12, 8, 0.8, 2.2, 'rgba(70,45,15,0.55)');
+    ctx.fillStyle = 'rgba(255,240,190,0.25)';
+    ctx.beginPath(); through(ctx, res.C.map(([x, y]) => [x, y - 6]), true); through(ctx, res.C.slice().reverse().map(([x, y]) => [x, y - 3]), false); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    res.build(); ctx.strokeStyle = 'rgba(60,40,12,0.55)'; ctx.lineWidth = 1.2; ctx.stroke();
+    // head, with ten whiskers around the mouth
+    ctx.beginPath(); ctx.ellipse(96, 1, 17, 12, 0, 0, TAU);
+    ctx.fillStyle = lg(ctx, 0, -12, 0, 13, [[0, '#7a5624'], [0.5, '#c09a52'], [1, '#f0dca8']]); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(96, 1, 17, 12, 0, -Math.PI * 0.5, Math.PI * 0.5); ctx.strokeStyle = 'rgba(60,40,12,0.55)'; ctx.lineWidth = 1.2; ctx.stroke();
+    for (const [a, l, ph] of [[-0.2, 16, 0], [0.15, 18, 1], [0.5, 15, 2], [0.85, 12, 3], [1.2, 9, 4]]) {
+      ribbon(ctx, 108, 4, a, l, s => 1.1 * (1 - s) + 0.3, t, { freq: 2.6, k: 3, amp: 3, phase: ph, segs: 8 });
+      ctx.fillStyle = '#d8b874'; ctx.fill();
+    }
+    fin(ctx, () => { ctx.beginPath(); ctx.ellipse(80, 8, 7, 4.4, 0.7 + Math.sin(t * 5) * 0.2, 0, TAU); }, 'rgba(200,160,90,0.9)', { edge: 'rgba(80,50,15,0.5)' });
+    spots(ctx, 904, 8, 84, 108, -8, 4, 0.6, 1.1, 'rgba(70,45,15,0.5)');
+    eye(ctx, 102, -3, 3.2, '#e8c868');
+  }
+
+  // Dragonmere: the paradise fish, scarlet and electric blue with trailing fins
+  function paradise(ctx, t) {
+    const sw = Math.sin(t * 2.6) * 0.08;
+    const b = { n: 80, t: -50, th: 11, top: 30, bot: 28, fb: 0.14, rr: 0.4, ny: 2 };
+    const finFill = lg(ctx, 0, -80, 0, 80, [[0, 'rgba(60,140,220,0.9)'], [0.3, 'rgba(220,60,40,0.85)'], [0.7, 'rgba(220,60,40,0.85)'], [1, 'rgba(60,140,220,0.9)']]);
+    const fl = Math.sin(t * 2) * 4;
+    const E = (x, bot) => edgeY(b, x, bot) + (bot ? -2.5 : 2.5);
+    const dors = () => { ctx.beginPath(); ctx.moveTo(10, E(10)); ctx.bezierCurveTo(-10, E(-10) - 28, -60, -62, -96, -58 + fl); ctx.quadraticCurveTo(-70, -36, -46, E(-46)); ctx.closePath(); };
+    const anal = () => { ctx.beginPath(); ctx.moveTo(20, E(20, 1)); ctx.bezierCurveTo(-6, E(-6, 1) + 28, -60, 62, -98, 56 - fl); ctx.quadraticCurveTo(-70, 34, -46, E(-46, 1)); ctx.closePath(); };
+    for (const f of [dors, anal]) fin(ctx, f, finFill, { fan: [-20, 0, 'rgba(255,200,180,0.25)', 50], edge: 'rgba(80,170,255,0.9)', ew: 1.8 });
+    for (const d of [-1, 1]) {
+      ribbon(ctx, -86, d * 28, Math.PI + d * 0.3, 44, s => 3 * (1 - s) + 0.6, t, { freq: 2.4, k: 3, amp: 7, phase: d });
+      ctx.fillStyle = 'rgba(230,70,50,0.9)'; ctx.fill();
+    }
+    tail(ctx, -48, 'fork', 46, 34, sw, lg(ctx, 0, -34, 0, 34, [[0, '#d83a2a'], [0.5, '#f0705a'], [1, '#d83a2a']]), { rays: 'rgba(255,220,200,0.35)', edge: 'rgba(80,170,255,0.85)', ew: 1.6 });
+    bodyShade(ctx, b, [[0, '#8a1a18'], [0.4, '#d8402a'], [0.75, '#f07a4a'], [1, '#f6b08a']], 'rgba(70,10,10,0.55)', {
+      sheen: 0.38,
+      pattern: () => {
+        for (let i = 0; i < 7; i++) { ctx.fillStyle = 'rgba(40,160,210,0.72)'; ctx.beginPath(); ctx.ellipse(46 - i * 14, -2, 4, 34, 0.12, 0, TAU); ctx.fill(); }
+        scales(ctx, -52, 70, -26, 24, 7, 'rgba(110,20,10,0.25)', 0.7, 'rgba(255,220,200,0.25)');
+      },
+    });
+    gill(ctx, 54, 22, 22, 'rgba(70,10,10,0.45)', 8);
+    circle(ctx, 50, -4, 4.6); ctx.fillStyle = '#16263a'; ctx.fill(); ctx.strokeStyle = '#ff9a3a'; ctx.lineWidth = 1.6; ctx.stroke();
+    ribbon(ctx, 30, 22, 1.95, 46, s => 1.8 * (1 - s) + 0.4, t, { freq: 2.2, k: 3, amp: 6, phase: 0.6 });
+    ctx.fillStyle = 'rgba(255,120,80,0.9)'; ctx.fill();
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(48, 8); ctx.quadraticCurveTo(38, 20, 26, 20); ctx.quadraticCurveTo(34, 12, 44, 4); ctx.closePath(); }, 'rgba(255,160,120,0.7)');
+    eye(ctx, 68, -6, 5.8, '#e8a030', { irisEdge: '#8a3a10' });
+    line(ctx, [80, 2, 76, 6, 70, 5], 'rgba(70,10,10,0.6)', 1.3);
+  }
+
+  /* ---------- the third wave: new rares ---------- */
+
+  // Mistwillow: the longnose gar, armoured in diamond scales, with a beak full of needles
+  function gar(ctx, t) {
+    const sw = Math.sin(t * 2) * 0.06;
+    const b = { n: 46, t: -112, th: 9, top: 24, bot: 22, fb: 0.04, rr: 0.42, ny: 2, k: 0.96 };
+    const E = (x, bot) => edgeY(b, x, bot) + (bot ? -2 : 2);
+    const spotted = seed => spots(ctx, seed, 16, -140, -40, -60, 60, 1.4, 2.8, 'rgba(30,26,14,0.7)');
+    const fc = '#7a6a3a';
+    const dors = () => { ctx.beginPath(); ctx.moveTo(-70, E(-70)); ctx.quadraticCurveTo(-82, E(-82) - 24, -100, E(-100) - 16); ctx.lineTo(-104, E(-104)); ctx.closePath(); };
+    const anal = () => { ctx.beginPath(); ctx.moveTo(-64, E(-64, 1)); ctx.quadraticCurveTo(-78, E(-78, 1) + 24, -98, E(-98, 1) + 16); ctx.lineTo(-102, E(-102, 1)); ctx.closePath(); };
+    for (const [f, sd] of [[dors, 221], [anal, 222]]) { fin(ctx, f, fc, { fan: [-86, 0, 'rgba(40,30,10,0.35)', 40] }); clipTo(ctx, f, () => spotted(sd)); }
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(-20, E(-20, 1)); ctx.quadraticCurveTo(-28, E(-28, 1) + 18, -42, E(-42, 1) + 14); ctx.lineTo(-40, E(-40, 1)); ctx.closePath(); }, fc);
+    tail(ctx, -110, 'round', 34, 22, sw, lg(ctx, 0, -22, 0, 22, [[0, '#6a5a2e'], [1, '#9a8a50']]), { rays: 'rgba(40,30,10,0.35)', deco: () => spotted(223) });
+    bodyShade(ctx, b, [[0, '#3a3a1c'], [0.35, '#6e7038'], [0.62, '#b4ac72'], [0.85, '#e8e0bc'], [1, '#f4f0dc']], 'rgba(36,34,14,0.6)', {
+      sheen: 0.3,
+      pattern: () => {
+        // ganoid scales: a lattice of little diamonds
+        ctx.strokeStyle = 'rgba(40,36,16,0.38)'; ctx.lineWidth = 0.8;
+        for (let i = -220; i < 220; i += 7) {
+          ctx.beginPath(); ctx.moveTo(i, -30); ctx.lineTo(i + 36, 30); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(i, 30); ctx.lineTo(i + 36, -30); ctx.stroke();
+        }
+        spots(ctx, 224, 30, -112, -10, -20, 16, 1.4, 3, 'rgba(30,26,14,0.55)');
+      },
+    });
+    // the long beak: two jaws lined with needle teeth
+    const jaw = (y0, y1, tipY, up) => {
+      ctx.beginPath(); ctx.moveTo(38, y0); ctx.quadraticCurveTo(90, (y0 + tipY) / 2 + (up ? -1 : 1), 152, tipY); ctx.quadraticCurveTo(100, (y1 + tipY) / 2, 38, y1); ctx.closePath();
+      ctx.fillStyle = lg(ctx, 0, Math.min(y0, y1), 0, Math.max(y0, y1), up ? [[0, '#3e3e20'], [1, '#8a8650']] : [[0, '#c8c08e'], [1, '#e8e2c2']]); ctx.fill();
+      ctx.strokeStyle = 'rgba(36,34,14,0.6)'; ctx.lineWidth = 1; ctx.stroke();
+    };
+    jaw(-10, 0, -1, true);
+    jaw(9, 1, 2, false);
+    ctx.fillStyle = '#f6f2e2';
+    for (let x = 50; x < 146; x += 6) { const y = -0.5 + (x - 50) * 0.002; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 1.4, y + 3.2); ctx.lineTo(x + 2.8, y); ctx.closePath(); ctx.fill(); }
+    spots(ctx, 225, 14, 50, 140, -6, -2, 0.6, 1.2, 'rgba(30,26,14,0.6)');
+    gill(ctx, 30, 18, 18, 'rgba(36,34,14,0.5)', 8);
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(24, 10); ctx.quadraticCurveTo(14, 24, 2, 26); ctx.quadraticCurveTo(10, 16, 20, 6); ctx.closePath(); }, 'rgba(150,130,80,0.9)', { fan: [22, 8, 'rgba(40,30,10,0.3)', 20] });
+    eye(ctx, 40, -6, 5, '#e0b050', { irisEdge: '#8a5a10' });
+  }
+
+  // Lanternfen: the archerfish, which shoots down fireflies with a jet of water
+  function archerfish(ctx, t) {
+    const sw = Math.sin(t * 2.6) * 0.07;
+    const b = { n: 94, t: -64, th: 12, top: 44, bot: 52, fb: 0.24, rr: 0.42, ny: -8 };
+    const E = (x, bot) => edgeY(b, x, bot) + (bot ? -2.5 : 2.5);
+    const fc = 'rgba(200,200,160,0.9)', black = 'rgba(18,18,16,0.9)';
+    const dors = () => { ctx.beginPath(); ctx.moveTo(-10, E(-10)); ctx.lineTo(-18, E(-18) - 20); ctx.quadraticCurveTo(-40, E(-40) - 24, -52, E(-52)); ctx.closePath(); };
+    const anal = () => { ctx.beginPath(); ctx.moveTo(12, E(12, 1)); ctx.quadraticCurveTo(-20, E(-20, 1) + 34, -54, E(-54, 1)); ctx.closePath(); };
+    for (const f of [dors, anal]) { fin(ctx, f, fc, { fan: [-20, 0, 'rgba(60,60,40,0.3)', 40], edge: black, ew: 2 }); clipTo(ctx, f, () => { ctx.fillStyle = 'rgba(20,20,18,0.85)'; ctx.fillRect(-70, -90, 26, 180); }); }
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(34, E(34, 1)); ctx.quadraticCurveTo(28, E(28, 1) + 20, 14, E(14, 1) + 18); ctx.lineTo(16, E(16, 1)); ctx.closePath(); }, fc);
+    tail(ctx, -62, 'square', 38, 34, sw, lg(ctx, 0, -34, 0, 34, [[0, '#a8a882'], [0.5, '#d8d6b6'], [1, '#a8a882']]), { rays: 'rgba(60,60,40,0.3)', edge: 'rgba(40,40,30,0.4)' });
+    bodyShade(ctx, b, [[0, '#7a8a72'], [0.3, '#c8d0c0'], [0.6, '#f2f2ea'], [1, '#fbfaf4']], 'rgba(40,46,40,0.55)', {
+      sheen: 0.42,
+      pattern: () => {
+        // bold black blotches across the back, shrinking toward the tail
+        for (const [x, w, h] of [[52, 8, 34], [24, 10, 40], [-6, 10, 38], [-32, 8, 30], [-54, 6, 22]]) {
+          const top = E(x) - 6;
+          ctx.fillStyle = 'rgba(20,22,20,0.92)';
+          ctx.beginPath(); ctx.moveTo(x - w, top); ctx.quadraticCurveTo(x - w * 1.15, top + h * 0.7, x, top + h); ctx.quadraticCurveTo(x + w * 1.15, top + h * 0.7, x + w, top); ctx.closePath(); ctx.fill();
+        }
+        scales(ctx, -64, 90, -42, 44, 8, 'rgba(90,100,90,0.2)', 0.7, 'rgba(255,255,255,0.3)');
+      },
+    });
+    gill(ctx, 60, 34, 34, 'rgba(40,46,40,0.45)', 10);
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(54, 12); ctx.quadraticCurveTo(42, 28, 26, 30); ctx.quadraticCurveTo(36, 18, 50, 6); ctx.closePath(); }, 'rgba(220,220,190,0.85)');
+    eye(ctx, 70, -20, 7.6, '#d8c050', { irisEdge: '#7a6a10' });
+    line(ctx, [94, -8, 84, -2, 74, 0], 'rgba(40,46,40,0.7)', 1.6);
+    // the jet: a spurt of droplets arcing up and away every few seconds
+    const ph = (t * 0.45) % 1;
+    if (ph < 0.42) {
+      const k = ph / 0.42;
+      for (let i = 0; i < 11; i++) {
+        const s = k - i * 0.035;
+        if (s <= 0) continue;
+        const x = 96 + s * 74, y = -10 - s * 58 + s * s * 26, a = (1 - s) * (1 - i / 14);
+        ctx.fillStyle = `rgba(215,240,255,${0.85 * a})`; circle(ctx, x, y, 2.2 - i * 0.12); ctx.fill();
+        ctx.fillStyle = `rgba(255,255,255,${a})`; circle(ctx, x + 0.6, y - 0.6, 0.8); ctx.fill();
+      }
+    }
+  }
+
+  // Lanternfen: the paddlefish, an ancient filter-feeder with a snout like an oar
+  function paddlefish(ctx, t) {
+    const sw = Math.sin(t * 1.8) * 0.06;
+    const b = { n: 40, t: -112, th: 7, top: 34, bot: 32, fb: 0.12, rr: 0.4, ny: 4 };
+    const E = (x, bot) => edgeY(b, x, bot) + (bot ? -2 : 2);
+    const fc = '#5a6670';
+    ctx.save(); ctx.translate(-110, 0); ctx.rotate(sw);
+    const tl = () => { ctx.beginPath(); ctx.moveTo(4, -7); ctx.bezierCurveTo(-16, -14, -40, -36, -60, -52); ctx.bezierCurveTo(-44, -28, -34, -8, -28, 4); ctx.bezierCurveTo(-34, 16, -42, 30, -52, 40); ctx.bezierCurveTo(-30, 28, -12, 14, 4, 8); ctx.closePath(); };
+    fin(ctx, tl, lg(ctx, 0, -52, 0, 40, [[0, '#3c4650'], [0.6, '#6a7680'], [1, '#8a96a0']]), { fan: [0, 0, 'rgba(20,26,32,0.25)', 40], edge: 'rgba(20,26,32,0.5)' });
+    ctx.restore();
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(-40, E(-40)); ctx.quadraticCurveTo(-52, E(-52) - 28, -74, E(-74) - 24); ctx.quadraticCurveTo(-72, E(-72) - 8, -76, E(-76)); ctx.closePath(); }, fc, { fan: [-58, E(-58), 'rgba(20,26,32,0.3)'] });
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(-50, E(-50, 1)); ctx.quadraticCurveTo(-62, E(-62, 1) + 22, -80, E(-80, 1) + 18); ctx.lineTo(-82, E(-82, 1)); ctx.closePath(); }, fc);
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(-10, E(-10, 1)); ctx.quadraticCurveTo(-18, E(-18, 1) + 16, -30, E(-30, 1) + 12); ctx.lineTo(-30, E(-30, 1)); ctx.closePath(); }, fc);
+    bodyShade(ctx, b, [[0, '#2e3a46'], [0.4, '#5e6c78'], [0.7, '#a8b2ba'], [1, '#e2e6e8']], 'rgba(20,26,32,0.6)', {
+      sheen: 0.36,
+      pattern: () => spots(ctx, 331, 60, -110, 40, -30, 10, 0.6, 1.4, 'rgba(20,26,32,0.3)'),
+    });
+    // the long, tapering gill cover
+    clipTo(ctx, () => bodyPath(ctx, b), () => {
+      ctx.beginPath(); ctx.moveTo(36, -26); ctx.quadraticCurveTo(-2, -12, -30, 6); ctx.quadraticCurveTo(-2, 8, 36, 26); ctx.closePath();
+      ctx.fillStyle = 'rgba(30,38,46,0.2)'; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-30, 6); ctx.quadraticCurveTo(-2, 8, 36, 26); ctx.strokeStyle = 'rgba(20,26,32,0.4)'; ctx.lineWidth = 1.2; ctx.stroke();
+    });
+    // the paddle, freckled with the pits it senses its food with
+    const paddle = () => { ctx.beginPath(); ctx.moveTo(34, -10); ctx.bezierCurveTo(70, -11, 100, -20, 140, -21); ctx.bezierCurveTo(160, -21, 166, -6, 158, 2); ctx.bezierCurveTo(150, 8, 120, 2, 96, 2); ctx.bezierCurveTo(70, 2, 50, 6, 34, 8); ctx.closePath(); };
+    paddle(); ctx.fillStyle = lg(ctx, 0, -21, 0, 8, [[0, '#5a6874'], [0.5, '#8a98a4'], [1, '#c4ccd2']]); ctx.fill();
+    clipTo(ctx, paddle, () => {
+      const rnd = seeded(332);
+      for (let i = 0; i < 26; i++) { const x = 60 + rnd() * 100, y = -16 + rnd() * 16; ctx.fillStyle = 'rgba(20,30,40,0.45)'; for (let j = 0; j < 4; j++) { circle(ctx, x + Math.cos(j * 1.6) * 2.2, y + Math.sin(j * 1.6) * 2.2, 0.7); ctx.fill(); } }
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(40, -8); ctx.bezierCurveTo(80, -10, 110, -17, 150, -17); ctx.stroke();
+    });
+    paddle(); ctx.strokeStyle = 'rgba(20,26,32,0.55)'; ctx.lineWidth = 1.1; ctx.stroke();
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(26, 12); ctx.quadraticCurveTo(14, 30, -4, 34); ctx.quadraticCurveTo(6, 20, 20, 8); ctx.closePath(); }, 'rgba(110,122,132,0.95)', { fan: [24, 10, 'rgba(20,26,32,0.3)', 24] });
+    eye(ctx, 36, -2, 3, '#c8d0d6');
+    ctx.strokeStyle = 'rgba(20,26,32,0.7)'; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(40, 8); ctx.quadraticCurveTo(26, 16, 14, 12); ctx.stroke();
+  }
+
+  // Coralspire: the queen parrotfish, turquoise and rose with a beak of fused teeth
+  function parrotfish(ctx, t) {
+    const sw = Math.sin(t * 2.4) * 0.07;
+    const b = { n: 92, t: -72, th: 12, top: 48, bot: 44, fb: 0.22, rr: 0.42, ny: 6 };
+    const E = (x, bot) => edgeY(b, x, bot) + (bot ? -2.5 : 2.5);
+    const teal = '#1aa89a', pink = '#ff7aa0';
+    const long = (x0, x1, h, bot) => () => {
+      const sg = bot ? 1 : -1;
+      ctx.beginPath(); ctx.moveTo(x0, E(x0, bot));
+      for (let x = x0; x >= x1; x -= 6) ctx.lineTo(x, E(x, bot) + sg * h * (0.6 + 0.4 * Math.sin((x0 - x) / (x0 - x1) * Math.PI * 0.9)));
+      ctx.lineTo(x1, E(x1, bot)); ctx.closePath();
+    };
+    const dors = long(46, -60, 16, false), anal = long(14, -58, 15, true);
+    for (const f of [dors, anal]) { fin(ctx, f, lg(ctx, 0, -70, 0, 70, [[0, pink], [0.3, teal], [0.7, teal], [1, pink]]), { fan: [-10, 0, 'rgba(10,60,60,0.3)', 60], edge: 'rgba(255,170,190,0.9)', ew: 2.2 }); }
+    tail(ctx, -70, 'fork', 50, 44, sw, lg(ctx, 0, -44, 0, 44, [[0, pink], [0.22, '#2ac0a8'], [0.5, '#3ad0b8'], [0.78, '#2ac0a8'], [1, pink]]), { rays: 'rgba(10,60,60,0.3)', edge: 'rgba(255,140,170,0.9)', ew: 2 });
+    bodyShade(ctx, b, [[0, '#0c6a66'], [0.35, '#1aa89a'], [0.65, '#4ad0b0'], [0.85, '#a8eac8'], [1, '#d8f4e0']], 'rgba(6,50,50,0.55)', {
+      sheen: 0.38,
+      pattern: () => {
+        scales(ctx, -72, 82, -44, 40, 14, 'rgba(255,120,150,0.55)', 1.4, 'rgba(255,255,230,0.25)');
+        // the painted face: rose and turquoise stripes around the eye and snout
+        for (const [y, c] of [[-18, pink], [-10, '#7ae8ff'], [4, pink], [12, '#7ae8ff']]) line(ctx, [96, y + 6, 76, y, 54, y - 4], c, 3);
+      },
+    });
+    gill(ctx, 52, 32, 32, 'rgba(6,50,50,0.45)', 10);
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(48, 12); ctx.quadraticCurveTo(36, 30, 20, 32); ctx.quadraticCurveTo(30, 18, 44, 6); ctx.closePath(); }, 'rgba(255,150,180,0.88)', { fan: [46, 8, 'rgba(120,20,50,0.25)', 24] });
+    // the beak: two plates of fused white teeth
+    ctx.beginPath(); ctx.moveTo(86, -2); ctx.quadraticCurveTo(98, -4, 102, 4); ctx.lineTo(88, 6); ctx.closePath(); ctx.fillStyle = '#f2fbf6'; ctx.fill(); ctx.strokeStyle = 'rgba(10,60,60,0.6)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(88, 7); ctx.lineTo(102, 5); ctx.quadraticCurveTo(98, 14, 86, 12); ctx.closePath(); ctx.fillStyle = '#e2f2ea'; ctx.fill(); ctx.stroke();
+    eye(ctx, 72, -12, 6.2, '#ff8a3a', { irisEdge: '#a83a10', ring: 'rgba(255,120,150,0.8)' });
+  }
+
+  // Coralspire: the Picasso triggerfish, painted in bold strokes, with a locking trigger spine
+  function triggerfish(ctx, t) {
+    const sw = Math.sin(t * 2.6) * 0.07;
+    const body = () => { ctx.beginPath(); ctx.moveTo(86, 6); ctx.bezierCurveTo(72, -26, 40, -50, 2, -46); ctx.bezierCurveTo(-30, -42, -52, -20, -58, -8); ctx.lineTo(-58, 8); ctx.bezierCurveTo(-52, 22, -30, 44, 2, 46); ctx.bezierCurveTo(40, 48, 72, 34, 86, 6); ctx.closePath(); };
+    const pale = 'rgba(236,228,206,0.9)', blueEdge = 'rgba(60,140,220,0.9)';
+    // soft rear dorsal and anal fins, mirror images
+    const dors = () => { ctx.beginPath(); ctx.moveTo(-6, -44); ctx.quadraticCurveTo(-30, -64, -56, -24); ctx.lineTo(-48, -20); ctx.closePath(); };
+    const anal = () => { ctx.beginPath(); ctx.moveTo(-2, 44); ctx.quadraticCurveTo(-28, 64, -56, 24); ctx.lineTo(-48, 20); ctx.closePath(); };
+    for (const f of [dors, anal]) fin(ctx, f, pale, { fan: [-30, 0, 'rgba(90,80,60,0.3)', 40], edge: blueEdge, ew: 1.6 });
+    // the trigger: a stout spine raised on the back
+    ctx.beginPath(); ctx.moveTo(26, -46); ctx.lineTo(18, -76); ctx.quadraticCurveTo(8, -58, 4, -46); ctx.closePath(); ctx.fillStyle = 'rgba(50,46,40,0.85)'; ctx.fill();
+    line(ctx, [24, -46, 20, -62, 18, -76], '#2a2620', 3);
+    tail(ctx, -56, 'round', 28, 26, sw, pale, { rays: 'rgba(90,80,60,0.3)', edge: blueEdge, ew: 1.6 });
+    shadeBody(ctx, body, [-58, -46, 86, 46], [[0, '#d2c4a0'], [0.45, '#f2ead6'], [1, '#d8cbaa']], 'rgba(50,44,34,0.55)', {
+      sheen: 0.32,
+      pattern: () => {
+        // the painter's strokes: black and white bands slanting across the rear
+        for (let i = 0; i < 4; i++) {
+          const x = -10 - i * 13;
+          ctx.fillStyle = i % 2 ? 'rgba(248,246,240,0.95)' : 'rgba(22,22,24,0.92)';
+          ctx.beginPath(); ctx.moveTo(x + 18, 6); ctx.lineTo(x + 6, 6); ctx.lineTo(x - 18, 50); ctx.lineTo(x - 6, 50); ctx.closePath(); ctx.fill();
+        }
+        ctx.fillStyle = 'rgba(22,22,24,0.9)'; ctx.beginPath(); ctx.moveTo(30, 8); ctx.bezierCurveTo(10, 4, -30, 4, -50, 0); ctx.lineTo(-56, 14); ctx.bezierCurveTo(-30, 24, 10, 26, 30, 18); ctx.closePath(); ctx.fill();
+        // a rust band, a sky-blue bridle across the face and a golden "lip line"
+        ctx.fillStyle = 'rgba(176,96,52,0.8)'; ctx.beginPath(); ctx.ellipse(26, 26, 30, 7, -0.15, 0, TAU); ctx.fill();
+        for (const dy of [-6, 0, 6]) line(ctx, [74, -18 + dy, 64, -8 + dy, 52, 2 + dy], 'rgba(70,160,235,0.95)', 2.4);
+        line(ctx, [52, -18, 58, -10, 60, 2], 'rgba(40,40,40,0.85)', 4);
+        line(ctx, [86, 8, 70, 14, 48, 16], 'rgba(245,190,40,0.95)', 3);
+        // the three rows of black thorns at the tail base
+        for (let r = 0; r < 3; r++) for (let i = 0; i < 4; i++) { circle(ctx, -40 - i * 5, -6 + r * 6, 1.4); ctx.fillStyle = '#1a1a1c'; ctx.fill(); }
+      },
+    });
+    gill(ctx, 46, 30, 30, 'rgba(50,44,34,0.35)', 6);
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(44, 4); ctx.quadraticCurveTo(34, 16 + Math.sin(t * 6) * 2, 24, 16); ctx.quadraticCurveTo(32, 6, 42, 0); ctx.closePath(); }, 'rgba(240,232,212,0.85)', { edge: blueEdge });
+    eye(ctx, 56, -18, 5.4, '#2a2a2c', { pupil: 0.7, ring: 'rgba(245,190,40,0.8)' });
+    ctx.fillStyle = '#f5c428'; ctx.beginPath(); ctx.ellipse(86, 7, 4, 3.2, 0, 0, TAU); ctx.fill();
+  }
+
+  // Frostveil: the halibut, a flatfish seen from above, both eyes on one side, a fin rippling around its edge
+  function halibut(ctx, t) {
+    const wave = t * 2.6, sw = Math.sin(t * 1.4) * 0.05;
+    const cx = 4, A = 88, H = 46;
+    const half = x => { const u = (x - cx) / A; if (Math.abs(u) >= 1) return 0; return H * Math.sqrt(1 - u * u) * (u < 0 ? 1 - 0.3 * -u : 1 - 0.06 * u); };
+    const X0 = cx - A + 6, X1 = cx + A - 4;
+    // the fringe of fin all round, rippling
+    const fringe = bot => {
+      const sg = bot ? 1 : -1, pts = [];
+      for (let x = X1 - 18; x >= X0 + 4; x -= 4) pts.push([x, sg * (half(x) + 10 + 3 * Math.sin(wave + x * 0.11 + (bot ? 1.6 : 0)))]);
+      ctx.beginPath(); ctx.moveTo(X1 - 18, sg * half(X1 - 18) * 0.9);
+      for (const p of pts) ctx.lineTo(p[0], p[1]);
+      ctx.lineTo(X0 + 4, sg * half(X0 + 4) * 0.8);
+      for (let x = X0 + 4; x <= X1 - 18; x += 4) ctx.lineTo(x, sg * half(x) * 0.92);
+      ctx.closePath();
+    };
+    for (const bot of [false, true]) fin(ctx, () => fringe(bot), lg(ctx, 0, -60, 0, 60, [[0, '#4a4030'], [0.5, '#6a5c44'], [1, '#4a4030']]), { fan: [cx, 0, 'rgba(30,24,16,0.4)', 120], edge: 'rgba(30,24,16,0.5)' });
+    tail(ctx, X0 + 2, 'fork', 34, 40, sw, lg(ctx, 0, -40, 0, 40, [[0, '#4a4030'], [0.5, '#6e6048'], [1, '#4a4030']]), { rays: 'rgba(30,24,16,0.35)', edge: 'rgba(30,24,16,0.5)' });
+    const body = () => { ctx.beginPath(); ctx.moveTo(X1, 0); for (let x = X1; x >= X0; x -= 3) ctx.lineTo(x, -half(x)); for (let x = X0; x <= X1; x += 3) ctx.lineTo(x, half(x)); ctx.closePath(); };
+    shadeBody(ctx, body, [X0, -H, X1, H], [[0, '#5a4c36'], [0.5, '#7a6a4c'], [1, '#5a4c36']], 'rgba(30,24,16,0.55)', {
+      sheen: 0.26, belly: 0.08,
+      pattern: () => {
+        const rnd = seeded(551);
+        for (let i = 0; i < 34; i++) { ctx.fillStyle = i % 3 ? 'rgba(40,30,18,0.35)' : 'rgba(240,226,190,0.35)'; ctx.beginPath(); ctx.ellipse(X0 + rnd() * (X1 - X0), -40 + rnd() * 80, 3 + rnd() * 6, 2 + rnd() * 4, rnd() * 3, 0, TAU); ctx.fill(); }
+        // the lateral line arching high over the pectoral fin
+        ctx.strokeStyle = 'rgba(240,226,190,0.45)'; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(X0 + 4, 0); ctx.lineTo(10, 0); ctx.bezierCurveTo(30, 0, 34, -20, 50, -18); ctx.quadraticCurveTo(62, -16, 66, -6); ctx.stroke();
+      },
+    });
+    gill(ctx, 64, 30, 30, 'rgba(30,24,16,0.45)', 8);
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(58, -2); ctx.quadraticCurveTo(48, -22, 34, -24); ctx.quadraticCurveTo(42, -10, 54, 4); ctx.closePath(); }, 'rgba(110,94,66,0.9)', { fan: [56, 0, 'rgba(30,24,16,0.35)', 20] });
+    // both eyes on the upper side, bulging, near the head
+    for (const [x, y] of [[74, -14], [80, 2]]) { ctx.beginPath(); ctx.ellipse(x, y, 8, 7, 0, 0, TAU); ctx.fillStyle = '#5a4c36'; ctx.fill(); eye(ctx, x + 1, y - 1, 5, '#d8c070', { irisEdge: '#7a6010' }); }
+    ctx.strokeStyle = 'rgba(30,24,16,0.75)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(91, 6); ctx.quadraticCurveTo(84, 16, 74, 18); ctx.stroke();
+  }
+
+  // Frostveil: the wolffish, banded grey and armed with a grin of fangs
+  function wolffish(ctx, t) {
+    const sw = Math.sin(t * 2) * 0.06;
+    const b = { n: 94, t: -104, th: 8, top: 40, bot: 34, fb: 0.04, rr: 0.5, ny: 8, k: 1.04 };
+    const E = (x, bot) => edgeY(b, x, bot) + (bot ? -2.5 : 2.5);
+    const bands = () => { for (let i = 0; i < 11; i++) { const x = 60 - i * 15; ctx.fillStyle = 'rgba(24,30,38,0.42)'; ctx.beginPath(); ctx.moveTo(x + 4, -60); ctx.bezierCurveTo(x - 4, -20, x + 6, 0, x - 2, 40); ctx.lineTo(x - 10, 40); ctx.bezierCurveTo(x - 4, 0, x - 14, -20, x - 6, -60); ctx.closePath(); ctx.fill(); } };
+    const dors = () => { ctx.beginPath(); ctx.moveTo(62, E(62)); for (let x = 62; x >= -100; x -= 8) ctx.lineTo(x, E(x) - 12 - Math.sin(x * 0.05 + t * 1.5) * 1.5); ctx.lineTo(-102, E(-102)); ctx.closePath(); };
+    const anal = () => { ctx.beginPath(); ctx.moveTo(8, E(8, 1)); for (let x = 8; x >= -100; x -= 8) ctx.lineTo(x, E(x, 1) + 11); ctx.lineTo(-102, E(-102, 1)); ctx.closePath(); };
+    for (const f of [dors, anal]) { fin(ctx, f, '#5a6672', { fan: [0, 0, 'rgba(20,26,32,0.3)', 80] }); clipTo(ctx, f, bands); }
+    tail(ctx, -102, 'round', 24, 20, sw, '#56626e', { rays: 'rgba(20,26,32,0.35)' });
+    bodyShade(ctx, b, [[0, '#3a4652'], [0.4, '#6a7884'], [0.72, '#a8b2ba'], [1, '#d8dcde']], 'rgba(20,26,32,0.6)', { sheen: 0.32, pattern: bands });
+    // a big rounded pectoral fan
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(44, 4); ctx.bezierCurveTo(40, 30, 20, 44, 4, 40); ctx.quadraticCurveTo(14, 22, 40, 14); ctx.closePath(); }, 'rgba(110,122,134,0.95)', { fan: [44, 6, 'rgba(20,26,32,0.35)', 30], edge: 'rgba(20,26,32,0.5)' });
+    // thick lips, and the fangs that give it its name
+    ctx.fillStyle = '#7e8a96';
+    ctx.beginPath(); ctx.ellipse(90, 4, 12, 6, -0.15, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(86, 16, 12, 5.5, 0.1, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#2a1c1c'; ctx.beginPath(); ctx.ellipse(90, 10, 9, 3.4, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#f4eee0'; ctx.strokeStyle = 'rgba(60,50,40,0.6)'; ctx.lineWidth = 0.8;
+    for (const [x, y, h, d] of [[96, 7, 7, 1], [91, 7, 6, 1], [86, 7, 5, 1], [94, 13, -6, -1], [88, 13, -5, -1]]) { ctx.beginPath(); ctx.moveTo(x - 1.8, y); ctx.lineTo(x, y + h); ctx.lineTo(x + 1.8, y); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+    gill(ctx, 58, 28, 30, 'rgba(20,26,32,0.5)', 10);
+    eye(ctx, 76, -14, 5.2, '#d8c890', { irisEdge: '#7a6a30' });
+    line(ctx, [66, -24, 76, -22, 86, -18], 'rgba(20,26,32,0.75)', 2.6);
+  }
+
+  // Dragonmere: the Siamese tigerfish, gold barred in black, a temple guardian
+  function tigerfish(ctx, t) {
+    const sw = Math.sin(t * 2.4) * 0.07;
+    const b = { n: 92, t: -64, th: 12, top: 58, bot: 48, fb: 0.24, rr: 0.42, ny: 12 };
+    const E = (x, bot) => edgeY(b, x, bot) + (bot ? -2.5 : 2.5);
+    const bar = (x, w, top, bot, lean = 0.18) => { ctx.beginPath(); ctx.moveTo(x + w, top); ctx.bezierCurveTo(x + w - 6, top + 30, x + w + lean * 30, bot - 30, x + w - lean * 40, bot); ctx.lineTo(x - w - lean * 40, bot); ctx.bezierCurveTo(x - w + lean * 30, bot - 30, x - w - 6, top + 30, x - w, top); ctx.closePath(); ctx.fill(); };
+    const bars = () => { ctx.fillStyle = 'rgba(24,18,10,0.9)'; for (const [x, w] of [[80, 3.5], [52, 6], [24, 7], [-4, 7], [-32, 6], [-56, 4]]) bar(x, w, -80, 80); };
+    const sp = () => { const y = E(20); spiny(ctx, [44, E(44)], [[40, y - 26], [34, y - 12], [28, y - 30], [22, y - 14], [16, y - 28], [10, y - 12], [4, y - 22], [0, y - 8]], [-4, E(-4)]); ctx.closePath(); };
+    const soft = () => { ctx.beginPath(); ctx.moveTo(-6, E(-6)); ctx.quadraticCurveTo(-28, E(-28) - 34, -56, E(-56)); ctx.closePath(); };
+    const anal = () => { ctx.beginPath(); ctx.moveTo(4, E(4, 1)); ctx.quadraticCurveTo(-24, E(-24, 1) + 34, -54, E(-54, 1)); ctx.closePath(); };
+    for (const f of [sp, soft, anal]) { fin(ctx, f, '#d8a830', { fan: [-10, 0, 'rgba(60,40,10,0.35)', 50] }); clipTo(ctx, f, bars); }
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(34, E(34, 1)); ctx.quadraticCurveTo(28, E(28, 1) + 24, 14, E(14, 1) + 20); ctx.lineTo(16, E(16, 1)); ctx.closePath(); }, '#1e1a12');
+    tail(ctx, -62, 'round', 36, 34, sw, '#d8a830', { rays: 'rgba(60,40,10,0.35)', deco: L => { ctx.fillStyle = 'rgba(20,16,10,0.9)'; ctx.fillRect(-L * 0.35, -50, 8, 100); } });
+    bodyShade(ctx, b, [[0, '#6a4a0e'], [0.35, '#d0a020'], [0.65, '#f2c856'], [1, '#f8e6b0']], 'rgba(50,34,8,0.55)', {
+      sheen: 0.36,
+      pattern: () => { bars(); scales(ctx, -64, 90, -50, 44, 9, 'rgba(70,44,8,0.28)', 0.8, 'rgba(255,240,190,0.28)'); },
+    });
+    gill(ctx, 64, 36, 34, 'rgba(50,34,8,0.45)', 10);
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(58, 16); ctx.quadraticCurveTo(46, 32, 30, 34); ctx.quadraticCurveTo(40, 22, 54, 10); ctx.closePath(); }, 'rgba(230,190,90,0.85)');
+    eye(ctx, 78, -10, 6, '#d8a030', { irisEdge: '#6a3a08', ring: 'rgba(20,16,10,0.8)' });
+    ctx.strokeStyle = 'rgba(50,34,8,0.75)'; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(93, 12); ctx.quadraticCurveTo(86, 20, 74, 20); ctx.stroke();
+  }
+
+  /* ---------- the third wave: new epics ---------- */
+
+  // Mistwillow: the axolotl, pink and smiling, with feathery gills that wave like fronds
+  function axolotl(ctx, t) {
+    const bob = Math.sin(t * 1.4) * 2;
+    ctx.save(); ctx.translate(0, bob);
+    const pink = '#f4a8bf', deep = '#d9708f';
+    // a feathery gill stalk: a tapering stem fringed with fine filaments, waving
+    const gill3 = (x, y, ang, len, ph, col, fcol) => {
+      const res = ribbon(ctx, x, y, ang, len, s => 3.4 * (1 - s) + 1, t, { freq: 1.6, k: 2.2, amp: 6, phase: ph, segs: 16 });
+      ctx.fillStyle = col; ctx.fill();
+      ctx.strokeStyle = fcol; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+      for (let i = 2; i < res.C.length; i++) {
+        const [cx, cy] = res.C[i], [px, py] = res.C[i - 1], dx = cx - px, dy = cy - py, l = Math.hypot(dx, dy) || 1;
+        const nx = -dy / l, ny = dx / l, f = 9 * (1 - (i / res.C.length) * 0.55), sway = Math.sin(t * 3 + i + ph) * 1.2;
+        for (const d of [-1, 1]) { ctx.beginPath(); ctx.moveTo(cx, cy); ctx.quadraticCurveTo(cx + nx * f * 0.6 * d, cy + ny * f * 0.6 * d, cx + nx * f * d - (dx / l) * 4 + sway, cy + ny * f * d - (dy / l) * 4); ctx.stroke(); }
+      }
+    };
+    // far-side gills first, darker
+    for (const [i, a] of [[0, -1.95], [1, -2.5], [2, -3.05]]) gill3(60 - i * 2, -18 + i * 9, a + 0.12, 46 - i * 4, i, '#b84a6e', 'rgba(205,85,120,0.85)');
+    // far legs
+    const leg = (x, y, a, col) => {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+      ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(0, 9, 5, 11, 0, 0, TAU); ctx.fill();
+      for (const d of [-4.5, -1.5, 1.5, 4.5]) { ctx.beginPath(); ctx.ellipse(d, 20, 1.6, 3.6, d * 0.08, 0, TAU); ctx.fill(); }
+      ctx.restore();
+    };
+    leg(54, 16, 0.35 + Math.sin(t * 1.4) * 0.1, '#d98ca4');
+    leg(-18, 18, 0.5 + Math.sin(t * 1.4 + 1) * 0.1, '#d98ca4');
+    // the tail: a long, flat paddle with a soft crest above and below
+    const prof = s => 15 * Math.pow(1 - s, 0.8) + 1.2;
+    const crest = s => prof(s) + (s > 0.05 ? 9 * Math.sin(Math.min(1, s * 1.2) * Math.PI * 0.85) * (1 - s * 0.3) : 0);
+    const cr = ribbon(ctx, -14, 2, Math.PI - 0.04, 120, crest, t, { freq: 1.8, k: 3.4, amp: 7, segs: 22 });
+    ctx.fillStyle = 'rgba(250,206,220,0.6)'; ctx.fill();
+    ribbonRays(ctx, cr, 4, 'rgba(230,140,170,0.35)');
+    // the body: a soft, broad-headed salamander
+    const b = { n: 104, t: -24, th: 15, top: 40, bot: 36, fb: 0.0, rr: 0.3, ny: 6, k: 1.06 };
+    bodyShade(ctx, b, [[0, '#e488a6'], [0.4, pink], [0.75, '#fbd0dc'], [1, '#fde6ec']], 'rgba(170,70,100,0.45)', {
+      sheen: 0.5, belly: 0.08,
+      pattern: () => {
+        spots(ctx, 712, 40, -24, 100, -26, 18, 0.6, 1.2, 'rgba(255,255,255,0.6)');
+        ctx.fillStyle = rg(ctx, 88, 10, 0, 88, 10, 12, [[0, 'rgba(255,120,150,0.4)'], [1, 'rgba(255,120,150,0)']]); ctx.fillRect(70, -4, 36, 30);
+      },
+    });
+    // the tail grows out of the body's back half, so the two merge without a seam
+    const tl = ribbon(ctx, 4, 3, Math.PI - 0.04, 138, s => (s < 0.13 ? 17 + (0.13 - s) * 40 : prof((s - 0.13) / 0.87)), t, { freq: 1.8, k: 3.4, amp: 7, segs: 24 });
+    ctx.fillStyle = lg(ctx, 0, -18, 0, 20, [[0, '#e488a6'], [0.45, pink], [1, '#fbd6e0']]); ctx.fill();
+    ctx.save(); tl.build(); ctx.clip();
+    ctx.fillStyle = lg(ctx, 0, -18, 0, 20, [[0, 'rgba(255,255,255,0)'], [0.3, 'rgba(255,255,255,0.28)'], [0.55, 'rgba(255,255,255,0)']]); ctx.fillRect(-160, -30, 170, 60);
+    spots(ctx, 713, 24, -130, 0, -14, 12, 0.5, 1, 'rgba(255,255,255,0.55)');
+    ctx.restore();
+    // near legs, with little splayed fingers
+    leg(58, 20, 0.2 + Math.sin(t * 1.4 + 2) * 0.12, '#f2a4bc');
+    leg(-12, 22, 0.45 + Math.sin(t * 1.4 + 3) * 0.12, '#f2a4bc');
+    // near-side gills: three frilly fronds
+    for (const [i, a] of [[0, -2.05], [1, -2.6], [2, -3.15]]) gill3(62 - i * 2, -14 + i * 10, a, 50 - i * 4, i + 0.5, deep, 'rgba(255,128,160,0.95)');
+    // that smile, and two little bead eyes
+    ctx.strokeStyle = 'rgba(150,50,80,0.75)'; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.moveTo(103, 8); ctx.quadraticCurveTo(94, 16, 80, 14); ctx.quadraticCurveTo(77, 13, 76, 10); ctx.stroke();
+    circle(ctx, 88, -8, 3.6); ctx.fillStyle = '#16121a'; ctx.fill();
+    circle(ctx, 89.2, -9.2, 1.2); ctx.fillStyle = '#ffffff'; ctx.fill();
+    ctx.restore();
+  }
+
+  // Lanternfen: the anglerfish, fishing in the dark with a glowing lure of its own
+  function anglerfish(ctx, t) {
+    const glow = 0.72 + 0.2 * Math.sin(t * 2.4) + 0.08 * Math.sin(t * 7.1);
+    const sway = Math.sin(t * 1.3);
+    const sw = Math.sin(t * 2) * 0.06;
+    const skin = [[0, '#1e1824'], [0.4, '#3a2c3c'], [0.75, '#5e4a5a'], [1, '#7a6674']];
+    // the rod springing from its brow, and the lure at the tip
+    const tip = [100 + sway * 6, -88 + Math.cos(t * 1.3) * 3];
+    ctx.strokeStyle = '#3a2e3a'; ctx.lineWidth = 2.6; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(42, -46); ctx.quadraticCurveTo(58 + sway * 3, -104, tip[0], tip[1]); ctx.stroke();
+    // small rear fins and a round tail
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(-30, -40); ctx.quadraticCurveTo(-46, -60, -62, -30); ctx.closePath(); }, '#2a2030', { fan: [-46, -32, 'rgba(120,90,130,0.3)', 20] });
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(-34, 40); ctx.quadraticCurveTo(-50, 58, -64, 30); ctx.closePath(); }, '#2a2030', { fan: [-48, 34, 'rgba(120,90,130,0.3)', 20] });
+    tail(ctx, -64, 'round', 34, 30, sw, lg(ctx, 0, -30, 0, 30, [[0, '#1e1622'], [1, '#3a2c3a']]), { rays: 'rgba(120,90,130,0.3)' });
+    // a rotund body and a huge head
+    const body = () => { ctx.beginPath(); ctx.moveTo(84, -20); ctx.bezierCurveTo(70, -62, 10, -66, -30, -44); ctx.bezierCurveTo(-56, -30, -66, -12, -66, 0); ctx.bezierCurveTo(-66, 14, -56, 32, -30, 46); ctx.bezierCurveTo(6, 64, 70, 60, 104, 26); ctx.lineTo(70, 6); ctx.closePath(); };
+    // the mouth's dark inside, behind the teeth
+    ctx.beginPath(); ctx.moveTo(84, -20); ctx.quadraticCurveTo(80, 0, 70, 6); ctx.lineTo(104, 26); ctx.quadraticCurveTo(98, 4, 84, -20); ctx.fillStyle = '#0a060c'; ctx.fill();
+    shadeBody(ctx, body, [-66, -66, 104, 62], skin, 'rgba(8,4,10,0.7)', {
+      sheen: 0.22,
+      pattern: () => {
+        spots(ctx, 818, 40, -60, 90, -60, 50, 1, 3, 'rgba(10,6,12,0.35)');
+        // faint living lights freckling its skin
+        const rnd = seeded(819);
+        for (let i = 0; i < 18; i++) { const x = -60 + rnd() * 140, y = -50 + rnd() * 100, f = Math.max(0, Math.sin(t * (1 + rnd() * 2) + i)); ctx.fillStyle = `rgba(120,255,230,${0.15 + 0.5 * f * f})`; circle(ctx, x, y, 1.1); ctx.fill(); }
+      },
+    });
+    // needle teeth, upper and lower, catching the light of the lure
+    ctx.fillStyle = 'rgba(235,245,255,0.92)'; ctx.strokeStyle = 'rgba(120,140,170,0.6)'; ctx.lineWidth = 0.6;
+    for (let i = 0; i < 7; i++) { const u = i / 6, x = 84 - u * 12, y = -20 + u * 24; ctx.beginPath(); ctx.moveTo(x - 1.5, y); ctx.lineTo(x + 8 - u * 2, y + 9); ctx.lineTo(x + 1.5, y + 1.5); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+    for (let i = 0; i < 8; i++) { const u = i / 7, x = 102 - u * 30, y = 25 - u * 18; ctx.beginPath(); ctx.moveTo(x - 1.6, y); ctx.lineTo(x - 6 + u, y - 12 + u * 3); ctx.lineTo(x + 1.6, y - 1); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(14, 20); ctx.quadraticCurveTo(0, 40 + Math.sin(t * 3) * 3, -18, 38); ctx.quadraticCurveTo(-4, 26, 10, 14); ctx.closePath(); }, '#32263a', { fan: [12, 16, 'rgba(120,90,130,0.35)', 24] });
+    eye(ctx, 58, -34, 4.4, '#9ab0c0', { irisEdge: '#4a5a6a', ring: 'rgba(0,0,0,0.6)' });
+    // the lure: a bulb of cold light with a halo
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = rg(ctx, tip[0], tip[1], 0, tip[0], tip[1], 34, [[0, `rgba(150,255,220,${0.55 * glow})`], [0.35, `rgba(90,230,210,${0.2 * glow})`], [1, 'rgba(60,200,200,0)']]);
+    ctx.fillRect(tip[0] - 34, tip[1] - 34, 68, 68);
+    ctx.restore();
+    circle(ctx, tip[0], tip[1], 6.4);
+    ctx.fillStyle = rg(ctx, tip[0] - 2, tip[1] - 2, 0, tip[0], tip[1], 7, [[0, '#ffffff'], [0.4, `rgba(190,255,235,${0.9})`], [1, `rgba(80,220,200,${0.75 * glow})`]]); ctx.fill();
+    sparkle(ctx, tip[0], tip[1], 10 * glow, '#ffffff', 0.6 * glow);
+  }
+
+  // Coralspire: the mandarinfish, painted in swirls of orange and electric blue
+  function mandarin(ctx, t) {
+    const sw = Math.sin(t * 2.6) * 0.08;
+    const b = { n: 84, t: -56, th: 13, top: 42, bot: 40, fb: 0.08, rr: 0.4, ny: 6, k: 0.95 };
+    const E = (x, bot) => edgeY(b, x, bot) + (bot ? -2.5 : 2.5);
+    const orange = '#ff7a1e', teal = '#22d0c0', blue = '#2a7ae8', dark = '#0a2238';
+    // the psychedelic maze, drawn into whatever shape is clipped
+    const swirl = (seed, n, x0, x1, y0, y1) => {
+      // wavy bands of teal and blue, each outlined in dark, meandering across the shape like a maze
+      const gap = (y1 - y0) / n;
+      for (let j = 0; j < n; j++) {
+        const yb = y0 + gap * (j + 0.5), pts = [];
+        for (let x = x0 - 6; x <= x1 + 6; x += 5) pts.push([x, yb + Math.sin(x * 0.11 + j * 1.9 + seed) * gap * 0.42 + Math.sin(x * 0.27 + j + seed * 0.3) * gap * 0.18]);
+        for (const [w, c] of [[gap * 0.62, dark], [gap * 0.36, j % 2 ? teal : blue]]) { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.lineJoin = 'round'; ctx.beginPath(); through(ctx, pts, true); ctx.stroke(); }
+      }
+      // short cross-links that join the bands into a maze
+      const rnd = seeded(seed + 7);
+      for (let i = 0; i < n * 2; i++) {
+        const x = x0 + rnd() * (x1 - x0), y = y0 + rnd() * (y1 - y0);
+        for (const [w, c] of [[gap * 0.5, dark], [gap * 0.28, teal]]) { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(x, y - gap * 0.5); ctx.quadraticCurveTo(x + gap * 0.4, y, x, y + gap * 0.5); ctx.stroke(); }
+      }
+    };
+    // the male's tall spiked sail of a first dorsal
+    const sail = () => { const y = E(20); spiny(ctx, [36, E(36)], [[30, y - 50], [24, y - 36], [18, y - 62], [12, y - 40], [6, y - 52]], [2, E(2)]); ctx.closePath(); };
+    fin(ctx, sail, orange, { edge: blue, ew: 1.8 }); clipTo(ctx, sail, () => swirl(621, 7, 0, 40, -100, -30));
+    const dors = () => { ctx.beginPath(); ctx.moveTo(-2, E(-2)); ctx.quadraticCurveTo(-28, E(-28) - 26 + Math.sin(t * 2) * 2, -52, E(-52)); ctx.closePath(); };
+    const anal = () => { ctx.beginPath(); ctx.moveTo(10, E(10, 1)); ctx.quadraticCurveTo(-22, E(-22, 1) + 26 - Math.sin(t * 2) * 2, -52, E(-52, 1)); ctx.closePath(); };
+    for (const [f, sd, y0, y1] of [[dors, 622, -70, -20], [anal, 623, 20, 70]]) { fin(ctx, f, orange, { edge: blue, ew: 1.6 }); clipTo(ctx, f, () => swirl(sd, 4, -56, 10, y0, y1)); }
+    // a rounded fan of a pelvic fin under the throat
+    const pel = () => { ctx.beginPath(); ctx.moveTo(56, E(56, 1)); ctx.bezierCurveTo(56, E(56, 1) + 22, 36, E(36, 1) + 28, 26, E(26, 1) + 16); ctx.lineTo(36, E(36, 1)); ctx.closePath(); };
+    fin(ctx, pel, orange, { edge: blue, ew: 1.6 }); clipTo(ctx, pel, () => swirl(624, 3, 20, 64, 20, 64));
+    tail(ctx, -54, 'round', 40, 34, sw, orange, { edge: blue, ew: 2, deco: (L, s) => swirl(625, 6, -L - 10, 0, -s, s) });
+    bodyShade(ctx, b, [[0, '#e05a10'], [0.5, orange], [1, '#ffa050']], 'rgba(10,30,50,0.6)', {
+      sheen: 0.4,
+      pattern: () => {
+        swirl(626, 8, -60, 86, -42, 40);
+        const sx = Math.sin(t * 0.9) * 60;
+        ctx.fillStyle = lg(ctx, sx - 40, -30, sx + 40, 30, [[0, 'rgba(120,255,240,0)'], [0.5, 'rgba(160,255,245,0.25)'], [1, 'rgba(120,255,240,0)']]);
+        ctx.fillRect(-80, -60, 180, 120);
+      },
+    });
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(52, 6); ctx.quadraticCurveTo(40, 22 + Math.sin(t * 5) * 3, 26, 22); ctx.quadraticCurveTo(36, 12, 48, 2); ctx.closePath(); }, 'rgba(255,170,90,0.6)', { edge: 'rgba(42,122,232,0.7)' });
+    // googly eyes ringed in colour
+    circle(ctx, 70, -14, 10); ctx.fillStyle = blue; ctx.fill();
+    circle(ctx, 70, -14, 8.4); ctx.fillStyle = orange; ctx.fill();
+    eye(ctx, 70, -14, 6.8, '#ff9a3a', { irisEdge: '#a8400a', pupil: 0.66 });
+    line(ctx, [84, 8, 80, 12, 74, 11], dark, 1.6);
+  }
+
+  // Frostveil: the crystal icefish, pale as frost, with a crocodile snout and colourless blood
+  function icefish(ctx, t) {
+    const sw = Math.sin(t * 2) * 0.06;
+    const b = { n: 60, t: -98, th: 8, top: 34, bot: 30, fb: 0.1, rr: 0.44, ny: 4 };
+    const E = (x, bot) => edgeY(b, x, bot) + (bot ? -2 : 2);
+    const clear = 'rgba(214,234,250,0.5)', rim = 'rgba(200,230,255,0.75)';
+    const d1 = () => { ctx.beginPath(); ctx.moveTo(38, E(38)); ctx.lineTo(30, E(30) - 30); ctx.quadraticCurveTo(22, E(22) - 34, 14, E(14)); ctx.closePath(); };
+    const d2 = () => { ctx.beginPath(); ctx.moveTo(4, E(4)); ctx.quadraticCurveTo(-40, E(-40) - 26, -86, E(-86)); ctx.closePath(); };
+    const anal = () => { ctx.beginPath(); ctx.moveTo(-2, E(-2, 1)); ctx.quadraticCurveTo(-44, E(-44, 1) + 22, -86, E(-86, 1)); ctx.closePath(); };
+    fin(ctx, d1, 'rgba(70,90,120,0.7)', { fan: [26, E(26), 'rgba(200,230,255,0.4)', 20], edge: rim });
+    for (const f of [d2, anal]) fin(ctx, f, clear, { fan: [-40, 0, 'rgba(240,250,255,0.4)', 60], edge: rim });
+    tail(ctx, -96, 'square', 34, 28, sw, clear, { rays: 'rgba(240,250,255,0.45)', edge: rim });
+    bodyShade(ctx, b, [[0, '#a8bccc'], [0.35, '#dce8f0'], [0.7, '#f4f8fa'], [1, '#e6eef4']], 'rgba(90,120,150,0.55)', {
+      sheen: 0.5,
+      pattern: () => {
+        for (let i = 0; i < 6; i++) { ctx.fillStyle = 'rgba(80,100,130,0.16)'; ctx.beginPath(); ctx.ellipse(30 - i * 22, -6, 6, 26, 0.1, 0, TAU); ctx.fill(); }
+        const sx = ((t * 40) % 260) - 130;
+        ctx.fillStyle = lg(ctx, sx - 30, -30, sx + 30, 30, [[0, 'rgba(180,230,255,0)'], [0.35, 'rgba(190,235,255,0.3)'], [0.6, 'rgba(255,220,255,0.22)'], [1, 'rgba(180,230,255,0)']]);
+        ctx.fillRect(-110, -50, 220, 100);
+        spots(ctx, 931, 60, -96, 60, -26, 24, 0.5, 1.1, 'rgba(255,255,255,0.75)');
+      },
+    });
+    // the long, flat crocodile snout
+    ctx.beginPath(); ctx.moveTo(52, -16); ctx.quadraticCurveTo(90, -12, 124, -4); ctx.quadraticCurveTo(128, 0, 122, 3); ctx.quadraticCurveTo(90, 2, 56, 4); ctx.closePath();
+    ctx.fillStyle = lg(ctx, 0, -16, 0, 4, [[0, '#b4c6d6'], [1, '#eef4f8']]); ctx.fill(); ctx.strokeStyle = 'rgba(90,120,150,0.55)'; ctx.lineWidth = 1.1; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(56, 8); ctx.quadraticCurveTo(90, 8, 118, 5); ctx.quadraticCurveTo(90, 14, 56, 16); ctx.closePath(); ctx.fillStyle = '#f2f6f8'; ctx.fill(); ctx.stroke();
+    // pale gills: its blood has no red at all
+    gill(ctx, 44, 24, 24, 'rgba(160,190,210,0.7)', 9, 1.6);
+    // the great translucent fans of its pectoral fins
+    const pec = () => { ctx.beginPath(); ctx.moveTo(38, 0); ctx.bezierCurveTo(30, 34, 0, 52, -22, 46); ctx.quadraticCurveTo(4, 26, 32, 8); ctx.closePath(); };
+    fin(ctx, pec, 'rgba(220,238,252,0.55)', { fan: [38, 2, 'rgba(255,255,255,0.5)', 40], edge: rim });
+    eye(ctx, 50, -10, 7.2, '#d8e6f2', { irisEdge: '#90a8c0', ring: 'rgba(90,120,150,0.5)' });
+    // frost glinting around it
+    for (const [x, y, ph] of [[20, -40, 0], [-50, -30, 1.7], [90, -16, 3.1], [-20, 30, 4.4], [60, 24, 5.6]]) sparkle(ctx, x, y, 6, '#ffffff', Math.max(0, Math.sin(t * 1.8 + ph)) * 0.9);
+  }
+
+  // Dragonmere: the flowerhorn, crowned with a great domed forehead and scattered with pearls
+  function flowerhorn(ctx, t) {
+    const sw = Math.sin(t * 2.2) * 0.07;
+    const b = { n: 88, t: -60, th: 14, top: 52, bot: 46, fb: 0.2, rr: 0.42, ny: 14 };
+    const E = (x, bot) => edgeY(b, x, bot) + (bot ? -2.5 : 2.5);
+    const pearls = (seed, n, x0, x1, y0, y1) => {
+      const rnd = seeded(seed);
+      for (let i = 0; i < n; i++) {
+        const x = x0 + rnd() * (x1 - x0), y = y0 + rnd() * (y1 - y0), r = 1 + rnd() * 1.8, f = 0.55 + 0.45 * Math.sin(t * 2 + i * 1.7);
+        ctx.fillStyle = `rgba(150,240,230,${0.6 * f + 0.2})`; circle(ctx, x, y, r); ctx.fill();
+        ctx.fillStyle = `rgba(255,255,255,${0.7 * f})`; circle(ctx, x - r * 0.3, y - r * 0.3, r * 0.4); ctx.fill();
+      }
+    };
+    const finFill = lg(ctx, 0, -100, 0, 100, [[0, '#2a6ad8'], [0.25, '#c8203a'], [0.75, '#c8203a'], [1, '#2a6ad8']]);
+    const dors = () => { ctx.beginPath(); ctx.moveTo(30, E(30)); ctx.bezierCurveTo(10, E(10) - 26, -50, -66, -92 + Math.sin(t * 2) * 4, -64); ctx.quadraticCurveTo(-66, -40, -54, E(-54)); ctx.closePath(); };
+    const anal = () => { ctx.beginPath(); ctx.moveTo(10, E(10, 1)); ctx.bezierCurveTo(-10, E(-10, 1) + 28, -50, 66, -90 - Math.sin(t * 2) * 4, 62); ctx.quadraticCurveTo(-64, 40, -52, E(-52, 1)); ctx.closePath(); };
+    for (const [f, sd] of [[dors, 741], [anal, 742]]) { fin(ctx, f, finFill, { fan: [-20, 0, 'rgba(255,200,200,0.25)', 60], edge: 'rgba(120,200,255,0.8)', ew: 1.6 }); clipTo(ctx, f, () => pearls(sd, 26, -100, 30, -80, 80)); }
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(40, E(40, 1)); ctx.quadraticCurveTo(34, E(34, 1) + 30, 18, E(18, 1) + 34); ctx.lineTo(22, E(22, 1)); ctx.closePath(); }, '#c8203a', { edge: 'rgba(120,200,255,0.7)' });
+    tail(ctx, -58, 'round', 46, 40, sw, lg(ctx, 0, -40, 0, 40, [[0, '#b01830'], [0.5, '#e0405a'], [1, '#b01830']]), { rays: 'rgba(255,200,200,0.3)', edge: 'rgba(120,200,255,0.8)', ew: 1.6, deco: (L, s) => pearls(743, 22, -L, 0, -s, s) });
+    // the nuchal hump, a glossy crimson dome rising behind the head
+    const hump = () => { ctx.beginPath(); ctx.moveTo(86, 0); ctx.bezierCurveTo(92, -30, 80, -66, 50, -66); ctx.bezierCurveTo(28, -66, 18, -50, 20, E(20) + 8); ctx.bezierCurveTo(44, -20, 70, -10, 86, 0); ctx.closePath(); };
+    shadeBody(ctx, hump, [20, -68, 92, 0], [[0, '#ff4a62'], [0.5, '#d01c38'], [1, '#9a1028']], 'rgba(70,10,20,0.5)', {
+      sheen: 0.62,
+      pattern: () => { ctx.fillStyle = rg(ctx, 60, -54, 0, 60, -54, 18, [[0, 'rgba(255,255,255,0.45)'], [1, 'rgba(255,255,255,0)']]); ctx.fillRect(30, -90, 60, 50); },
+    });
+    bodyShade(ctx, b, [[0, '#8a1428'], [0.35, '#d8384a'], [0.6, '#f07a62'], [0.85, '#f4c0a0'], [1, '#f8e2d0']], 'rgba(70,10,20,0.55)', {
+      sheen: 0.42,
+      pattern: () => {
+        // the "flower line": a row of dark blotches along the flank
+        for (const [x, r] of [[44, 9], [26, 10], [8, 9], [-10, 8], [-26, 7], [-40, 5.5], [-50, 4]]) { ctx.fillStyle = 'rgba(30,10,16,0.82)'; ctx.beginPath(); ctx.ellipse(x, -2 + Math.sin(x) * 2, r, r * 0.8, 0.3, 0, TAU); ctx.fill(); }
+        pearls(744, 70, -60, 80, -46, 40);
+        scales(ctx, -60, 86, -50, 44, 9, 'rgba(90,20,30,0.25)', 0.8, 'rgba(255,230,220,0.25)');
+      },
+    });
+    gill(ctx, 66, 34, 32, 'rgba(70,10,20,0.45)', 10);
+    fin(ctx, () => { ctx.beginPath(); ctx.moveTo(60, 16); ctx.quadraticCurveTo(48, 32, 32, 34); ctx.quadraticCurveTo(42, 22, 56, 10); ctx.closePath(); }, 'rgba(255,170,150,0.7)');
+    eye(ctx, 78, -10, 6.4, '#e8302a', { irisEdge: '#7a0e0a' });
+    ctx.fillStyle = '#c8304a'; ctx.beginPath(); ctx.ellipse(90, 16, 6, 4, 0.2, 0, TAU); ctx.fill();
+    line(ctx, [96, 14, 90, 19, 82, 18], 'rgba(70,10,20,0.7)', 1.6);
+  }
+
   const ART = {
     trout, salmon, pomfret, catfish, crucian, tilapia, carp, puffer, grouper, pike, barracuda, koi, flyingfish, penguin, dragonfish,
     bluegill, perch, mudskipper, lanternfish, clownfish, snapper, cod, char: arcticChar, goldfish,
     bass, eel, lionfish, sturgeon, snakehead, angelfish, betta, seahorse, oarfish, swordfish, dolphin,
+    roach, tench, killifish, glassfish, tang, butterflyfish, herring, sculpin, loach, paradise,
+    gar, archerfish, paddlefish, parrotfish, triggerfish, halibut, wolffish, tigerfish,
+    axolotl, anglerfish, mandarin, icefish, flowerhorn,
   };
 
   /* Bounding boxes [x0, x1, y0, y1] used to fit each drawing into a frame. */
@@ -1770,6 +2608,12 @@ const FishArt = (() => {
     sturgeon: [-171, 125, -66, 38], snakehead: [-122, 108, -42, 38], angelfish: [-135, 63, -170, 162],
     betta: [-144, 73, -105, 109], seahorse: [-34, 65, -114, 104], oarfish: [-182, 128, -76, 74],
     swordfish: [-139, 179, -106, 93], dolphin: [-170, 122, -76, 53],
+    roach: [-122, 92, -60, 48], tench: [-116, 96, -52, 50], killifish: [-132, 88, -52, 50], glassfish: [-112, 86, -58, 40],
+    tang: [-102, 80, -44, 40], butterflyfish: [-90, 90, -66, 62], herring: [-124, 98, -40, 40], sculpin: [-126, 100, -48, 58],
+    loach: [-122, 128, -22, 22], paradise: [-132, 82, -64, 68], gar: [-146, 152, -30, 32], archerfish: [-104, 166, -50, 52],
+    paddlefish: [-174, 162, -58, 44], parrotfish: [-126, 102, -50, 50], triggerfish: [-88, 90, -80, 52], halibut: [-114, 92, -62, 60],
+    wolffish: [-128, 102, -42, 42], tigerfish: [-100, 94, -66, 60], axolotl: [-138, 106, -68, 48], anglerfish: [-100, 134, -118, 58],
+    mandarin: [-98, 86, -92, 54], icefish: [-134, 126, -48, 48], flowerhorn: [-108, 98, -68, 72],
   };
 
   /* ---------- aura behind rare+ catches ---------- */

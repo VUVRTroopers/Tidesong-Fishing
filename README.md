@@ -7,7 +7,7 @@ wait for a bite, then hold to keep the gold fish marker inside your green band u
 
 - **No build step, no server, no assets.** Open `index.html` and play. Every fish, rod and lake is
   drawn in code, and every sound is synthesised with the Web Audio API.
-- **35 species** across five waters, from a pond Bluegill to a Bottlenose Dolphin and the elusive
+- **58 species** across five waters, from a pond Bluegill to a Bottlenose Dolphin and the elusive
   Dragon Fish.
 - **WebGL water and lighting** with reflections, ripples, bloom and god rays, plus a 2D fallback for
   devices without WebGL.
@@ -90,27 +90,31 @@ under the aurora.
 
 ## The fish
 
-Thirty-five species: 16 Common, 9 Rare, 7 Epic, 2 Legendary and 1 Extreme. Every water has its own
+Fifty-eight species: 26 Common, 17 Rare, 12 Epic, 2 Legendary and 1 Extreme. Every water has its own
 signature fish, and each species bites most often at its home water, so completing the journal means
 fishing all five. The journal shows a silhouette of every fish you have not caught yet, with the
 water where your odds are best.
 
 | Water | Signature fish |
 | --- | --- |
-| Mistwillow Pond | Bluegill, Perch, Largemouth Bass, Angelfish |
-| Lanternfen Marsh | Mudskipper, Lanternfish, Glowfen Eel, Betta |
-| Coralspire Lagoon | Clownfish, Red Snapper, Lionfish, Golden Seahorse, **Dolphin** (Legendary) |
-| Frostveil Fjord | Cod, Arctic Char, Sturgeon, Oarfish, **Penguin** (Legendary) |
-| Dragonmere Sanctum | Temple Goldfish, Snakehead, Swordfish, **Dragon Fish** (Extreme) |
+| Mistwillow Pond | Bluegill, Perch, Roach, Tench, Largemouth Bass, Longnose Gar, Angelfish, **Axolotl** |
+| Lanternfen Marsh | Mudskipper, Lanternfish, Lyretail Killifish, Ghost Glassfish, Glowfen Eel, Archerfish, Paddlefish, Betta, **Anglerfish** |
+| Coralspire Lagoon | Clownfish, Red Snapper, Blue Tang, Copperband Butterflyfish, Lionfish, Queen Parrotfish, Picasso Triggerfish, Golden Seahorse, Mandarinfish, **Dolphin** (Legendary) |
+| Frostveil Fjord | Cod, Arctic Char, Herring, Sculpin, Sturgeon, Halibut, Wolffish, Oarfish, Crystal Icefish, **Penguin** (Legendary) |
+| Dragonmere Sanctum | Temple Goldfish, Dojo Loach, Paradise Fish, Snakehead, Siamese Tigerfish, Swordfish, Flowerhorn, **Dragon Fish** (Extreme) |
+
+Most signature fish are found only in their home water. You can fish your way through the five waters
+quickly, but every one of them keeps something you will have missed, so the journal keeps calling you
+back. On the map, each water's card lists its fish, with the ones you have not caught yet shown as "???".
 
 <details>
-<summary>All 35 species by rarity</summary>
+<summary>All 58 species by rarity</summary>
 
 | Rarity | Species |
 | --- | --- |
-| Common | Trout, Salmon, Pomfret, Catfish, Crucian, Tilapia, Carp, Bluegill, Perch, Mudskipper, Lanternfish, Clownfish, Red Snapper, Cod, Arctic Char, Goldfish |
-| Rare | Pufferfish, Grouper, Pike, Barracuda, Bass, Eel, Lionfish, Sturgeon, Snakehead |
-| Epic | Koi, Flying Fish (Sting Ray), Angelfish, Betta, Seahorse, Oarfish, Swordfish |
+| Common | Trout, Salmon, Pomfret, Catfish, Crucian, Tilapia, Carp, Bluegill, Perch, Roach, Tench, Mudskipper, Lanternfish, Killifish (Lyretail), Glassfish (Ghost), Clownfish, Red Snapper, Blue Tang, Butterflyfish (Copperband), Cod, Arctic Char, Herring, Sculpin, Goldfish, Loach (Dojo), Paradise Fish |
+| Rare | Pufferfish, Grouper, Pike, Barracuda, Bass, Gar (Longnose), Eel, Archerfish, Paddlefish, Lionfish, Parrotfish (Queen), Triggerfish (Picasso), Sturgeon, Halibut, Wolffish, Snakehead, Tigerfish (Siamese) |
+| Epic | Koi, Flying Fish (Sting Ray), Angelfish, Axolotl, Betta, Anglerfish, Seahorse, Mandarinfish, Oarfish, Icefish (Crystal), Swordfish, Flowerhorn |
 | Legendary | Penguin (Emperor), Dolphin (Bottlenose) |
 | Extreme | Dragon Fish (Arowana) |
 
@@ -119,7 +123,7 @@ water where your odds are best.
 Detail grows with rarity. Commons are clean and simple, rares gain fin rays and patterning, epics
 gain flowing animated fins, and the Legendary and Extreme catches get the full treatment.
 
-![The newer species, lit, with their rarity auras](docs/screenshots/new-fish.jpg)
+![The 23 newest species, lit, with their rarity auras](docs/screenshots/new-fish.jpg)
 
 ## The Driftwood Market
 
@@ -275,7 +279,7 @@ js/
   data.js           Rarities, species, the five waters and their odds, reel tuning, XP curve
   audio.js          Synthesised sound: instruments, water, creatures, spaces, ambience and the fight
   voices.js         The gear's own voices: each line's cast, each bobber's landing, each rod's reel
-  fish-art.js       Procedural drawings of all 35 species and their rarity auras
+  fish-art.js       Procedural drawings of all 58 species and their rarity auras
   fish-gl.js        WebGL lighting engine for painted sprites (fish and bobbers)
   flourish.js       Rare per-water moments (frog, gull, dolphins, owl, whale, dragon and more)
   scenes.js         The five painted, animated waters and each water's light

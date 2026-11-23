@@ -236,6 +236,19 @@ const FishGL = (() => {
     seahorse: { scale: 0.0, bend: 0.0, metal: 0.45, detail: 1.9 }, oarfish: { scale: 0.0, bend: 0.0, metal: 0.7, irid: 0.3 },
     swordfish: { scale: 0.0, metal: 0.55, irid: 0.22, bend: 0.006 },
     dolphin: { scale: 0.0, bend: 0.0, gloss: 0.85, shine: 42, metal: 0.05, irid: 0.04, back: 0.2, detail: 1.0, norm: 1.5 },
+    roach: { irid: 0.22, metal: 0.5, scale: 0.35 }, tench: { scale: 0.0, gloss: 0.66, shine: 26, detail: 1.2 },
+    killifish: { irid: 0.24, metal: 0.3, scale: 0.2 }, glassfish: { scale: 0.0, gloss: 0.9, shine: 50, irid: 0.3, metal: 0.2, back: 1.2, detail: 0.8 },
+    tang: { scale: 0.0, gloss: 0.6, detail: 1.1 }, butterflyfish: { scale: 0.1, gloss: 0.6, detail: 1.1 },
+    herring: { irid: 0.34, metal: 0.62, scale: 0.3 }, sculpin: { scale: 0.0, gloss: 0.4, detail: 1.6 },
+    loach: { scale: 0.0, bend: 0.0, gloss: 0.72, shine: 28, detail: 1.2 }, paradise: { irid: 0.2, metal: 0.3, scale: 0.2 },
+    gar: { scale: 0.0, detail: 1.8, metal: 0.25 }, archerfish: { metal: 0.45, irid: 0.14, scale: 0.3 },
+    paddlefish: { scale: 0.0, gloss: 0.62, detail: 1.1 }, parrotfish: { scale: 0.2, irid: 0.16 },
+    triggerfish: { scale: 0.0, detail: 1.2 }, halibut: { scale: 0.0, bend: 0.0, gloss: 0.5, detail: 1.5 },
+    wolffish: { scale: 0.0, gloss: 0.55, detail: 1.3 }, tigerfish: { scale: 0.3, metal: 0.4 },
+    axolotl: { scale: 0.0, bend: 0.0, gloss: 0.7, shine: 26, metal: 0.0, irid: 0.04, back: 0.9, detail: 1.0 },
+    anglerfish: { scale: 0.0, bend: 0.0, gloss: 0.6, shine: 30, metal: 0.1, detail: 1.3 },
+    mandarin: { scale: 0.0, irid: 0.24, gloss: 0.7, detail: 1.2 }, icefish: { scale: 0.0, irid: 0.3, metal: 0.3, back: 1.1, detail: 1.0 },
+    flowerhorn: { scale: 0.2, irid: 0.2, metal: 0.35 },
   };
   const mat = id => Object.assign({}, BASE[SPECIES[id].rarity], OVR[id] || {});
 
