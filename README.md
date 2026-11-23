@@ -185,6 +185,10 @@ The sky and water render in WebGL behind a 2D canvas:
   from casts, bites and splashes, and a glitter path under the sun or moon.
 - **Light:** bloom on bright light, god rays, horizon haze, a vignette and dithering. Foliage
   sways in the wind.
+- **The aurora** over Frostveil is drawn by the sky shader. Curtains of fine, shimmering rays hang
+  from bright lower edges, fold across the sky and burn brighter where they fold. Each runs from
+  green to violet, with slow pulses of light travelling along it. It blooms, mirrors in the water
+  and casts a faint green light on the ice and the haze.
 - **Fish:** each painted fish is lit as a three-dimensional material, with volume, specular
   highlights, rim light, iridescence, scale relief, caustics and a swimming wave.
 

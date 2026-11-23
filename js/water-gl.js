@@ -1,6 +1,6 @@
 /* Tidesong — WebGL sky and water renderer.
    Draws behind the 2D canvas. Per frame:
-   1. scene pass: analytic dithered sky + painted scenery + live sky layer, and perspective water with
+   1. scene pass: analytic dithered sky (with Frostveil's aurora) + painted scenery + live sky layer, and perspective water with
       multi-frequency waves, mirrored reflections that distort more toward the foreground, ripple rings,
       a sun/moon glitter path, sky glints and horizon haze. Wind sways masked foliage.
    2. bloom: bright pass at 1/4 resolution, blurred at 1/4 and 1/8.
@@ -40,8 +40,60 @@ uniform vec4 uRip[${MAX_RIP}];
 uniform vec4 uBob;
 uniform vec4 uFish;   // x, y (uv), length (in screen heights), heading (radians, on the water plane; depth axis squashed by 0.6)
 uniform vec4 uFishB;  // opacity, tail phase, depth (0 shallow, 1 deep), tail swing
+uniform float uAurora; // strength of the aurora (Frostveil), 0 elsewhere
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+float h1(float n) { return fract(sin(n) * 43758.5453); }
+float vn(float x) { float i = floor(x), f = fract(x); return mix(h1(i * 17.13), h1(i * 17.13 + 17.13), f * f * (3.0 - 2.0 * f)); }
+
+/* How brightly the aurora burns above each part of the horizon (some stretches of curtain are faint). */
+float auAlong(float x, float fi) { return smoothstep(0.15, 0.7, vn(x * 1.1 + uTime * 0.035 + fi * 6.5)); }
+float auAmb(float uvx) {
+  float x = uvx * uAspect;
+  return (auAlong(x, 0.0) * 0.55 + auAlong(x, 1.0) * 0.45 + auAlong(x, 2.0) * 0.35) * uAurora;
+}
+
+/* The aurora, as emitted light added to the sky (so the bloom catches its brightest folds): three curtains
+   hanging from bright lower edges that fold slowly across the sky, woven from fine vertical rays that
+   shimmer and drift, green at the base turning violet higher up, with a pink fringe along the edge and
+   slow pulses of light travelling along them. */
+vec3 aurora(vec2 uv) {
+  vec3 acc = vec3(0.0);
+  if (uAurora <= 0.0) return acc;
+  float y = uv.y / uHor, x = uv.x * uAspect, t = uTime;
+  for (int i = 0; i < 3; i++) {
+    float fi = float(i), ph = fi * 2.17;
+    // each curtain sweeps across the sky in a long fold, with smaller folds riding on it
+    float b = 0.62 - fi * 0.2, A1 = 0.085 - fi * 0.01, f1 = 3.1 + fi * 0.55, f2 = 6.7 - fi * 0.9;
+    float a1 = x * f1 + t * (0.07 + fi * 0.015) + ph, a2 = x * f2 - t * 0.11 + ph * 1.7, a3 = x * 15.0 + t * 0.25 + ph;
+    // a slow tilt across the whole sky too, so the curtains are never parallel
+    float base = b + (x - 0.9) * (0.06 - fi * 0.05) * sin(t * 0.02 + ph) + A1 * sin(a1) + 0.03 * sin(a2) + 0.01 * sin(a3);
+    float slope = A1 * f1 * cos(a1) + 0.03 * f2 * cos(a2) + 0.15 * cos(a3);
+    float h = 0.3 - fi * 0.04 + 0.06 * sin(x * 2.6 + t * 0.11 + ph);
+    float v = (base - y) / h;   // 0 at the curtain's lower edge, 1 at its top
+    if (v < -0.7 || v > 2.2) continue;
+    float along = auAlong(x, fi), str = 0.62 - fi * 0.13;
+    vec3 low = mix(vec3(0.3, 1.0, 0.58), vec3(0.25, 0.85, 1.0), fi * 0.35);
+    vec3 high = mix(vec3(0.6, 0.38, 1.0), vec3(0.95, 0.35, 0.82), fi * 0.5);
+    vec3 col = mix(low, high, smoothstep(0.1, 0.85, v + fi * 0.25));
+    // a soft glow around the whole curtain, so the sky fills with colour behind the rays
+    acc += col * exp(-pow((v - 0.35) / 0.8, 2.0)) * 0.13 * along * str;
+    if (v < -0.2 || v > 1.6) continue;
+    float edge = smoothstep(-0.05, 0.04, v);
+    float fade = exp(-v * 1.7) * smoothstep(1.6, 0.6, v);
+    float rx = x * 46.0 + v * 1.8 + ph * 9.0;
+    float rays = 0.45 * vn(rx + t * 0.35) + 0.35 * vn(rx * 2.3 - t * 0.6) + 0.2 * vn(rx * 5.1 + t * 1.1);
+    rays = 0.25 + 1.35 * pow(rays, 2.2);
+    // where the curtain folds it is seen edge-on, and burns brighter
+    float fold = 1.0 + 1.2 * smoothstep(0.15, 0.4, abs(slope));
+    float pulse = 1.0 + 0.8 * exp(-pow((fract(x * 0.22 - t * 0.018 + fi * 0.37) - 0.5) / 0.09, 2.0));
+    float I = edge * fade * rays * along * pulse * fold * str;
+    col += vec3(1.0, 0.35, 0.6) * exp(-pow(v / 0.05, 2.0)) * 0.35 * (1.0 - fi * 0.4);
+    acc += col * I;
+  }
+  return acc * uAurora * smoothstep(1.0, 0.88, y);
+}
+const vec3 AU_LIGHT = vec3(0.3, 0.95, 0.65);
 
 vec3 seg(vec3 c, vec3 to, float a, float b, float y) { return mix(c, to, clamp((y - a) / max(b - a, 1e-4), 0.0, 1.0)); }
 vec3 skyGrad(float y) {
@@ -57,8 +109,10 @@ vec3 skyAt(vec2 uv) {
   vec3 c = skyGrad(uv.y / uHor);
   float d = length((uv - uLight) * vec2(uAspect, 1.0));
   c = mix(c, uLightCol, clamp(uHaloA * pow(max(0.0, 1.0 - d / uHaloR), 2.4), 0.0, 1.0));
+  c += aurora(uv);
   vec4 bg = texture2D(uBg, uv);
-  c = c * (1.0 - bg.a) + bg.rgb;
+  // the scenery (mountains, ice) catches a faint green light from the aurora above it
+  c = c * (1.0 - bg.a) + bg.rgb + bg.a * AU_LIGHT * auAmb(uv.x) * 0.07;
   vec4 dy = texture2D(uDyn, vec2(uv.x, clamp(uv.y / uDynH, 0.0, 0.999)));
   return c * (1.0 - dy.a) + dy.rgb;
 }
@@ -88,7 +142,7 @@ void main() {
   float dith = (hash(gl_FragCoord.xy + fract(uTime * 7.0) * 61.0) - 0.5) / 255.0;
   if (uv.y < uHor) {
     col = skyAt(uv);
-    col = mix(col, uHazeCol, exp(-(uHor - uv.y) / 0.028) * uHaze);
+    col = mix(col, uHazeCol + AU_LIGHT * auAmb(uv.x) * 0.06, exp(-(uHor - uv.y) / 0.028) * uHaze);
   } else {
     float d = (uv.y - uHor) / (1.0 - uHor);
     float z = 1.0 / (d + 0.035);
@@ -163,8 +217,10 @@ void main() {
     col *= 1.0 - fm * 0.34;
     // on dark water the fish shows as a faint sheen on its back rather than a shadow
     col += mix(uLightCol, uW0, 0.5) * (spine * 0.1 + fm * 0.05 * darkWater) * (0.4 + 0.6 * darkWater);
+    // a faint wash of aurora light across the water, strongest toward the horizon
+    col += AU_LIGHT * auAmb(uv.x) * 0.035 * (1.0 - d);
     col *= 1.0 - d * 0.12;
-    col = mix(col, uHazeCol, exp(-(uv.y - uHor) / 0.022) * uHaze * 0.85);
+    col = mix(col, uHazeCol + AU_LIGHT * auAmb(uv.x) * 0.06, exp(-(uv.y - uHor) / 0.022) * uHaze * 0.85);
   }
   gl_FragColor = vec4(col + dith, 1.0);
 }`;
@@ -377,6 +433,7 @@ void main() {
       gl.uniform4fv(pr.u('uBob'), o.bob || [0, 0, 0, 0]);
       gl.uniform4fv(pr.u('uFish'), o.fish || [0, 0, 0.1, 0]);
       gl.uniform4fv(pr.u('uFishB'), o.fishB || [0, 0, 0, 0]);
+      gl.uniform1f(pr.u('uAurora'), m.aurora || 0);
     });
     pass(P.bright, fb.bright, pr => {
       bind(pr, 0, fb.scene.t, 'uTex');

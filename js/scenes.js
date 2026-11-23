@@ -24,6 +24,12 @@ const Scenes = (() => {
     const n = parseInt(hex.slice(1), 16);
     return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
   }
+  const clamp01 = v => Math.max(0, Math.min(1, v));
+  const smooth = v => v * v * (3 - 2 * v);
+  function mixHex(a, b, k) {
+    const A = parseInt(a.slice(1), 16), B = parseInt(b.slice(1), 16), m = (s) => Math.round(((A >> s) & 255) + (((B >> s) & 255) - ((A >> s) & 255)) * k);
+    return `rgb(${m(16)},${m(8)},${m(0)})`;
+  }
   /* Smooth 1-D value noise in [0,1]. */
   function noise1(seed, n) {
     const r = seeded(seed), pts = [];
@@ -394,7 +400,7 @@ const Scenes = (() => {
       for (let i = 0; i < n(90); i++) P.list.push({ k: 'snow', x: rnd() * L.w, y: rnd() * L.h, r: 0.7 + rnd() * 2, vy: 14 + rnd() * 30, ph: rnd() * TAU });
       for (let i = 0; i < 5; i++) P.fixed.push({ k: 'floe', fx: rnd(), fy: 0.05 + rnd() * 0.45, s: 0.6 + rnd() * 0.9, vx: (rnd() - 0.5) * 0.004, ph: rnd() * TAU });
     } else if (id === 'dragonmere') {
-      for (let i = 0; i < n(14); i++) P.list.push({ k: 'lantern', x: rnd() * L.w, y: rnd() * L.horizon, vy: 5 + rnd() * 9, s: 0.5 + rnd() * 0.8, ph: rnd() * TAU });
+      for (let i = 0; i < n(14); i++) P.list.push({ k: 'lantern', x: rnd() * L.w, y: rnd() * L.horizon, vy: 5 + rnd() * 9, s: 0.5 + rnd() * 0.8, ph: rnd() * TAU, age: 99 });
       for (let i = 0; i < n(18); i++) P.list.push({ k: 'petal', x: rnd() * L.w, y: rnd() * L.h, vy: 10 + rnd() * 14, r: 2 + rnd() * 2.5, ph: rnd() * TAU });
       for (let i = 0; i < 7; i++) P.fixed.push({ k: 'float', fx: rnd(), fy: 0.06 + rnd() * 0.6, s: 0.6 + rnd() * 0.7, ph: rnd() * TAU });
     }
@@ -443,8 +449,9 @@ const Scenes = (() => {
           if (p.y > L.h + 5) { p.y = -5; p.x = Math.random() * L.w; }
           break;
         case 'lantern':
-          p.y -= p.vy * dt; p.x += Math.sin(t * 0.5 + p.ph) * 4 * dt;
-          if (p.y < -30) { p.y = L.horizon + 10; p.x = Math.random() * L.w; }
+          p.y -= p.vy * dt; p.x += Math.sin(t * 0.5 + p.ph) * 4 * dt; p.age += dt;
+          // a new lantern starts just under the far water, so it rises out of the lake rather than appearing
+          if (p.y < -30) { p.y = L.horizon + 9 * p.s * (L.m / 600) + 2; p.x = p.x0 = Math.random() * L.w; p.age = 0; }
           break;
         case 'petal':
           p.y += p.vy * dt; p.x += (Math.sin(t * 1.1 + p.ph) * 20 + 10) * dt;
@@ -503,7 +510,8 @@ const Scenes = (() => {
         ctx.quadraticCurveTo(p.x + s * 0.4, p.y - s * 0.5 - f * 0.3, p.x + s, p.y - f); ctx.stroke();
       }
     } else if (id === 'frostveil') {
-      aurora(ctx, L, t);
+      // with WebGL the aurora is drawn in the sky shader instead, lit and bloomed
+      if (!glSky) aurora(ctx, L, t);
       const rnd = seeded(5);
       for (let i = 0; i < 14; i++) {
         const x = rnd() * L.w, y = rnd() * L.horizon * 0.7, tw = Math.max(0, Math.sin(t * (0.8 + rnd()) + i * 2));
@@ -517,15 +525,20 @@ const Scenes = (() => {
       }
     } else if (id === 'dragonmere') {
       for (const p of P.list) {
-        if (p.k !== 'lantern' || p.y > L.horizon + 10) continue;
+        if (p.k !== 'lantern') continue;
         const s = p.s * (L.m / 600);
+        if (p.y - 8 * s > L.horizon) continue;
         const fade = Math.min(1, Math.max(0, p.y / (L.horizon * 0.4)));
         const flick = 0.85 + 0.15 * Math.sin(t * 7 + p.ph * 3);
-        glow(ctx, '255,160,80', p.x, p.y, 34 * s, 0.42 * fade * flick);
+        // rising out of the lake: the part still under the water is hidden by it, and the flame kindles
+        // and its halo grows only as the lantern clears the surface
+        const up = smooth(clamp01((L.horizon - (p.y - 8 * s)) / (16 * s)));
+        const lit = up * smooth(clamp01((p.age - 0.3) / 2.6)) * flick;
+        glow(ctx, '255,160,80', p.x, p.y, 34 * s * (0.55 + 0.45 * up), 0.42 * fade * lit);
         ctx.globalAlpha = fade;
-        ctx.fillStyle = '#ffd896';
+        ctx.fillStyle = mixHex('#7a4a3a', '#ffd896', 0.25 + 0.75 * lit / flick);
         ctx.beginPath(); ctx.moveTo(p.x - 6 * s, p.y - 8 * s); ctx.lineTo(p.x + 6 * s, p.y - 8 * s); ctx.lineTo(p.x + 4.5 * s, p.y + 8 * s); ctx.lineTo(p.x - 4.5 * s, p.y + 8 * s); ctx.closePath(); ctx.fill();
-        ctx.fillStyle = 'rgba(255,250,220,0.85)';
+        ctx.fillStyle = `rgba(255,250,220,${0.85 * lit})`;
         ctx.beginPath(); ctx.ellipse(p.x, p.y + 2 * s, 2.6 * s, 4.5 * s, 0, 0, TAU); ctx.fill();
         ctx.fillStyle = '#ff8a4a'; ctx.fillRect(p.x - 4.5 * s, p.y + 5 * s, 9 * s, 3 * s);
         ctx.globalAlpha = 1;
@@ -535,7 +548,7 @@ const Scenes = (() => {
   }
 
   /* The live sky layer for the GPU renderer, drawn into its own canvas (sky region only). */
-  let dyn = null, dynCtx = null;
+  let dyn = null, dynCtx = null, glSky = false;
   function renderDyn(L, t, scale) {
     const w = Math.max(1, Math.ceil(L.w * scale)), h = Math.max(1, Math.ceil(L.horizon * scale));
     if (!dyn) { dyn = document.createElement('canvas'); dynCtx = dyn.getContext('2d'); }
@@ -543,7 +556,9 @@ const Scenes = (() => {
     dynCtx.setTransform(1, 0, 0, 1, 0, 0);
     dynCtx.clearRect(0, 0, w, h);
     dynCtx.setTransform(scale, 0, 0, scale, 0, 0);
+    glSky = true;
     drawSky(dynCtx, L, t);
+    glSky = false;
     return dyn;
   }
 
@@ -561,6 +576,7 @@ const Scenes = (() => {
       lightCol: P.light.rgb.split(',').map(v => v / 255),
       haloA: P.light.haloA, haloR: (P.light.r * L.m * P.light.halo) / L.h,
       water: [hex(P.water[0][1]), hex(P.water[1][1]), hex(P.water[P.water.length - 1][1])],
+      aurora: cur.id === 'frostveil' ? 1 : 0,
       refl: P.refl, glint: P.glint, haze: P.gl.haze, hazeCol: hex(P.sky[P.sky.length - 1][1]), sway: P.gl.sway,
       bloomThr: P.gl.thr, bloom1: P.gl.b1, bloom2: P.gl.b2, rays: P.gl.rays, vignette: P.gl.vig,
     };
@@ -643,6 +659,24 @@ const Scenes = (() => {
   /* Things floating on the water (drawn before the bobber/line). */
   function drawSurface(ctx, L, t) {
     const id = cur.id, P = cur.parts, wh = L.h - L.horizon;
+    if (id === 'dragonmere') {
+      for (const p of P.list) {
+        if (p.k !== 'lantern' || p.age > 4.5) continue;
+        const s = p.s * (L.m / 600), y = L.horizon + 1.5;
+        const up = smooth(clamp01((L.horizon - (p.y - 8 * s)) / (16 * s)));
+        // the warm light it casts on the water just beneath it, fading as it lifts away
+        glow(ctx, '255,160,80', p.x, y + 1, 16 * s, 0.22 * up * smooth(clamp01((p.age - 0.3) / 2.6)) * (1 - clamp01((p.age - 2.2) / 2.3)));
+        // rings spreading where it broke the surface
+        ctx.lineWidth = 1;
+        for (const lag of [0, 0.9, 1.8]) {
+          const a = p.age - lag;
+          if (a <= 0 || a > 2.7) continue;
+          const k = a / 2.7, rx = (3 + 26 * (1 - Math.pow(1 - k, 2))) * s;
+          ctx.strokeStyle = `rgba(255,205,160,${0.34 * Math.pow(1 - k, 1.6) * Math.min(1, a * 4)})`;
+          ctx.beginPath(); ctx.ellipse(p.x0, y, rx, rx * 0.14, 0, 0, TAU); ctx.stroke();
+        }
+      }
+    }
     for (const f of P.fixed) {
       const y = L.horizon + Math.pow(f.fy, 1.25) * wh;
       const persp = 0.35 + (y - L.horizon) / wh;
