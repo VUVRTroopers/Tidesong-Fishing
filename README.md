@@ -247,6 +247,10 @@ built to feel natural rather than electronic:
 they never stutter), coasting down when you let go and clicking faster as drag when the fish runs; a harp
   climbing the pentatonic scale as the ring fills; and a soft heartbeat when the fish is about to
   escape.
+- **Gear with a voice of its own:** almost every rod, bobber and line sounds different, and the
+  market never says how. A line sings as it flies out on the cast, a bobber announces itself as it
+  lands, and a rod's reel turns with its own ratchet. Equip something new and listen. The starter
+  kit keeps the plain sounds.
 
 | Water | Soundscape |
 | --- | --- |
@@ -266,6 +270,7 @@ index.html          Page markup and all styling (HUD, reel slider and ring, pane
 js/
   data.js           Rarities, species, the five waters and their odds, reel tuning, XP curve
   audio.js          Synthesised sound: instruments, water, creatures, spaces, ambience and the fight
+  voices.js         The gear's own voices: each line's cast, each bobber's landing, each rod's reel
   fish-art.js       Procedural drawings of all 35 species and their rarity auras
   fish-gl.js        WebGL lighting engine for painted sprites (fish and bobbers)
   flourish.js       Rare per-water moments (frog, gull, dolphins, owl, whale, dragon and more)

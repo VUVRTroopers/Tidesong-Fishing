@@ -272,7 +272,7 @@
       to: { x: clamp(L.bob.x + rand(-0.07, 0.07) * W, W * 0.3, W * 0.9), y: L.bob.y + rand(-0.05, 0.06) * wh },
       launched: false, lt: 0, k: 0, from: null,
     };
-    Sound.play('cast');
+    Sound.play('cast', save.equip.line);
     setPrompt('');
     ui.prompt.classList.remove('breathe');
     if (save.net.length >= netCap() && G.t - G.fullWarnAt > 25) {
@@ -286,7 +286,7 @@
     G.bob.fx = to.x / W;
     G.bob.fy = (to.y - L.horizon) / (H - L.horizon);
     G.bob.nib = 0;
-    Sound.play('plop');
+    Sound.play('plop', 1, save.equip.bobber);
     ripple(to.x, to.y, 3, 1.2);
     for (let i = 0; i < 6; i++) G.drops.push({ x: to.x, y: to.y, vx: rand(-60, 60), vy: -rand(80, 170), t: 0, floor: to.y + 2, r: rand(1, 2) });
     setPhase('waiting');
@@ -345,7 +345,7 @@
     ui.reel.classList.toggle('perk-meter', P.heir.bobber || P.heir.line);
     ui.reel.hidden = false;
     updateReelUI();
-    Sound.startReel();
+    Sound.startReel(save.equip.rod);
   }
 
   function chooseMove(f, D) {

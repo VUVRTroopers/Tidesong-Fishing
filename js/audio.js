@@ -430,6 +430,23 @@ const Sound = (() => {
     s.start(t0); s.stop(at + 0.1);
   }
 
+  /* ================= Gear voices =================
+     Rods, bobbers and lines can carry their own voice: the line's as it flies out, the bobber's as it lands,
+     the rod's as its reel turns. js/voices.js builds them from the kit below. Anything without one keeps
+     the plain cast, plop and ratchet. */
+  const GV = { rods: {}, bobbers: {}, lines: {} };
+  const KIT = {
+    osc, noise, bubble, pluck, bell, wood, croak, splashFx, ksBuffer, filter, gainNode, panNode, route, env, endOf,
+    midi, rand, pick, clamp, BELL, GLASS, TUBE,
+    get ctx() { return ctx; }, get sfx() { return sfx; }, get music() { return music; }, get verbIn() { return verbIn; },
+    get pinkBuf() { return pinkBuf; }, get brownBuf() { return brownBuf; }, get whiteBuf() { return whiteBuf; },
+    get reedWave() { return reedWave; }, get warmWave() { return warmWave; }, get pulseCurve() { return pulseCurve; }, get softPulse() { return softPulse; },
+  };
+  function defineVoices(make) {
+    const v = make(KIT);
+    for (const k in GV) Object.assign(GV[k], v[k] || {});
+  }
+
   /* ================= Game sounds ================= */
   const S = {
     click() { wood(midi(84), { gain: 0.022, dur: 0.12, wet: 0.08 }); },
@@ -439,11 +456,13 @@ const Sound = (() => {
       pluck(midi(86), { t: 0.07, gain: 0.04, dur: 1.2, wet: 0.22 });
     },
 
-    cast() {
+    cast(line) {
       // the rod swishing through the air
       noise({ type: 'bandpass', f: 380, f1: 1700, fTime: 0.2, q: 1.1, a: 0.07, d: 0.3, gain: 0.2, pan: -0.15, panTo: 0.35, panTime: 0.35, wet: 0.12 });
-      // line whirring off the spool, slowing as the float flies
-      noise({ t: 0.16, type: 'bandpass', f: 2400, f1: 1200, fTime: 0.6, q: 1.8, a: 0.04, hold: 0.15, d: 0.45, gain: 0.04, pan: 0.2, wet: 0.08, lp2: 4500 });
+      // line whirring off the spool, slowing as the float flies; a line with its own voice sings over it
+      const v = GV.lines[line];
+      noise({ t: 0.16, type: 'bandpass', f: 2400, f1: 1200, fTime: 0.6, q: 1.8, a: 0.04, hold: 0.15, d: 0.45, gain: 0.04 * (v ? v.whir ?? 0.5 : 1), pan: 0.2, wet: 0.08, lp2: 4500 });
+      if (v) v.play();
       let t = 0.18;
       for (let i = 0; i < 16; i++) {
         noise({ t: t + rand(-0.003, 0.003), kind: 'white', type: 'bandpass', f: rand(2900, 3400), q: 5, a: 0.0008, d: 0.016, gain: 0.07 * (1 - i / 20), pan: 0.2, wet: 0.05, lp2: 6000 });
@@ -451,8 +470,12 @@ const Sound = (() => {
       }
     },
 
-    plop(size = 1) {
-      const s = clamp(size, 0.5, 1.4);
+    plop(size = 1, bobber) {
+      // a bobber with its own voice adds it to the splash (and may land softer or heavier)
+      const v = GV.bobbers[bobber];
+      if (v) { v.play(); size *= v.plop ?? 1; }
+      if (size <= 0.01) return;
+      const s = clamp(size, 0.3, 1.4);
       bubble(300 / s, { dur: 0.1, rise: 2.6, gain: 0.26 * s, wet: 0.25 });
       bubble(rand(900, 1300) / s, { t: 0.05, dur: 0.04, rise: 2, gain: 0.035 * s, pan: rand(-0.3, 0.3) });
       bubble(rand(1400, 1900) / s, { t: 0.1, dur: 0.03, rise: 1.8, gain: 0.02 * s, pan: rand(-0.3, 0.3) });
@@ -645,7 +668,7 @@ const Sound = (() => {
     src.start(at);
   }
 
-  function startReel() {
+  function startReel(rod) {
     if (!ctx) return;
     stopReel();
     const t0 = ctx.currentTime;
@@ -678,7 +701,13 @@ const Sound = (() => {
     o1.connect(dg); o2.connect(lp); lp.connect(dg); dg.connect(sfx);
     const ds = gainNode(0.4); dg.connect(ds); ds.connect(verbIn);
     o1.start(t0); o2.start(t0);
-    reel = { churn, churnP, strain, whir, clickBus, o1, o2, lp, dg, step: -1, beatT: 0, rate: 0, nextClick: 0 };
+    // the rod's own voice, if it has one, replaces the ratchet: its own bus, no high-pass, so low voices
+    // (a purr, a muted guitar string) come through
+    const vbus = gainNode(1), vP = panNode(0.22), vs = gainNode(0.1);
+    vbus.connect(vP); vP.connect(sfx); vP.connect(vs); vs.connect(verbIn);
+    reel = { churn, churnP, strain, whir, clickBus, o1, o2, lp, dg, step: -1, beatT: 0, rate: 0, nextClick: 0,
+      voice: GV.rods[rod] || null, vbus, vsrc: [], v: {}, n: 0 };
+    if (reel.voice && reel.voice.start) reel.voice.start(reel, t0);
   }
 
   function updateReel(dt, s) {
@@ -699,14 +728,16 @@ const Sound = (() => {
     const drag = !s.holding && !s.inBand && sp > 0.55;
     const target = s.holding ? 26 : drag ? 36 : 0;
     r.rate += (target - r.rate) * (1 - Math.exp(-dt / (target > r.rate ? 0.06 : 0.22)));
+    const V = r.voice;
     if (r.rate > 3.5) {
-      const level = s.holding ? 1 : drag ? 0.45 : Math.min(1, r.rate / 26) * 0.85;
+      const level = s.holding ? 1 : drag ? 0.45 : Math.min(1, r.rate / 26) * 0.85, jit = V && V.jitter || 0.05;
       if (r.nextClick < now) r.nextClick = now + 0.004;
       while (r.nextClick < now + 0.09) {
-        clickAt(r, r.nextClick, level);
-        r.nextClick += (1 / r.rate) * rand(0.95, 1.05);
+        if (V) { if (V.tick) V.tick(r, r.nextClick, level, r.n++, s); } else clickAt(r, r.nextClick, level);
+        r.nextClick += (1 / r.rate) * rand(1 - jit, 1 + jit);
       }
     } else r.nextClick = 0;
+    if (V && V.update) V.update(r, s, dt, now);
     // a harp climbs the pentatonic scale as the ring fills
     const step = Math.floor(s.progress / 0.07);
     if (s.inBand && step > r.step) {
@@ -729,8 +760,8 @@ const Sound = (() => {
     if (!reel || !ctx) { reel = null; return; }
     const now = ctx.currentTime, r = reel;
     reel = null;
-    for (const g of [r.churn.g, r.strain.g, r.whir.g, r.dg, r.clickBus]) g.gain.setTargetAtTime(0, now, 0.12);
-    setTimeout(() => { for (const x of [r.churn.src, r.strain.src, r.whir.src, r.o1, r.o2]) { try { x.stop(); } catch (e) {} } }, 900);
+    for (const g of [r.churn.g, r.strain.g, r.whir.g, r.dg, r.clickBus, r.vbus]) g.gain.setTargetAtTime(0, now, 0.12);
+    setTimeout(() => { for (const x of [r.churn.src, r.strain.src, r.whir.src, r.o1, r.o2, ...r.vsrc]) { try { x.stop(); } catch (e) {} } }, 900);
   }
 
   /* ================= Ambience ================= */
@@ -1046,10 +1077,10 @@ const Sound = (() => {
 
   return {
     init, play, startAmbient, stopAmbient, startReel, updateReel, stopReel,
-    setEnabled, suspend, resume,
+    setEnabled, suspend, resume, defineVoices,
     get enabled() { return enabled; },
     get ready() { return !!ctx; },
     /* for offline rendering in tests */
-    _test: { S, EV, LAKES, tick, lap, pluck, bell, reel: () => reel, offline(on) { offline = on; if (on && ticker) { clearInterval(ticker); ticker = null; } } },
+    _test: { S, EV, LAKES, GV, tick, lap, pluck, bell, reel: () => reel, offline(on) { offline = on; if (on && ticker) { clearInterval(ticker); ticker = null; } } },
   };
 })();
