@@ -199,8 +199,8 @@ built to feel natural rather than electronic:
   twenty seconds or so, one voice at a time.
 - **The fight:** you hear the water churned up by the fish, panned to where it pulls; the line
   humming under strain when the fish is outside the band; the reel's ratchet clicking in an even
-"trrrr" as you wind (generated at audio rate and locked to the spool, so it never stutters), coasting
-down when you let go and buzzing as drag when the fish runs; a harp
+"trrrr" as you wind (real metallic clicks scheduled ahead on the audio clock at the spool's rate, so
+they never stutter), coasting down when you let go and clicking faster as drag when the fish runs; a harp
   climbing the pentatonic scale as the ring fills; and a soft heartbeat when the fish is about to
   escape.
 

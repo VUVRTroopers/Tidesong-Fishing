@@ -18,7 +18,7 @@
 const Sound = (() => {
   let ctx = null, enabled = true;
   let master, sfx, amb, music, verbIn, verbHP;
-  let whiteBuf, pinkBuf, brownBuf, warmWave, reedWave, pulseCurve, softPulse, gateCurve, clickCurve;
+  let whiteBuf, pinkBuf, brownBuf, warmWave, reedWave, pulseCurve, softPulse, gateCurve;
   let ambient = null, ambientWanted = null, reel = null, ticker = null, offline = false;
   const space = { slots: [], active: 0, id: null };
   const MASTER = 0.92;
@@ -79,7 +79,6 @@ const Sound = (() => {
     pulseCurve = shapeCurve(x => Math.pow(0.5 + 0.5 * x, 3));
     softPulse = shapeCurve(x => Math.pow(0.5 + 0.5 * x, 1.6));
     gateCurve = shapeCurve(x => { const v = clamp((x - 0.35) / 0.3, 0, 1); return v * v * (3 - 2 * v); });
-    clickCurve = shapeCurve(x => Math.pow(Math.max(0, x), 60));
 
     setSpace('default', 0);
     if (ctx.state === 'suspended') ctx.resume().catch(() => {});
@@ -611,6 +610,40 @@ const Sound = (() => {
 
   /* ================= Reel fight ================= */
   const REEL_SCALE = [0, 2, 4, 7, 9];
+  const CLICK = 0.05;
+  let clickBufs = null;
+
+  /* A few ratchet clicks, made once: a brief strike that rings the small metal modes of a pawl and
+     gear and dies within a few milliseconds. Slightly different each, so the run never sounds looped. */
+  function makeClicks() {
+    const sr = ctx.sampleRate, n = Math.floor(sr * 0.035), out = [];
+    for (let v = 0; v < 5; v++) {
+      const b = ctx.createBuffer(1, n, sr), d = b.getChannelData(0);
+      const modes = [[3300, 0.006, 1], [4700, 0.0035, 0.5], [2150, 0.009, 0.75], [1250, 0.012, 0.45]].map(([f, tau, a]) => [f * rand(0.94, 1.06), tau, a * rand(0.8, 1.2)]);
+      const strike = sr * 0.0006, fade = sr * 0.0002;
+      let peak = 1e-6;
+      for (let i = 0; i < n; i++) {
+        const t = i / sr;
+        let x = 0;
+        for (const [f, tau, a] of modes) x += a * Math.sin(2 * Math.PI * f * t) * Math.exp(-t / tau);
+        if (i < strike) x += (Math.random() * 2 - 1) * 0.8 * (1 - i / strike);
+        x *= Math.min(1, i / fade);
+        d[i] = x;
+        if (Math.abs(x) > peak) peak = Math.abs(x);
+      }
+      for (let i = 0; i < n; i++) d[i] /= peak;
+      out.push(b);
+    }
+    return out;
+  }
+  function clickAt(r, at, level) {
+    const src = ctx.createBufferSource();
+    src.buffer = pick(clickBufs);
+    src.playbackRate.value = rand(0.96, 1.04);
+    const g = gainNode(level * CLICK * rand(0.85, 1));
+    src.connect(g); g.connect(r.clickBus);
+    src.start(at);
+  }
 
   function startReel() {
     if (!ctx) return;
@@ -632,22 +665,12 @@ const Sound = (() => {
     // the spool whirring while you wind
     const whir = layer(pinkBuf, 'bandpass', 1400, 1.2), wLP = filter('lowpass', 3000, 0.5);
     whir.g.connect(wLP); wLP.connect(sfx);
-    // the reel's ratchet: clicks generated at audio rate, locked to how fast the spool turns, so they
-    // run as an even, satisfying "trrrr" however the frames fall. Each pulse rings a small metal
-    // pawl, the reel housing and a little wooden knock.
-    const drive = ctx.createOscillator(); drive.frequency.value = 6;
-    const flutter = ctx.createOscillator(); flutter.frequency.value = 7.3; const fl = gainNode(0.6);
-    flutter.connect(fl); fl.connect(drive.frequency);
-    const spike = ctx.createWaveShaper(); spike.curve = clickCurve;
-    const clickMix = gainNode(1);
-    for (const [f, q, lvl] of [[3300, 9, 1], [2150, 7, 0.8], [1250, 5, 0.6]]) {
-      const b = filter('bandpass', f, q), g = gainNode(lvl); spike.connect(b); b.connect(g); g.connect(clickMix);
-    }
-    // keep only the crisp click: no low buzz from the pulse rate itself
-    const clickLow = filter('highpass', 850, 0.7), clickTop = filter('lowpass', 6000, 0.6), ratchet = gainNode(0), rP = panNode(0.22);
-    drive.connect(spike); clickMix.connect(clickLow); clickLow.connect(clickTop); clickTop.connect(ratchet); ratchet.connect(rP); rP.connect(sfx);
-    const rs = gainNode(0.06); rP.connect(rs); rs.connect(verbIn);
-    drive.start(t0); flutter.start(t0);
+    // the reel's ratchet: real clicks (a metal pawl striking the gear), scheduled just ahead on the
+    // audio clock at the rate the spool turns, so they run evenly whatever the frame rate
+    if (!clickBufs) clickBufs = makeClicks();
+    const clickHP = filter('highpass', 700, 0.7), clickBus = gainNode(1), rP = panNode(0.22);
+    clickBus.connect(clickHP); clickHP.connect(rP); rP.connect(sfx);
+    const rs = gainNode(0.05); rP.connect(rs); rs.connect(verbIn);
     // a soft drone that warms as the ring fills
     const o1 = ctx.createOscillator(); o1.frequency.value = midi(55);
     const o2 = ctx.createOscillator(); o2.setPeriodicWave(warmWave); o2.frequency.value = midi(62);
@@ -655,7 +678,7 @@ const Sound = (() => {
     o1.connect(dg); o2.connect(lp); lp.connect(dg); dg.connect(sfx);
     const ds = gainNode(0.4); dg.connect(ds); ds.connect(verbIn);
     o1.start(t0); o2.start(t0);
-    reel = { churn, churnP, strain, whir, drive, flutter, ratchet, o1, o2, lp, dg, step: -1, beatT: 0, wound: false };
+    reel = { churn, churnP, strain, whir, clickBus, o1, o2, lp, dg, step: -1, beatT: 0, rate: 0, nextClick: 0 };
   }
 
   function updateReel(dt, s) {
@@ -672,17 +695,18 @@ const Sound = (() => {
     T(r.lp.frequency, 300 + s.progress * 1300, 0.25);
 
     // the ratchet: spins up quickly while you wind and coasts down when you let go; when the fish
-    // runs hard against a slack reel, the drag buzzes faster and softer
+    // runs hard against a slack reel, the drag clicks faster and softer
     const drag = !s.holding && !s.inBand && sp > 0.55;
-    if (s.holding) {
-      if (!r.wound) { r.drive.frequency.cancelScheduledValues(now); r.drive.frequency.setValueAtTime(Math.max(9, r.drive.frequency.value), now); }
-      T(r.drive.frequency, 26, 0.07); T(r.ratchet.gain, 0.62, 0.025);
-    } else if (drag) {
-      T(r.drive.frequency, 40, 0.1); T(r.ratchet.gain, 0.24, 0.08);
-    } else {
-      T(r.drive.frequency, 7, 0.3); T(r.ratchet.gain, 0, 0.16);
-    }
-    r.wound = s.holding;
+    const target = s.holding ? 26 : drag ? 36 : 0;
+    r.rate += (target - r.rate) * (1 - Math.exp(-dt / (target > r.rate ? 0.06 : 0.22)));
+    if (r.rate > 3.5) {
+      const level = s.holding ? 1 : drag ? 0.45 : Math.min(1, r.rate / 26) * 0.85;
+      if (r.nextClick < now) r.nextClick = now + 0.004;
+      while (r.nextClick < now + 0.09) {
+        clickAt(r, r.nextClick, level);
+        r.nextClick += (1 / r.rate) * rand(0.95, 1.05);
+      }
+    } else r.nextClick = 0;
     // a harp climbs the pentatonic scale as the ring fills
     const step = Math.floor(s.progress / 0.07);
     if (s.inBand && step > r.step) {
@@ -705,8 +729,8 @@ const Sound = (() => {
     if (!reel || !ctx) { reel = null; return; }
     const now = ctx.currentTime, r = reel;
     reel = null;
-    for (const g of [r.churn.g, r.strain.g, r.whir.g, r.dg, r.ratchet]) g.gain.setTargetAtTime(0, now, 0.12);
-    setTimeout(() => { for (const x of [r.churn.src, r.strain.src, r.whir.src, r.drive, r.flutter, r.o1, r.o2]) { try { x.stop(); } catch (e) {} } }, 900);
+    for (const g of [r.churn.g, r.strain.g, r.whir.g, r.dg, r.clickBus]) g.gain.setTargetAtTime(0, now, 0.12);
+    setTimeout(() => { for (const x of [r.churn.src, r.strain.src, r.whir.src, r.o1, r.o2]) { try { x.stop(); } catch (e) {} } }, 900);
   }
 
   /* ================= Ambience ================= */
