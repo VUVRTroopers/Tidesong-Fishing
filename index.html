@@ -288,9 +288,23 @@
     background: var(--grain), var(--slab-deep); border: 0; border-radius: 26px;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.11), inset 0 -1px 0 rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(2, 7, 12, 0.5), 0 30px 80px rgba(0, 0, 0, 0.48), 0 8px 24px rgba(0, 0, 0, 0.28);
     -webkit-backdrop-filter: blur(22px) saturate(1.25); backdrop-filter: blur(22px) saturate(1.25);
-    transform: translateY(16px) scale(0.98); transition: transform 0.45s cubic-bezier(.2, .9, .3, 1.15);
+    transform: translateY(16px) scale(0.98); transition: transform 0.45s cubic-bezier(.2, .9, .3, 1.15), filter 0.4s ease;
   }
   .modal.open .card { transform: none; }
+  /* closing: the card settles down and away as the backdrop fades */
+  .modal.closing { opacity: 0; pointer-events: none; transition: opacity 0.26s ease; }
+  .modal.closing .card { transform: translateY(10px) scale(0.985); transition: transform 0.28s cubic-bezier(.4, 0, 1, 1); }
+  /* a menu with another opened over it steps back */
+  .modal.open.behind .card { transform: translateY(-6px) scale(0.965); filter: brightness(0.68) saturate(0.85); transition: transform 0.45s var(--ease), filter 0.4s ease; }
+  /* section changes inside a card: the old content fades, the new slides in from the side it came from */
+  .swap-out { opacity: 0; transform: translateY(3px); transition: opacity 0.11s ease, transform 0.11s ease; }
+  .swap-in { animation: swapIn 0.34s var(--ease) both; }
+  .swap-in-r { animation: swapInR 0.36s var(--ease) both; }
+  .swap-in-l { animation: swapInL 0.36s var(--ease) both; }
+  @keyframes swapIn { from { opacity: 0; transform: translateY(8px); } }
+  @keyframes swapInR { from { opacity: 0; transform: translateX(22px); } }
+  @keyframes swapInL { from { opacity: 0; transform: translateX(-22px); } }
+  .btn-ico { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; margin-left: -6px; }
   .sheet { width: min(100%, 760px); padding: 22px 22px 24px; }
   .sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .sheet-head h2 { font-family: var(--display); font-weight: 600; font-size: clamp(24px, 4vw, 30px); margin: 0; text-wrap: balance; }
@@ -595,7 +609,8 @@
 
   @media (prefers-reduced-motion: reduce) {
     .prompt.breathe, .place-btn.pulse, .ring-core svg, .demo .band, .demo .marker, .reel-label, .rv-name { animation: none !important; }
-    .card { transition: none; }
+    .card, .modal.closing .card, .modal.open.behind .card { transition: none; }
+    .swap-in, .swap-in-l, .swap-in-r { animation: none; }
   }
 </style>
 
@@ -768,5 +783,6 @@
 <script src="js/scenes.js"></script>
 <script src="js/water-gl.js"></script>
 <script src="js/gear.js"></script>
+<script src="js/ui.js"></script>
 <script src="js/shop.js"></script>
 <script src="js/game.js"></script>

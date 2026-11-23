@@ -32,10 +32,15 @@ const Shop = (() => {
     strip.addEventListener('click', e => {
       const b = e.target.closest('[data-tab]');
       if (!b || b.dataset.tab === tab) return;
+      const order = TABS.map(t => t.id), dir = Math.sign(order.indexOf(b.dataset.tab) - order.indexOf(tab));
       tab = b.dataset.tab;
       api.play('click');
-      render();
-      $('#shop-panel').scrollTop = 0;
+      markTabs();
+      // if the panel is scrolled down, glide back up so the new section starts under the tabs
+      const card = $('#shop-panel').closest('.card'), tabsEl = $('#shop-tabs');
+      const top = Math.max(0, $('#shop-panel').offsetTop - tabsEl.offsetHeight - 16);
+      if (card.scrollTop > top) card.scrollTo({ top, behavior: UIFX.reduced() ? 'auto' : 'smooth' });
+      UIFX.swap(card, $('#shop-panel'), render, dir);
     });
     $('#shop-panel').addEventListener('click', onClick);
   }
@@ -51,16 +56,23 @@ const Shop = (() => {
   const isOpen = () => !$('#m-shop').hidden;
 
   /* ---------- render ---------- */
-  function render() {
-    const s = api.save;
-    $('#shop-pearls').innerHTML = pearls(s.pearls);
+  function markTabs() {
     document.querySelectorAll('#shop-tabs .tab').forEach(b => {
       const on = b.dataset.tab === tab;
       b.setAttribute('aria-selected', on ? 'true' : 'false');
       b.classList.toggle('on', on);
     });
     const tabEl = document.querySelector(`#shop-tabs [data-tab="${tab}"]`);
-    if (tabEl && tabEl.scrollIntoView) tabEl.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    if (tabEl && tabEl.scrollIntoView) tabEl.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: UIFX.reduced() ? 'auto' : 'smooth' });
+  }
+
+  /* Re-render after a change inside the current section: the card glides to its new size. */
+  const settle = () => UIFX.morph($('#shop-panel').closest('.card'), render);
+
+  function render() {
+    const s = api.save;
+    $('#shop-pearls').innerHTML = pearls(s.pearls);
+    markTabs();
     const panel = $('#shop-panel');
     panel.setAttribute('aria-labelledby', `tab-${tab}`);
     panel.innerHTML = tab === 'sell' ? renderSell() : tab === 'bait' ? renderBait() : tab === 'net' ? renderNet() : renderGear(tab);
@@ -292,7 +304,7 @@ const Shop = (() => {
         } else {
           sellAllArmed = Date.now();
           api.play('click');
-          setTimeout(() => { if (isOpen() && tab === 'sell' && sellAllArmed) { sellAllArmed = 0; render(); } }, 3300);
+          setTimeout(() => { if (isOpen() && tab === 'sell' && sellAllArmed) { sellAllArmed = 0; settle(); } }, 3300);
         }
         break;
       }
@@ -311,7 +323,7 @@ const Shop = (() => {
       case 'theme':
         theme = id;
         api.play('click');
-        render();
+        UIFX.swap($('#shop-panel').closest('.card'), $('#shop-panel'), render, 0);
         return;
       case 'buy-gear': {
         const kind = b.dataset.kind, g = Gear.CATALOG[kind].find(x => x.id === id);
@@ -338,7 +350,7 @@ const Shop = (() => {
     }
     api.persist();
     api.refresh();
-    render();
+    settle();
   }
 
   return { init, open, render, isOpen, paint, get tab() { return tab; } };

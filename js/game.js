@@ -144,7 +144,7 @@
   const pointers = new Set();
   let keyHold = false;
   const holding = () => pointers.size > 0 || keyHold;
-  const openModals = () => document.querySelectorAll('.modal:not([hidden])');
+  const openModals = () => document.querySelectorAll('.modal:not([hidden]):not(.closing)');
   const modalOpen = () => openModals().length > 0;
 
   canvas.addEventListener('pointerdown', e => {
@@ -164,8 +164,8 @@
   const HOLD_KEYS = new Set([' ', 'Spacebar', 'ArrowUp', 'ArrowRight', 'w', 'W', 'd', 'D']);
   window.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
-      const m = openModals();
-      if (m.length && !catchPending(m[m.length - 1])) closeModal(m[m.length - 1], true);
+      const top = modalStack[modalStack.length - 1];
+      if (top && !catchPending(top)) closeModal(top, true);
       return;
     }
     if (modalOpen() || !HOLD_KEYS.has(e.key)) return;
@@ -893,19 +893,39 @@
   let revealState = null;
   const catchPending = m => m && m.id === 'm-reveal' && revealState && revealState.mode === 'catch' && G.land && !G.land.decided;
 
+  /* Menus stack: a menu opened over another sends the one beneath back a little, and closing the top
+     one brings the one beneath forward again, with focus back where it was. Menus fade and settle both
+     in and out. */
+  const modalStack = [];
   function openModal(sel) {
     const m = typeof sel === 'string' ? $(sel) : sel;
+    clearTimeout(m._closeT);
+    m.classList.remove('closing');
+    const i = modalStack.indexOf(m);
+    if (i >= 0) modalStack.splice(i, 1);
+    const under = modalStack[modalStack.length - 1];
+    m._returnFocus = under ? document.activeElement : null;
+    if (under) under.classList.add('behind');
+    modalStack.push(m);
+    m.style.zIndex = String(20 + modalStack.length);
     m.hidden = false;
-    requestAnimationFrame(() => m.classList.add('open'));
+    requestAnimationFrame(() => requestAnimationFrame(() => m.classList.add('open')));
     const focusEl = m.querySelector('[data-autofocus]') || m.querySelector('button');
     if (focusEl) setTimeout(() => focusEl.focus({ preventScroll: true }), 60);
   }
   function closeModal(sel, quiet) {
     const m = typeof sel === 'string' ? $(sel) : sel;
-    if (m.hidden) return;
-    m.classList.remove('open');
-    m.hidden = true;
-    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    if (m.hidden || m.classList.contains('closing')) return;
+    const i = modalStack.indexOf(m);
+    if (i >= 0) modalStack.splice(i, 1);
+    const top = modalStack[modalStack.length - 1];
+    if (top) top.classList.remove('behind');
+    m.classList.remove('open', 'behind');
+    m.classList.add('closing');
+    m._closeT = setTimeout(() => { m.hidden = true; m.classList.remove('closing'); m.style.zIndex = ''; }, UIFX.reduced() ? 0 : 280);
+    const back = m._returnFocus;
+    if (top && back && top.contains(back)) back.focus({ preventScroll: true });
+    else if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     if (m.id === 'm-reveal') afterReveal();
     if (m.id === 'm-intro') { save.intro = true; persist(); unlockAudio(); }
     if (m.id === 'm-shop') { updateHUD(); if (revealOpen()) renderRevealActions(); }
@@ -918,7 +938,7 @@
   });
 
   /* ---------- catch reveal ---------- */
-  function openReveal(data, mode) {
+  function openReveal(data, mode, from) {
     const sp = SPECIES[data.id], R = RARITIES[sp.rarity];
     const card = $('#m-reveal .reveal');
     card.style.setProperty('--rc', R.color);
@@ -953,7 +973,7 @@
       const where = whereFound(data.id).map(l => l.name).join(', ');
       $('#rv-blurb').textContent = `${sp.blurb} Found in ${where}.`;
     }
-    revealState = { id: data.id, t0: G.t, mode };
+    revealState = { id: data.id, t0: G.t, mode, from };
     renderRevealActions();
     openModal('#m-reveal');
   }
@@ -962,7 +982,10 @@
     const box = $('#rv-actions'), note = $('#rv-net');
     if (!revealState || revealState.mode !== 'catch') {
       note.hidden = true;
-      box.innerHTML = '<button type="button" class="primary-btn" data-rv="close" data-autofocus>Close</button>';
+      const fromJournal = revealState && revealState.from === 'journal' && !$('#m-journal').hidden;
+      box.innerHTML = fromJournal
+        ? '<button type="button" class="primary-btn" data-rv="close" data-autofocus><svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6l-6 6 6 6"/></svg>Back to journal</button>'
+        : '<button type="button" class="primary-btn" data-rv="close" data-autofocus>Close</button>';
       return;
     }
     const Ld = G.land, cap = netCap(), used = save.net.length, full = used >= cap;
@@ -1167,7 +1190,7 @@
         const sp = SPECIES[id];
         const card = document.createElement(rec ? 'button' : 'div');
         card.className = 'jcard' + (rec ? '' : ' unknown');
-        if (rec) { card.type = 'button'; card.addEventListener('click', () => { closeModal('#m-journal', true); openReveal({ id }, 'view'); }); }
+        if (rec) { card.type = 'button'; card.addEventListener('click', () => { Sound.play('open'); openReveal({ id }, 'view', 'journal'); }); }
         card.innerHTML = `<canvas data-fish="${id}" data-known="${rec ? 1 : 0}" aria-hidden="true"></canvas>
           <span class="jname">${rec ? sp.name : '???'}</span>
           <span class="jmeta">${rec ? `×${fmt(rec.n)} · ${(rec.best || 0).toFixed(2)} kg${rec.len ? ` · ${Math.round(rec.len)} cm` : ''}` : `Best odds: ${bestWater(id).name}`}</span>`;

@@ -244,6 +244,7 @@ js/
   scenes.js         The five painted, animated waters and each water's light
   water-gl.js       WebGL sky and water, underwater fish shadow, bloom, god rays, haze
   gear.js           Rod, bobber and line catalogue, and the code that draws and lights each one
+  ui.js             Interface motion: cards glide to new sizes and new sections slide in
   shop.js           The Driftwood Market: selling, bait, gear and keepnet upgrades
   game.js           Game loop, cast, bite, reel and catch logic, input, saving, map and journal
 docs/
