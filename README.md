@@ -176,6 +176,22 @@ leaping fish are lit by it:
 Phones render the scene at reduced resolution, and a governor lowers it further if the frame rate
 drops. Without WebGL, or with `#nogl` in the URL, the game falls back to a 2D renderer.
 
+### Interface
+
+The interface is made of four materials, lit from above like the scenes, so it feels set into the
+world rather than laid over it:
+
+- **Slabs** of frosted glass with a bevelled edge and a faint grain hold the HUD, the prompt and
+  the cards.
+- **Wells** are shallow carved recesses, shadowed under their top lip and catching light along
+  their bottom edge: the reel track, bars, stat cells and the panels inside cards.
+- **Pebbles** are smooth raised stone buttons that sink into a well when pressed.
+- **Brass** marks the main actions, with engraved lettering. Anything you cannot afford yet dulls
+  and sits back into the stone.
+
+The reel track is a groove with etched graduations, the green band a piece of polished jade, the
+fish a gilded needle, and the catch ring a groove cut into a stone disc.
+
 ## Sound
 
 All sound is synthesised at runtime with the Web Audio API: there are no audio files. It is
