@@ -13,6 +13,8 @@ wait for a bite, then hold to keep the gold fish marker inside your green band u
   devices without WebGL.
 - **A market of 88 pieces of gear** in seven themes on one tier ladder. Every tier offers several
   styles at the same price and boost, up to Heirloom pieces that take a whole career to save for.
+- **A living aquarium** for the fish you keep: six tanks from a glass bowl to a moonlit palace, where
+  fish explore, meet, make friends and sometimes mates, and the rarer ones leave pearls on the sand.
 - **Progress saves automatically** in the browser.
 
 ## Contents
@@ -22,6 +24,7 @@ wait for a bite, then hold to keep the gold fish marker inside your green band u
 - [The five waters](#the-five-waters)
 - [The fish](#the-fish)
 - [The Driftwood Market](#the-driftwood-market)
+- [The aquarium](#the-aquarium)
 - [Graphics](#graphics)
 - [Sound](#sound)
 - [Project structure](#project-structure)
@@ -127,7 +130,8 @@ gain flowing animated fins, and the Legendary and Extreme catches get the full t
 
 ## The Driftwood Market
 
-Sell fish for **Moonpearls** (the price grows with rarity, weight and length) and spend them on:
+Sell fish for **Moonpearls** (the price grows with rarity, weight and length), either straight from
+the catch screen or later from your aquarium, and spend them on:
 
 - **Bait:** Glow Worms, Moon Shrimp and Ember Roe. One is used up on each bite. Bait tilts the odds
   toward Epic, Legendary and Extreme fish and brings bites sooner, but never guarantees them.
@@ -137,10 +141,12 @@ Sell fish for **Moonpearls** (the price grows with rarity, weight and length) an
   - **Rods** widen the green band.
   - **Bobbers** make the ring fill faster while the fish is in the band.
   - **Lines** slow the ring's drain when it slips out.
-- **Keepnet upgrades:** from 8 slots up to 48. A full keepnet sends you to the market before you
-  can keep more fish.
+- **Aquariums:** six tanks, bought in order, from 8 fish up to 48. Each is more elaborate than the
+  last (see [The aquarium](#the-aquarium)). A full tank means selling or releasing a fish before you
+  can keep another.
 
-Star a fish to protect it from "Sell all". Legendary and Extreme catches are starred automatically.
+Star a fish to protect it from "Sell all unstarred". Legendary and Extreme catches are starred
+automatically.
 The journal keeps lifetime records (counts, heaviest, longest, most valuable, rarest) even after
 fish are sold.
 
@@ -180,6 +186,72 @@ careers, with three models of human play (casual, steady and focused):
   <img src="docs/screenshots/rods.jpg" alt="Every rod by tier, lit by the dusk light of Lanternfen Marsh" width="49%">
   <img src="docs/screenshots/bobbers.jpg" alt="Every bobber by tier, floating on the water with reflections" width="49%">
 </p>
+
+## The aquarium
+
+Fish you keep live in an aquarium, opened from the bowl button under the place name. Tap a fish to
+follow it with a card showing its weight, length, temperament and friendships, and to star, sell or
+release it. **List** shows every fish, most valuable first; **Sell all unstarred** clears out the
+rest; and **Feed** (once every 30 seconds) sprinkles flakes that every fish comes for, though
+bottom-dwellers wait for them to sink.
+
+| Tank | Fish | Price | What is in it |
+| --- | --- | --- | --- |
+| Glass Bowl | 8 | free | A round bowl on a windowsill at night: coloured glass pebbles and a sprig of green |
+| Reed Tank | 12 | 200 | Swaying reeds, a hollow mossy log, an air stone and a snail on the glass |
+| Lily Garden | 16 | 500 | Lily pads and lotus overhead, a frog, a driftwood arch, rolling moss balls, a visiting dragonfly |
+| Coral Reef | 24 | 1,200 | Branching corals, a sea fan, an anemone, a giant clam and a treasure chest, under bright sunbeams |
+| Shipwreck Cove | 32 | 3,000 | A sunken ship in a kelp forest, a ship's bell, portholes, an anchor and a diver's helmet that breathes bubbles |
+| Moon Palace | 48 | 7,500 | A moon gate, a stone dragon blowing bubble rings, lantern plants, singing geodes, glowing sand and floating lanterns |
+
+![The Coral Reef and the Moon Palace, with their fish](docs/screenshots/aquarium.jpg)
+
+The game explains almost none of what follows; players find it by watching and touching.
+
+- **Every species has a temperament** (`TR` in `js/tank.js`): the depth it likes, its pace, and
+  flags such as schooling, shy, playful, territorial, foraging, curious, glowing, lurking, upright
+  or bottom-walking. These steer where it swims, which decor it visits and how it meets others.
+- **Decor is lived in.** Shy fish slip into hiding places, foragers rummage in the sand, seahorses
+  hold on to stems, clownfish nestle in the anemone, playful fish ride bubble streams, nudge moss
+  balls along and swim through arches and gates, and fish brush plants aside as they pass.
+- **Touch matters.** Each species reacts in its own way when tapped (pufferfish puff up, archerfish
+  spit, dolphins loop and blow a ring, axolotls blush, flatfish bury themselves). Tapping the
+  water draws curious fish and scatters shy ones, a finger trailed through the water is followed,
+  and most decor does something when touched.
+- **Fish meet.** When two fish come close they may greet, circle, swim together, play tag, boop,
+  kiss, dance, flare at each other, or clean a larger fish, depending on who they are and how well
+  they know each other.
+- **Bonds.** Every pair has a bond from 0 to 100 that grows while they spend time near each other
+  and with each meeting, faster for kin, for fish from the same waters, and for playful pairs, and
+  slower for two territorial fish. While the tank is closed, each fish spends its hours with the
+  few it gets on with best. Bonds show on a fish's card as Acquainted (20), Friends (50) and Best
+  friends (80); friends seek each other out. Two of the same species who reach 100, both free,
+  become **mates 💕** for life.
+- **Moonpearls.** Rare and rarer fish now and then drop a pearl that sinks to the sand, more often
+  if they are mated or have been fed in the last 15 minutes; tap it to collect it. Pearls keep
+  dropping while the tank is closed (a long absence counts for at most four hours), until the sand
+  holds `6 + 2 × tank` of them.
+  A pearl glinting in the tank lights a dot on the tank button.
+
+<details>
+<summary>Spoilers: what each tank's decor does</summary>
+
+- **Glass Bowl:** tapping the pebbles makes them hop; tapping the glass draws curious fish.
+- **Reed Tank:** the air stone bursts and lifts playful fish to the surface; knocking on the log
+  flushes out whoever is hiding in it; the snail pulls into its shell.
+- **Lily Garden:** pads bob, the frog croaks and hops to another pad, the dragonfly flies off (an
+  archerfish will try to knock it down first), moss balls roll, and knocking the arch sends a few
+  fish through it.
+- **Coral Reef:** the anemone pulls in and its clownfish dive home; the clam snaps shut, but every
+  three hours it holds a pearl; the chest opens, and every six hours it spills a few pearls.
+- **Shipwreck Cove:** the bell turns every fish to look; portholes light up and draw a crowd; the
+  helmet burps a column of bubbles; the chest holds pearls every five hours; the anchor clanks.
+- **Moon Palace:** lanterns glow and draw glowing fish; the gate lights and leads a procession
+  through it; the dragon blows a ring that playful fish swim through; the sand glows where fish
+  graze it. Playing the five geodes left to right lights the whole palace, sets every fish spinning,
+  and twice a day leaves a moon pearl.
+
+</details>
 
 ## Graphics
 
@@ -286,7 +358,9 @@ js/
   water-gl.js       WebGL sky and water, underwater fish shadow, bloom, god rays, haze
   gear.js           Rod, bobber and line catalogue, and the code that draws and lights each one
   ui.js             Interface motion: cards glide to new sizes and new sections slide in
-  shop.js           The Driftwood Market: selling, bait, gear and keepnet upgrades
+  shop.js           The Driftwood Market: bait, gear and aquariums
+  tank-env.js       The six aquariums: glass, water, sand, plants and decor that can be touched
+  tank.js           The aquarium's life: swimming, temperaments, meetings, bonds, pearls, feeding
   game.js           Game loop, cast, bite, reel and catch logic, input, saving, map and journal
 docs/
   social-preview.jpg  The 1200×630 banner shown when the site's link is shared
@@ -320,12 +394,15 @@ Most balance lives in `js/data.js`:
 | The ring | `REEL_START` (starting fill), `REEL_ESCAPE` (the red mark), `REEL_GRACE` |
 | Fish prices | `VALUE` (base price per rarity) and each species' `worth`, `kg` and `cm` ranges |
 | Bait | `BAITS`: pack size, price, odds boost per rarity, bite speed-up |
-| Keepnet sizes | `NET_TIERS` |
+| Aquarium sizes and prices | `TANKS` |
 
 The gear tier ladder (boost, price and level for each tier) is `TIERS` at the top of `js/gear.js`.
 Each piece in the catalogue below it names its theme and tier and takes everything else from the
 ladder. If you change the ladder, retune the Legendary and Extreme rows of `REEL` with it. Each water's colours and light are in `PAL` in
 `js/scenes.js`.
+
+In `js/tank.js`, `TR` holds each species' temperament, `PEARL` the pearl interval and value per
+rarity, and `affinity()` how readily two fish bond.
 
 ## Testing shortcuts
 
@@ -341,6 +418,8 @@ In the browser console:
 | `Tidesong.addXp(500)` | Grants XP |
 | `Tidesong.addPearls(1000)` | Grants Moonpearls |
 | `Tidesong.flourish('frog')` | Plays a water's rare moment now: `frog`, `dragonfly`, `fishjump`, `owl`, `wisp`, `gull`, `dolphins`, `shootingstar`, `whale`, `crane` or `dragon` (at the matching water) |
+| `Tank._debug.feed()` | Feeds the open aquarium (it has the same 30-second cooldown as the button) |
+| `Tank.settle(Date.now() + 6 * 3600e3)` | Lets six hours pass for the tank (pearls and bonds), then open it |
 | `Tidesong.reset()` | Wipes the save |
 
 ## Browser support

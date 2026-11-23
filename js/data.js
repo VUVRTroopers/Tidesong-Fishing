@@ -326,12 +326,19 @@ function rarityOdds(loc, baitId) {
   return out;
 }
 
-/* Keepnet sizes, bought in order. */
-const NET_TIERS = [
-  { name: 'Reed Basket',     cap: 8,  price: 0 },
-  { name: 'Wicker Creel',    cap: 12, price: 200 },
-  { name: 'Linen Keepnet',   cap: 16, price: 500 },
-  { name: 'Silk Keepnet',    cap: 24, price: 1200 },
-  { name: "Mariner's Hold",  cap: 32, price: 3000 },
-  { name: 'Moonwoven Net',   cap: 48, price: 7500 },
+/* Aquariums, bought in order. Kept fish live and swim here; each tank holds more fish and is more
+   elaborate than the last (js/tank.js draws and runs them). */
+const TANKS = [
+  { id: 'bowl',   name: 'Glass Bowl',     cap: 8,  price: 0,
+    blurb: 'A round glass bowl on the windowsill, with coloured pebbles and a sprig of green.' },
+  { id: 'reed',   name: 'Reed Tank',      cap: 12, price: 200,
+    blurb: 'A proper little tank: reeds, a mossy log, and an air stone that keeps the water fizzing.' },
+  { id: 'lily',   name: 'Lily Garden',    cap: 16, price: 500,
+    blurb: 'An oak-framed water garden with lily pads overhead, a driftwood arch and soft green moss balls.' },
+  { id: 'reef',   name: 'Coral Reef',     cap: 24, price: 1200,
+    blurb: 'A brass-trimmed reef of corals and swaying anemone, with a giant clam and a chest that remembers treasure.' },
+  { id: 'wreck',  name: 'Shipwreck Cove', cap: 32, price: 3000,
+    blurb: 'A sunken ship in a kelp forest, sunbeams slanting down through blue water. A diver\'s helmet still breathes bubbles.' },
+  { id: 'palace', name: 'Moon Palace',    cap: 48, price: 7500,
+    blurb: 'A moonlit underwater palace: a moon gate, a stone dragon blowing rings of bubbles, lantern plants that glow at a touch.' },
 ];

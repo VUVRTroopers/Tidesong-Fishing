@@ -1,12 +1,11 @@
-/* Tidesong — the Driftwood Market: sell fish from the keepnet, buy bait, gear and bigger nets.
-   game.js hands it an api object; all state lives in the shared save. */
+/* Tidesong — the Driftwood Market: bait, gear and aquariums. Fish are kept and sold in the aquarium
+   itself (js/tank.js). game.js hands it an api object; all state lives in the shared save. */
 'use strict';
 
 const Shop = (() => {
   let api = null;
-  let tab = 'sell';
+  let tab = 'bait';
   let theme = 'all';
-  let sellAllArmed = 0;
   const FILTERS = [{ id: 'all', name: 'All' }, ...Gear.THEMES, { id: 'heirloom', name: 'Heirloom' }];
   const matches = (g, f) => f === 'all' || (f === 'heirloom' ? !!g.heir : g.theme === f);
   const themeName = id => (Gear.THEMES.find(x => x.id === id) || { name: '' }).name;
@@ -17,12 +16,11 @@ const Shop = (() => {
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   const TABS = [
-    { id: 'sell', label: 'Sell fish' },
     { id: 'bait', label: 'Bait' },
     { id: 'rods', label: 'Rods' },
     { id: 'bobbers', label: 'Bobbers' },
     { id: 'lines', label: 'Lines' },
-    { id: 'net', label: 'Keepnet' },
+    { id: 'tanks', label: 'Aquariums' },
   ];
 
   function init(a) {
@@ -46,8 +44,7 @@ const Shop = (() => {
   }
 
   function open(which) {
-    if (which) tab = which;
-    sellAllArmed = 0;
+    if (which && TABS.some(t => t.id === which)) tab = which;
     render();
     api.openModal('#m-shop');
     api.play('open');
@@ -75,55 +72,8 @@ const Shop = (() => {
     markTabs();
     const panel = $('#shop-panel');
     panel.setAttribute('aria-labelledby', `tab-${tab}`);
-    panel.innerHTML = tab === 'sell' ? renderSell() : tab === 'bait' ? renderBait() : tab === 'net' ? renderNet() : renderGear(tab);
+    panel.innerHTML = tab === 'bait' ? renderBait() : tab === 'tanks' ? renderTanks() : renderGear(tab);
     requestAnimationFrame(() => paint(api.time()));
-  }
-
-  function renderSell() {
-    const s = api.save, cap = api.netCap();
-    const fish = s.net.slice().sort((a, b) => b.value - a.value);
-    const loose = fish.filter(f => !f.fav);
-    const total = loose.reduce((a, f) => a + f.value, 0);
-    const armed = Date.now() - sellAllArmed < 3200;
-    const pct = Math.min(100, (s.net.length / cap) * 100);
-    let html = `
-      <div class="net-summary${s.net.length >= cap ? ' full' : ''}">
-        <div class="net-count">
-          <span><b>${s.net.length}</b> of ${cap} keepnet slots used</span>
-          <span class="netbar"><i style="width:${pct}%"></i></span>
-        </div>
-        <button type="button" class="secondary-btn${armed ? ' armed' : ''}" data-action="sellall" ${loose.length ? '' : 'disabled'}>
-          ${armed ? `Tap again to sell ${loose.length} fish` : `Sell all unstarred · ${pearls(total)}`}
-        </button>
-      </div>`;
-    if (!fish.length) {
-      html += `<p class="empty">Your keepnet is empty. Fish you keep wait here until you sell them. Star a favourite and “Sell all” will leave it alone.</p>`;
-      return html;
-    }
-    html += '<ul class="fishlist">';
-    for (const f of fish) {
-      const sp = SPECIES[f.id], R = RARITIES[sp.rarity];
-      const rec = s.caught[f.id] || {};
-      const tags = [];
-      if (rec.best && f.kg >= rec.best) tags.push('Heaviest');
-      if (rec.len && f.cm >= rec.len) tags.push('Longest');
-      html += `
-        <li class="fishrow" style="--rc:${R.color}">
-          <canvas class="fr-art" data-fish="${f.id}" aria-hidden="true"></canvas>
-          <div class="fr-main">
-            <span class="fr-name">${esc(sp.name)}${tags.map(t => `<em class="tag">${t}</em>`).join('')}</span>
-            <span class="fr-meta"><i class="dot"></i>${R.name} · ${f.kg.toFixed(2)} kg · ${Math.round(f.cm)} cm</span>
-          </div>
-          <span class="fr-val">${pearls(f.value)}</span>
-          <div class="fr-act">
-            <button type="button" class="star-btn${f.fav ? ' on' : ''}" data-action="fav" data-uid="${f.uid}" aria-pressed="${f.fav ? 'true' : 'false'}" aria-label="${f.fav ? 'Unstar' : 'Star'} ${esc(sp.name)}">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.9l-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z"/></svg>
-            </button>
-            <button type="button" class="sell-btn" data-action="sell" data-uid="${f.uid}">Sell</button>
-          </div>
-        </li>`;
-    }
-    return html + '</ul>';
   }
 
   function oddsLine(loc, baitId) {
@@ -247,20 +197,30 @@ const Shop = (() => {
     return html;
   }
 
-  function renderNet() {
-    const s = api.save, cur = s.netTier;
-    let html = `<p class="tab-note">A bigger keepnet lets you hold more fish before you have to sell. Upgrades are bought in order.</p><ol class="ladder">`;
-    NET_TIERS.forEach((tier, i) => {
+  function renderTanks() {
+    const s = api.save, cur = s.netTier, here = TANKS[cur];
+    let html = `<p class="tab-note">Fish you keep live in your aquarium. Each tank holds more fish than the last, and each is more elaborate, with more for your fish to explore. Your fish move house with you. Tanks are bought in order.</p>
+      <div class="tank-visit"><span>Your fish live in the <b>${esc(here.name)}</b>: ${s.net.length} of ${here.cap}.</span><button type="button" class="secondary-btn" data-action="visit">Visit your tank</button></div>
+      <div class="items tank-grid">`;
+    TANKS.forEach((T, i) => {
       const state = i < cur ? 'past' : i === cur ? 'current' : i === cur + 1 ? 'next' : 'later';
-      const afford = s.pearls >= tier.price;
-      let right = '';
-      if (state === 'current') right = '<span class="on-pill">Your net</span>';
-      else if (state === 'past') right = '<span class="muted">Outgrown</span>';
-      else if (state === 'next') right = `<button type="button" class="buy-btn" data-action="buy-net" ${afford ? '' : 'disabled'}>Upgrade · ${pearls(tier.price)}</button>${afford ? '' : `<span class="need">Need ${pearls(tier.price - s.pearls)} more</span>`}`;
-      else right = `<span class="muted">${pearls(tier.price)}</span>`;
-      html += `<li class="rung ${state}"><div><b>${tier.name}</b><span>${tier.cap} fish</span></div><div class="rung-act">${right}</div></li>`;
+      const afford = s.pearls >= T.price;
+      let foot;
+      if (state === 'current') foot = '<span class="on-pill">Your tank</span>';
+      else if (state === 'past') foot = '<span class="muted">Outgrown</span>';
+      else if (state === 'next') foot = `<button type="button" class="buy-btn" data-action="buy-tank" ${afford ? '' : 'disabled'}>Move in · ${pearls(T.price)}</button>${afford ? '' : `<span class="need">Need ${pearls(T.price - s.pearls)} more</span>`}`;
+      else foot = `<span class="muted">${pearls(T.price)} · after the ${esc(TANKS[i - 1].name)}</span>`;
+      html += `
+        <article class="item tank-item ${state}${state === 'current' ? ' on' : ''}">
+          <canvas class="item-art tank-art" data-tank="${T.id}" aria-hidden="true"></canvas>
+          <div class="item-body">
+            <h4>${esc(T.name)} <span class="have">${T.cap} fish</span></h4>
+            <p>${esc(T.blurb)}</p>
+          </div>
+          <div class="item-foot">${foot}</div>
+        </article>`;
     });
-    return html + '</ol>';
+    return html + '</div>';
   }
 
   /* ---------- previews ---------- */
@@ -284,6 +244,8 @@ const Shop = (() => {
         Gear.preview(c, 'bait', c.dataset.bait || null, t, dpr);
       } else if (c.dataset.gear) {
         Gear.preview(c, c.dataset.gear, c.dataset.id, t, dpr);
+      } else if (c.dataset.tank) {
+        Tank.preview(c, c.dataset.tank, t);
       }
     });
   }
@@ -296,50 +258,11 @@ const Shop = (() => {
     return true;
   }
 
-  function sellFish(uids) {
-    const s = api.save;
-    let total = 0, n = 0;
-    for (const uid of uids) {
-      const i = s.net.findIndex(f => f.uid === uid);
-      if (i < 0) continue;
-      const f = s.net[i];
-      s.net.splice(i, 1);
-      total += f.value; n += 1;
-      if (s.caught[f.id]) s.caught[f.id].sold = (s.caught[f.id].sold || 0) + 1;
-    }
-    if (!n) return;
-    s.pearls += total;
-    s.stats.sold += n;
-    s.stats.earned += total;
-    api.play('coin', n);
-    if (n > 1) api.toast(`Sold ${n} fish for ${fmt(total)} Moonpearls`, '#e8c46c', 2600);
-    api.flashWallet();
-  }
-
   function onClick(e) {
     const b = e.target.closest('[data-action]');
     if (!b || b.disabled) return;
     const s = api.save, id = b.dataset.id;
     switch (b.dataset.action) {
-      case 'sell':
-        sellFish([+b.dataset.uid]);
-        break;
-      case 'fav': {
-        const f = s.net.find(x => x.uid === +b.dataset.uid);
-        if (f) { f.fav = !f.fav; api.play('equip'); }
-        break;
-      }
-      case 'sellall': {
-        if (Date.now() - sellAllArmed < 3200) {
-          sellAllArmed = 0;
-          sellFish(s.net.filter(f => !f.fav).map(f => f.uid));
-        } else {
-          sellAllArmed = Date.now();
-          api.play('click');
-          setTimeout(() => { if (isOpen() && tab === 'sell' && sellAllArmed) { sellAllArmed = 0; settle(); } }, 3300);
-        }
-        break;
-      }
       case 'buy-bait': {
         const B = BAITS[id];
         if (!spend(B.price)) return;
@@ -390,14 +313,17 @@ const Shop = (() => {
         s.equip[Gear.SLOT[b.dataset.kind]] = id;
         api.play('equip');
         break;
-      case 'buy-net': {
-        const next = NET_TIERS[s.netTier + 1];
+      case 'buy-tank': {
+        const next = TANKS[s.netTier + 1];
         if (!next || !spend(next.price)) return;
         s.netTier += 1;
         api.play('buy');
-        api.toast(`Upgraded to the ${next.name}: room for ${next.cap} fish`, '#9fe3b0', 2800);
+        api.toast(`Your fish have moved into the ${next.name}: room for ${next.cap}`, '#9fe3b0', 3200);
         break;
       }
+      case 'visit':
+        api.openTank();
+        return;
     }
     api.persist();
     api.refresh();

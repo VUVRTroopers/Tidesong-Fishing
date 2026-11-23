@@ -4,11 +4,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#08111c">
 <!-- Link previews (social sites, chat apps): title, description and a 1200×630 banner. -->
-<meta name="description" content="A calm fishing game for phone and desktop. Cast into five enchanted waters, discover thirty-five fish from clownfish to a legendary dolphin, and play free in your browser.">
+<meta name="description" content="A calm fishing game for phone and desktop. Cast into five enchanted waters, discover fifty-eight fish from clownfish to a legendary dolphin, and play free in your browser.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Tidesong Fishing">
 <meta property="og:title" content="Tidesong Fishing: a relaxing fishing game">
-<meta property="og:description" content="Five enchanted waters and thirty-five fish to discover. Cast, wait for a bite and land your catch. Free to play in your browser on phone or desktop.">
+<meta property="og:description" content="Five enchanted waters and fifty-eight fish to discover. Cast, wait for a bite and land your catch. Free to play in your browser on phone or desktop.">
 <meta property="og:url" content="https://vuvrtroopers.github.io/tidesong-fishing/">
 <meta property="og:image" content="https://vuvrtroopers.github.io/tidesong-fishing/docs/social-preview.jpg">
 <meta property="og:image:type" content="image/jpeg">
@@ -17,7 +17,7 @@
 <meta property="og:image:alt" content="Tidesong Fishing: a fishing rod over a misty willow pond at dawn, with a clownfish, lionfish, betta, dolphin and dragon fish">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Tidesong Fishing: a relaxing fishing game">
-<meta name="twitter:description" content="Five enchanted waters and thirty-five fish to discover. Free to play in your browser on phone or desktop.">
+<meta name="twitter:description" content="Five enchanted waters and fifty-eight fish to discover. Free to play in your browser on phone or desktop.">
 <meta name="twitter:image" content="https://vuvrtroopers.github.io/tidesong-fishing/docs/social-preview.jpg">
 <meta name="twitter:image:alt" content="Tidesong Fishing: a fishing rod over a misty willow pond at dawn, with a clownfish, lionfish, betta, dolphin and dragon fish">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='31' fill='%2312303a'/%3E%3Cpath d='M14 32c6-9 16-13 26-10 4 1 7 4 9 6l6-6v20l-6-6c-2 2-5 5-9 6-10 3-20-1-26-10z' fill='%23e8c46c'/%3E%3Ccircle cx='22' cy='30' r='2.4' fill='%2312303a'/%3E%3C/svg%3E">
@@ -673,6 +673,85 @@
   .reel.perk-band .band { box-shadow: inset 0 0 0 1.5px rgba(255, 226, 160, 0.95), 0 0 14px rgba(232, 196, 108, 0.45); }
   .reel.perk-band.in .band { box-shadow: inset 0 0 0 1.5px rgba(255, 236, 190, 1), 0 0 26px rgba(150, 226, 168, 0.75), 0 0 10px rgba(232, 196, 108, 0.6); }
   .reel.perk-meter .ring-track { stroke: rgba(232, 196, 108, 0.4); }
+  /* aquarium */
+  .tankcard { width: min(100%, 1060px); }
+  .tank-stage {
+    position: relative; margin: 14px -6px 0; border-radius: 18px; overflow: hidden; background: #08121c;
+    box-shadow: 0 0 0 1px rgba(2, 7, 12, 0.6), 0 12px 30px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+  #tank-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: pointer; -webkit-user-select: none; user-select: none; }
+  .tank-stage.listing #tank-canvas { visibility: hidden; }
+  .tank-list { position: absolute; inset: 0; overflow: auto; overscroll-behavior: contain; padding: 12px; background: var(--grain), var(--slab-deep); }
+  .tank-hint {
+    position: absolute; left: 50%; top: 14%; transform: translateX(-50%); margin: 0; padding: 8px 15px; border-radius: 999px; white-space: nowrap;
+    font-size: 13px; font-weight: 800; color: var(--ink); background: rgba(8, 16, 24, 0.62); box-shadow: var(--slab-edge);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); pointer-events: none; animation: hintFade 7s ease forwards;
+  }
+  @keyframes hintFade { 0% { opacity: 0; } 8%, 72% { opacity: 1; } 100% { opacity: 0; } }
+  .fish-card {
+    position: absolute; left: 12px; bottom: 12px; width: min(348px, calc(100% - 24px)); padding: 12px 14px; border-radius: 16px;
+    display: grid; gap: 6px; background: var(--grain), linear-gradient(180deg, rgba(22, 36, 48, 0.86), rgba(8, 16, 24, 0.9));
+    -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2);
+    box-shadow: var(--slab-edge), 0 12px 30px rgba(0, 0, 0, 0.4), inset 3px 0 0 var(--rc); animation: fcIn 0.32s var(--ease) both;
+  }
+  @keyframes fcIn { from { opacity: 0; transform: translateY(10px); } }
+  .fc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+  .fc-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; }
+  .fc-title h3 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 19px; }
+  .fc-close { width: 30px; height: 30px; border-radius: 10px; border: 0; display: grid; place-items: center; padding: 0; flex: none; background: var(--pebble-fill); box-shadow: var(--pebble-edge); color: var(--ink-soft); }
+  .fc-close svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2.2; fill: none; stroke-linecap: round; }
+  .fc-meta { margin: 0; font-size: 12.5px; color: var(--ink-soft); display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+  .fc-mood { margin: 0; font-family: var(--display); font-style: italic; font-size: 14.5px; color: var(--ink); }
+  .fc-bonds { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .fc-bond { border: 0; border-radius: 999px; padding: 4px 11px 4px 9px; font-size: 12px; font-weight: 800; color: var(--ink-soft); background: var(--well-fill); box-shadow: var(--well-edge); display: inline-flex; align-items: center; gap: 6px; }
+  .fc-bond:hover { color: var(--ink); }
+  .fc-bond i { width: 7px; height: 7px; border-radius: 50%; background: var(--reed); box-shadow: 0 0 6px rgba(150, 226, 168, 0.6); }
+  .fc-bond.mates { color: #ffc6dc; box-shadow: var(--well-edge), inset 0 0 0 1px rgba(255, 138, 180, 0.42); }
+  .fc-since { margin: 0; font-size: 12px; color: var(--ink-faint); display: flex; align-items: center; gap: 5px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+  .fc-act { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+  .fc-act .sell-btn { display: inline-flex; align-items: center; gap: 6px; }
+  .fc-act .text-btn { padding: 8px 6px; font-size: 13px; }
+  .sell-btn.armed { background: linear-gradient(180deg, #ffb6a8, var(--ember) 55%, #d8604f); color: #2a0d08; box-shadow: inset 0 1px 0 rgba(255, 240, 235, 0.7), 0 0 0 1px rgba(110, 30, 20, 0.5); }
+  .text-btn.armed { color: var(--ember); text-decoration-color: rgba(255, 140, 124, 0.6); }
+  .tank-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 14px; margin-top: 14px; }
+  .tank-cap { display: grid; gap: 7px; font-size: 13.5px; color: var(--ink-soft); flex: 1 1 150px; max-width: 280px; font-variant-numeric: tabular-nums; }
+  .tank-cap b { color: var(--ink); }
+  .tank-cap.full .netbar i { background: linear-gradient(180deg, #ffc2b6, var(--ember) 50%, #c9584a); box-shadow: 0 0 6px rgba(255, 140, 124, 0.45); }
+  .tank-btns { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+  .tank-btns svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; margin-left: -3px; }
+  .feed-btn { position: relative; overflow: hidden; }
+  .feed-btn::after { content: ""; position: absolute; left: 14px; right: 14px; bottom: 4px; height: 2px; border-radius: 2px; transform-origin: left; transform: scaleX(var(--cool, 1)); background: var(--reed); opacity: 0; transition: opacity 0.4s ease; }
+  .feed-btn.cooling { color: var(--ink-faint); }
+  .feed-btn.cooling::after { opacity: 0.85; }
+  .fr-link { border: 0; background: none; padding: 0; text-align: left; color: inherit; cursor: pointer; }
+  .fr-link:hover { color: var(--brass); }
+  .fr-heart { font-size: 12px; }
+  .shop-wallet.flash { animation: flash 0.8s ease-out; }
+  #btn-net { position: relative; }
+  .tank-dot { position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff, #f2e8ff 45%, #c8b4f0); box-shadow: 0 0 0 2px rgba(8, 17, 28, 0.8), 0 0 10px rgba(220, 200, 255, 0.9); animation: dotPulse 2.4s ease-in-out infinite; }
+  .tank-dot.heart { background: radial-gradient(circle at 35% 35%, #fff, #ffb6d0 50%, #ff7aa8); box-shadow: 0 0 0 2px rgba(8, 17, 28, 0.8), 0 0 10px rgba(255, 130, 180, 0.9); }
+  @keyframes dotPulse { 50% { transform: scale(1.25); } }
+  .tank-item .item-art.tank-art { width: 100%; height: 132px; border-radius: 12px; box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(0, 0, 0, 0.3); }
+  .tank-item { grid-template-columns: minmax(0, 1fr); grid-template-areas: "art" "body" "foot"; }
+  .tank-item.past { opacity: 0.6; }
+  .tank-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); }
+  .tank-visit { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 14px; padding: 12px 14px; border-radius: 16px; background: var(--panel-fill); box-shadow: var(--panel-edge); margin-bottom: 12px; font-size: 13.5px; color: var(--ink-soft); }
+  .tank-visit b { color: var(--ink); }
+  .fish-card.top { bottom: auto; top: 12px; }
+  @media (max-width: 560px) {
+    .tank-stage { margin: 12px -10px 0; border-radius: 14px; }
+    .fish-card { left: 8px; right: 8px; bottom: 8px; width: auto; padding: 10px 12px; gap: 4px; }
+    .fish-card.top { top: 8px; bottom: auto; }
+    .fc-title h3 { font-size: 17px; }
+    .fc-mood { font-size: 13.5px; }
+    .fc-bond { font-size: 11.5px; padding: 3px 9px 3px 7px; }
+    .fc-bonds li:nth-child(n+3) { display: none; }
+    .wide-only { display: none; }
+    .tank-bar { gap: 8px; margin-top: 10px; }
+    .tank-btns { justify-content: flex-start; }
+    .tank-cap { max-width: none; flex-basis: 100%; }
+  }
+  @media (prefers-reduced-motion: reduce) { .tank-dot, .tank-hint, .fish-card { animation: none; } }
   .ladder { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
   .rung { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; padding: 12px 14px; border-radius: 14px; background: var(--panel-fill); box-shadow: var(--panel-edge); }
   .rung > div:first-child { display: grid; gap: 2px; }
@@ -723,9 +802,10 @@
     </button>
     <div class="wallet">
       <button class="chip-btn glass" id="btn-pearls" type="button" aria-label="Moonpearls. Open the market"><span class="pearl" aria-hidden="true"></span><span id="pearl-count">0</span></button>
-      <button class="chip-btn glass" id="btn-net" type="button" aria-label="Keepnet. Open the market to sell fish">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h16l-1.7 10.5H5.7z"/><path d="M4 8.5C4 6 7.6 4 12 4s8 2 8 4.5"/><path d="M6.4 12.5h11.2M7 16h10"/></svg>
+      <button class="chip-btn glass" id="btn-net" type="button" aria-label="Your aquarium">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.2 4.5h9.6"/><path d="M8 4.5C5 6.6 3.6 9.3 3.6 12.3c0 4.6 3.8 7.7 8.4 7.7s8.4-3.1 8.4-7.7c0-3-1.4-5.7-4.4-7.8"/><path d="M4.4 10.6c2.6 1 5 1 7.6 0s5-1 7.6 0"/><path d="M9.6 15.4c1.2-1.3 2.9-1.3 4.1 0-1.2 1.3-2.9 1.3-4.1 0zM13.7 15.4l1.4-.9v1.8z"/></svg>
         <span id="net-count">0/8</span>
+        <i class="tank-dot" id="tank-dot" hidden></i>
       </button>
     </div>
     </div>
@@ -835,7 +915,7 @@
       <div class="sheet-head">
         <div class="shop-head-text">
           <h2 id="shop-title">Driftwood Market</h2>
-          <p class="sheet-sub">Sell your catch for Moonpearls, then spend them on bait, gear and a bigger net.</p>
+          <p class="sheet-sub">Spend your Moonpearls on bait, finer gear and grander aquariums.</p>
         </div>
         <div class="shop-wallet" id="shop-pearls"></div>
         <button class="close-btn" type="button" data-close aria-label="Close market"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
@@ -845,11 +925,39 @@
     </div>
   </div>
 
+  <!-- aquarium -->
+  <div class="modal" id="m-tank" hidden role="dialog" aria-modal="true" aria-labelledby="tank-title">
+    <div class="card sheet shop tankcard">
+      <div class="sheet-head">
+        <div class="shop-head-text">
+          <h2 id="tank-title">Glass Bowl</h2>
+          <p class="sheet-sub" id="tank-sub"></p>
+        </div>
+        <div class="shop-wallet" id="tank-pearls"></div>
+        <button class="close-btn" type="button" data-close aria-label="Close aquarium"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <div class="tank-stage" id="tank-stage">
+        <canvas id="tank-canvas" aria-label="Your aquarium. Tap a fish to see it up close, or use the list."></canvas>
+        <p class="tank-hint" id="tank-hint" hidden>Tap a fish to see it up close</p>
+        <div class="fish-card" id="fish-card" hidden aria-live="polite"></div>
+        <div class="tank-list" id="tank-list" hidden></div>
+      </div>
+      <div class="tank-bar">
+        <div class="tank-cap" id="tank-cap"><span id="tank-count"></span><span class="netbar"><i id="tank-capbar"></i></span></div>
+        <div class="tank-btns">
+          <button class="secondary-btn feed-btn" id="tank-feed" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 9.5h7l1 10.5h-9z"/><path d="M9 9.5V6.5h6v3"/><path d="M10 4.5h4"/><circle cx="10.6" cy="14" r=".5"/><circle cx="13.4" cy="15.6" r=".5"/><circle cx="11.6" cy="17.2" r=".5"/></svg>Feed</button>
+          <button class="secondary-btn" id="tank-view" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7h11M9 12h11M9 17h11"/><circle cx="5" cy="7" r=".6"/><circle cx="5" cy="12" r=".6"/><circle cx="5" cy="17" r=".6"/></svg><span>List</span></button>
+          <button class="secondary-btn" id="tank-sellall" type="button"></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- first visit -->
   <div class="modal" id="m-intro" hidden role="dialog" aria-modal="true" aria-labelledby="intro-title">
     <div class="card intro">
       <h1 class="intro-title" id="intro-title">Tidesong</h1>
-      <p class="intro-tag">Five enchanted waters, thirty-five kinds of fish, one very unusual penguin and a dolphin who came to say hello.</p>
+      <p class="intro-tag">Five enchanted waters, fifty-eight kinds of fish, one very unusual penguin and a dolphin who came to say hello.</p>
       <div class="rarity-row" aria-label="Rarities">
         <span style="color:#bfe0c9">Common</span><span style="color:#86c9f7">Rare</span><span style="color:#c8a2ff">Epic</span><span style="color:#ffd46e">Legendary</span><span style="color:#ff6f86">Extreme</span>
       </div>
@@ -858,7 +966,7 @@
         <li><span><b>Wait.</b> Watch the bobber. When it plunges under, a fish has bitten.</span></li>
         <li><span><b>Reel.</b> Hold anywhere to push the green band right; let go and it drifts left. Keep the gold line inside the band to fill the ring. If the ring drains past the red mark, the fish escapes.
           <span class="demo" aria-hidden="true"><span class="band"></span><span class="marker"></span></span></span></li>
-        <li><span><b>Sell.</b> Keep favourite catches in your keepnet and sell the rest at the Driftwood Market for Moonpearls. Spend them on bait, rods, bobbers and a bigger net.</span></li>
+        <li><span><b>Keep or sell.</b> Fish you keep swim in your aquarium; sell the rest for Moonpearls. Spend them at the Driftwood Market on bait, rods, bobbers and grander tanks.</span></li>
       </ol>
       <button class="primary-btn" id="intro-go" type="button" data-autofocus>Start fishing</button>
     </div>
@@ -876,4 +984,6 @@
 <script src="js/gear.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/shop.js"></script>
+<script src="js/tank-env.js"></script>
+<script src="js/tank.js"></script>
 <script src="js/game.js"></script>

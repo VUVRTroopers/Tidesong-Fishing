@@ -27,6 +27,8 @@
   const fresh = () => ({
     v: 2, xp: 0, loc: 'mistwillow', caught: {}, total: 0, sound: true, intro: false,
     pearls: 0, net: [], netTier: 0, uid: 1,
+    // the aquarium: when it was last looked after, pearls lying on the sand, bonds between fish, mates
+    tank: { last: 0, drops: [], bonds: {}, mates: {}, fed: 0 },
     bait: { worm: 3, shrimp: 0, roe: 0 },
     owned: { rods: ['willow'], bobbers: ['classic'], lines: ['mono'] },
     equip: { rod: 'willow', bobber: 'classic', line: 'mono', bait: null },
@@ -42,6 +44,10 @@
     const s = Object.assign(base, d);
     for (const k of ['bait', 'owned', 'equip', 'stats', 'records']) s[k] = Object.assign(fresh()[k], d[k] || {});
     if (!Array.isArray(s.net)) s.net = [];
+    s.tank = Object.assign(fresh().tank, d.tank || {});
+    if (!Array.isArray(s.tank.drops)) s.tank.drops = [];
+    if (!s.tank.bonds || typeof s.tank.bonds !== 'object') s.tank.bonds = {};
+    if (!s.tank.mates || typeof s.tank.mates !== 'object') s.tank.mates = {};
     for (const k of ['rods', 'bobbers', 'lines']) if (!Array.isArray(s.owned[k])) s.owned[k] = fresh().owned[k];
     if (!d.v) {
       // A save from before the market opened: earlier catches are sold on the player's behalf.
@@ -63,7 +69,7 @@
     if (!Gear.BOB[s.equip.bobber] || !s.owned.bobbers.includes(s.equip.bobber)) s.equip.bobber = 'classic';
     if (!Gear.LINE[s.equip.line] || !s.owned.lines.includes(s.equip.line)) s.equip.line = 'mono';
     if (s.equip.bait && !(s.bait[s.equip.bait] > 0)) s.equip.bait = null;
-    s.netTier = clamp(s.netTier | 0, 0, NET_TIERS.length - 1);
+    s.netTier = clamp(s.netTier | 0, 0, TANKS.length - 1);
     return s;
   }
   function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* ignore */ } }
@@ -73,7 +79,7 @@
   const lvl = () => levelFromXp(save.xp);
   const isUnlocked = loc => lvl().level >= loc.level;
   const xpToReach = level => { let s = 0; for (let i = 1; i < level; i++) s += xpForLevel(i); return s; };
-  const netCap = () => NET_TIERS[save.netTier].cap;
+  const netCap = () => TANKS[save.netTier].cap;
   const activeBait = () => (save.equip.bait && save.bait[save.equip.bait] > 0 ? save.equip.bait : null);
   /* What the equipped gear does for the fight, from each piece's tier: the rod widens the band, the line
      slows the drain, the bobber speeds the fill. heir marks slots holding an Heirloom, which get a gilded reel. */
@@ -110,7 +116,7 @@
     ringFill: $('#ring-fill'), ringNotch: $('#ring-notch'), ring: $('#reel .ring'), ringHead: $('#ring-head'), reelHint: $('#reel-hint'),
     placeName: $('#place-name'), placeTime: $('#place-time'), lvl: $('#lvl-num'), xpFill: $('#xp-fill'), xpText: $('#xp-text'),
     sound: $('#btn-sound'), toasts: $('#toasts'), veil: $('#veil'), rvCanvas: $('#rv-canvas'),
-    pearls: $('#pearl-count'), pearlBtn: $('#btn-pearls'), netBtn: $('#btn-net'), netCount: $('#net-count'),
+    pearls: $('#pearl-count'), pearlBtn: $('#btn-pearls'), netBtn: $('#btn-net'), netCount: $('#net-count'), tankDot: $('#tank-dot'),
     baitBtn: $('#btn-bait'), baitLabel: $('#bait-label'), baitDot: $('#bait-dot'),
   };
   const RING_C = 2 * Math.PI * 50;
@@ -277,7 +283,7 @@
     ui.prompt.classList.remove('breathe');
     if (save.net.length >= netCap() && G.t - G.fullWarnAt > 25) {
       G.fullWarnAt = G.t;
-      toast('Your keepnet is full. Sell a few fish at the market to keep new catches.', '#ff8c7c', 3800);
+      toast('Your aquarium is full. Sell a few fish, or buy a bigger tank, to keep new catches.', '#ff8c7c', 3800);
     }
   }
 
@@ -934,7 +940,10 @@
     const cap = netCap(), used = save.net.length;
     ui.netCount.textContent = `${used}/${cap}`;
     ui.netBtn.classList.toggle('full', used >= cap);
-    ui.netBtn.setAttribute('aria-label', `Keepnet ${used} of ${cap}${used >= cap ? ', full' : ''}. Open the market to sell fish`);
+    const pend = Tank.pending();
+    ui.tankDot.hidden = !pend.pearls && !pend.hearts;
+    ui.tankDot.classList.toggle('heart', !!pend.hearts);
+    ui.netBtn.setAttribute('aria-label', `Your aquarium: ${used} of ${cap} fish${used >= cap ? ', full' : ''}${pend.pearls ? '. Something glints on the sand' : ''}`);
     const bait = activeBait();
     const stocked = BAIT_ORDER.reduce((a, id) => a + (save.bait[id] || 0), 0);
     ui.baitLabel.textContent = bait ? `${BAITS[bait].name} ×${save.bait[bait]}` : stocked ? 'Add bait' : 'No bait';
@@ -999,6 +1008,7 @@
     if (m.id === 'm-reveal') afterReveal();
     if (m.id === 'm-intro') { save.intro = true; persist(); unlockAudio(); }
     if (m.id === 'm-shop') { updateHUD(); if (revealOpen()) renderRevealActions(); }
+    if (m.id === 'm-tank') { Tank.onClosed(); updateHUD(); if (revealOpen()) renderRevealActions(); }
     if (!quiet) Sound.play('click');
   }
   const revealOpen = () => !$('#m-reveal').hidden && revealState && revealState.mode === 'catch';
@@ -1062,8 +1072,8 @@
     note.hidden = false;
     note.classList.toggle('full', full);
     note.textContent = full
-      ? `Your keepnet is full (${used} of ${cap}). Sell or release this fish, or make room in your net.`
-      : `Keepnet: ${used} of ${cap} slots used`;
+      ? `Your aquarium is full (${used} of ${cap}). Sell or release this fish, or make room in your tank.`
+      : `Aquarium: ${used} of ${cap} fish`;
     box.innerHTML = full
       ? `<button type="button" class="primary-btn" data-rv="sell" data-autofocus>Sell · ${pearlsHTML(Ld.value)}</button>
          <button type="button" class="secondary-btn" data-rv="room">Make room</button>
@@ -1072,7 +1082,7 @@
          <button type="button" class="secondary-btn" data-rv="sell">Sell · ${pearlsHTML(Ld.value)}</button>
          <button type="button" class="text-btn" data-rv="release">Release</button>`;
     const first = box.querySelector('[data-autofocus]');
-    if (first && !$('#m-reveal').hidden && (!Shop.isOpen())) setTimeout(() => first.focus({ preventScroll: true }), 30);
+    if (first && !$('#m-reveal').hidden && !Shop.isOpen() && !Tank.isOpen) setTimeout(() => first.focus({ preventScroll: true }), 30);
   }
 
   $('#rv-actions').addEventListener('click', e => {
@@ -1080,16 +1090,16 @@
     if (!b) return;
     const act = b.dataset.rv;
     if (act === 'close') { closeModal('#m-reveal'); return; }
-    if (act === 'room') { Shop.open('sell'); return; }
+    if (act === 'room') { Tank.open({ list: true }); return; }
     const Ld = G.land;
     if (!Ld || Ld.decided) return;
     if (act === 'keep') {
       if (save.net.length >= netCap()) { renderRevealActions(); return; }
       // Legendary and Extreme catches are starred on the way in, so "Sell all" never parts with them by accident.
       const prized = RARITIES[Ld.rarity].tier >= 3;
-      save.net.push({ uid: save.uid++, id: Ld.id, kg: Ld.kg, cm: Ld.cm, value: Ld.value, at: Date.now(), fav: prized });
+      save.net.push({ uid: save.uid++, id: Ld.id, kg: Ld.kg, cm: Ld.cm, value: Ld.value, at: Date.now(), fav: prized, seen: false });
       Sound.play('equip');
-      if (prized) setTimeout(() => toast(`Your ${SPECIES[Ld.id].name} is starred, so “Sell all” will leave it alone.`, RARITIES[Ld.rarity].color, 3600), 400);
+      if (prized) setTimeout(() => toast(`Your ${SPECIES[Ld.id].name} is starred, so “Sell all unstarred” will leave it alone.`, RARITIES[Ld.rarity].color, 3600), 400);
     } else if (act === 'sell') {
       save.pearls += Ld.value;
       save.stats.earned += Ld.value;
@@ -1133,7 +1143,7 @@
     const Ld = G.land;
     if (!Ld.decided) {
       // closed without choosing (should not happen): keep it if there is room, otherwise sell it
-      if (save.net.length < netCap()) save.net.push({ uid: save.uid++, id: Ld.id, kg: Ld.kg, cm: Ld.cm, value: Ld.value, at: Date.now(), fav: false });
+      if (save.net.length < netCap()) save.net.push({ uid: save.uid++, id: Ld.id, kg: Ld.kg, cm: Ld.cm, value: Ld.value, at: Date.now(), fav: false, seen: false });
       else { save.pearls += Ld.value; save.stats.earned += Ld.value; save.stats.sold += 1; }
       persist();
     }
@@ -1151,7 +1161,7 @@
       }, delay);
       delay += 1200;
     }
-    if (save.total === 1) setTimeout(() => toast('Fish you keep wait in your keepnet. Sell them at the market for Moonpearls.', '#e8c46c', 5000), delay);
+    if (save.total === 1) setTimeout(() => toast('Fish you keep swim in your aquarium. Tap the bowl up top to visit them.', '#e8c46c', 5000), delay);
   }
 
   /* ---------- map ---------- */
@@ -1322,7 +1332,7 @@
   $('#btn-journal').addEventListener('click', openJournal);
   $('#btn-shop').addEventListener('click', () => openShop());
   ui.pearlBtn.addEventListener('click', () => openShop());
-  ui.netBtn.addEventListener('click', () => openShop('sell'));
+  ui.netBtn.addEventListener('click', () => Tank.open({ check: true }));
   ui.baitBtn.addEventListener('click', () => openShop('bait'));
   $('#btn-sound').addEventListener('click', () => {
     save.sound = !save.sound;
@@ -1352,10 +1362,22 @@
     openModal,
     loc: () => locById(save.loc),
     netCap,
+    openTank: () => Tank.open({ check: true }),
     level: () => lvl().level,
     perks: gearPerks,
     time: () => G.t,
     flashWallet,
+  });
+
+  Tank.init({
+    get save() { return save; },
+    persist,
+    refresh() { updateHUD(); if (revealOpen()) renderRevealActions(); },
+    toast,
+    play: (name, ...args) => Sound.play(name, ...args),
+    openModal,
+    flashWallet,
+    canUse: canUseMenus,
   });
 
   /* ================= Sizing + loop ================= */
@@ -1415,10 +1437,14 @@
     last = now;
     G.t += dt; G.pt += dt;
     update(dt);
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    render();
+    // the aquarium fills the screen while it is open, so the lake behind it can rest
+    if (!Tank.isOpen) {
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      render();
+    }
     if (revealState && !$('#m-reveal').hidden) drawReveal();
     if (Shop.isOpen()) Shop.paint(G.t);
+    Tank.frame(dt);
     requestAnimationFrame(frame);
   }
 

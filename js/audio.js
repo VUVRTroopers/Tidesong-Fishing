@@ -569,6 +569,95 @@ const Sound = (() => {
       pluck(midi(79), { t: 0.22, gain: 0.05, dur: 1.6, wet: 0.26 });
     },
 
+    /* ---- the aquarium ---- */
+    tankOpen() {
+      for (let i = 0; i < 5; i++) bubble(rand(500, 1100), { t: i * 0.06 + rand(0, 0.03), dur: rand(0.04, 0.08), gain: 0.028, pan: rand(-0.5, 0.5), wet: 0.35 });
+      pluck(midi(74), { t: 0.05, gain: 0.04, dur: 1.4, wet: 0.3 });
+      pluck(midi(81), { t: 0.14, gain: 0.032, dur: 1.6, wet: 0.32 });
+    },
+    tankAmb(id) {
+      const n = 1 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < n; i++) bubble(rand(id === 'palace' ? 700 : 420, 1400), { t: i * rand(0.05, 0.16), dur: rand(0.03, 0.07), gain: rand(0.007, 0.014), pan: rand(-0.7, 0.7), wet: 0.4, lp: 3500 });
+      if (id === 'palace' && Math.random() < 0.35) bell(midi([84, 86, 88, 91, 93][Math.floor(Math.random() * 5)]), { gain: 0.008, dur: 3, partials: GLASS, pan: rand(-0.6, 0.6), wet: 0.7, beat: false });
+    },
+    glass() {
+      wood(midi(86), { gain: 0.03, dur: 0.07, wet: 0.1 });
+      bell(1760 + rand(-80, 80), { gain: 0.01, dur: 0.3, partials: GLASS, wet: 0.15, beat: false });
+    },
+    select() { pluck(midi(79), { gain: 0.035, dur: 0.9, wet: 0.25 }); bubble(rand(700, 900), { t: 0.03, dur: 0.05, gain: 0.02 }); },
+    pebbles() { for (let i = 0; i < 7; i++) wood(midi(90 + Math.random() * 10), { t: i * rand(0.02, 0.05), gain: 0.018, dur: 0.05, pan: rand(-0.3, 0.3) }); },
+    rustle() { noise({ type: 'bandpass', f: 1500, f1: 900, q: 0.8, a: 0.03, d: 0.25, gain: 0.025, wet: 0.2 }); bubble(rand(500, 700), { t: 0.1, dur: 0.05, gain: 0.015 }); },
+    snail() { osc(700, { type: 'triangle', glide: 420, a: 0.01, d: 0.16, gain: 0.018, wet: 0.2 }); },
+    bubbles(k = 1) { for (let i = 0; i < Math.round(12 * k); i++) bubble(rand(350, 1250), { t: rand(0, 0.55 * k), dur: rand(0.03, 0.08), gain: rand(0.01, 0.022), pan: rand(-0.4, 0.4), wet: 0.35 }); },
+    burble(k = 1) { for (let i = 0; i < Math.round(7 * k); i++) bubble(rand(170, 420), { t: i * rand(0.04, 0.09), dur: rand(0.06, 0.12), gain: 0.02 * Math.min(1.2, k), pan: rand(-0.3, 0.3), wet: 0.4 }); },
+    knock() { wood(midi(55), { gain: 0.06, dur: 0.3 }); wood(midi(50), { t: 0.09, gain: 0.045, dur: 0.35 }); },
+    plip() { bubble(rand(900, 1300), { dur: 0.05, gain: 0.028, wet: 0.3 }); },
+    frog() { croak({ gain: 0.7, pan: rand(-0.2, 0.2) }); },
+    flutter() { for (let i = 0; i < 9; i++) noise({ t: i * 0.024, type: 'bandpass', f: 1900, q: 1.4, a: 0.002, d: 0.014, gain: 0.014, wet: 0.1 }); },
+    moss() { noise({ type: 'lowpass', f: 420, q: 0.6, a: 0.01, d: 0.14, gain: 0.05, wet: 0.15 }); bubble(rand(260, 340), { t: 0.04, dur: 0.08, gain: 0.018 }); },
+    star() { bell(midi(96), { gain: 0.012, dur: 0.9, partials: GLASS, wet: 0.3, beat: false }); },
+    clam() { wood(midi(62), { gain: 0.07, dur: 0.12 }); noise({ type: 'bandpass', f: 1200, q: 1, a: 0.002, d: 0.06, gain: 0.03 }); S.burble(0.6); },
+    clamPearl() { [88, 93, 100].forEach((n, i) => bell(midi(n), { t: i * 0.09, gain: 0.03, dur: 1.6, partials: GLASS, wet: 0.35 })); },
+    chest() {
+      osc(190, { type: 'triangle', glide: 130, a: 0.05, hold: 0.3, d: 0.25, gain: 0.02, lp: 900, wet: 0.25 });
+      noise({ type: 'bandpass', f: 900, f1: 420, fTime: 0.4, q: 3, a: 0.05, d: 0.35, gain: 0.02, wet: 0.2 });
+      wood(midi(46), { t: 0.42, gain: 0.06, dur: 0.4 });
+      S.bubbles(1.1);
+    },
+    anemone() { noise({ type: 'bandpass', f: 700, f1: 280, fTime: 0.3, q: 0.7, a: 0.02, d: 0.3, gain: 0.03, wet: 0.25 }); bubble(rand(400, 500), { t: 0.1, dur: 0.07, gain: 0.015 }); },
+    lantern() { bell(midi(79), { gain: 0.022, dur: 2.6, partials: GLASS, wet: 0.45 }); osc(midi(67), { a: 0.25, d: 1.6, gain: 0.014, type: 'warm', lp: 1400, dest: music, wet: 0.4 }); },
+    shipbell() { bell(midi(64), { gain: 0.055, dur: 4.2, wet: 0.5 }); bell(midi(64), { t: 0.6, gain: 0.04, dur: 4, wet: 0.5 }); },
+    clank() { bell(midi(70), { gain: 0.03, dur: 0.6, partials: TUBE, wet: 0.2 }); wood(midi(58), { t: 0.05, gain: 0.03, dur: 0.15 }); },
+    ring() { noise({ type: 'bandpass', f: 320, f1: 900, fTime: 0.5, q: 1.2, a: 0.08, d: 0.4, gain: 0.03, wet: 0.35 }); for (let i = 0; i < 4; i++) bubble(300 + i * 140, { t: 0.15 + i * 0.07, dur: 0.07, gain: 0.014 }); },
+    ringpass() { [91, 95, 98].forEach((n, i) => bell(midi(n), { t: i * 0.05, gain: 0.014, dur: 1, partials: GLASS, wet: 0.4, beat: false })); },
+    geode(note = 72) { bell(midi(note), { gain: 0.05, dur: 3.2, partials: GLASS, wet: 0.5 }); bell(midi(note + 12), { t: 0.01, gain: 0.012, dur: 2, partials: GLASS, wet: 0.5, beat: false }); },
+    gate() { [72, 76, 79, 84, 88].forEach((n, i) => bell(midi(n), { t: i * 0.09, gain: 0.024, dur: 3, partials: GLASS, pan: (i - 2) * 0.2, wet: 0.55 })); noise({ type: 'bandpass', f: 4200, f1: 2200, q: 1.2, a: 0.3, d: 0.8, gain: 0.012, wet: 0.5 }); },
+    sandglow() { bell(midi(96), { gain: 0.01, dur: 1.2, partials: GLASS, wet: 0.5, beat: false }); bell(midi(100), { t: 0.08, gain: 0.008, dur: 1.2, partials: GLASS, wet: 0.5, beat: false }); },
+    blessing() {
+      [72, 74, 76, 79, 81, 84, 86, 88, 91, 93].forEach((n, i) => bell(midi(n), { t: i * 0.08, gain: 0.022, dur: 2.6, partials: GLASS, pan: (i / 9 - 0.5) * 1.2, wet: 0.6 }));
+      [60, 67, 72, 76].forEach(n => osc(midi(n), { t: 0.6, a: 0.6, hold: 0.8, d: 2.4, gain: 0.012, type: 'warm', lp: 1800, dest: music, wet: 0.55 }));
+    },
+    kiss() { pluck(midi(84), { gain: 0.03, dur: 0.8, wet: 0.3 }); pluck(midi(88), { t: 0.08, gain: 0.026, dur: 0.9, wet: 0.3 }); bubble(rand(800, 1000), { t: 0.02, dur: 0.04, gain: 0.014 }); },
+    flare() { noise({ type: 'bandpass', f: 1500, q: 4, a: 0.01, hold: 0.06, d: 0.18, gain: 0.022, wet: 0.15 }); },
+    puff() { osc(260, { type: 'triangle', glide: 540, a: 0.02, hold: 0.18, d: 0.2, gain: 0.026, wet: 0.2 }); bubble(rand(300, 380), { t: 0.05, dur: 0.1, gain: 0.018 }); },
+    boop() { bubble(rand(600, 820), { dur: 0.07, gain: 0.03 }); pluck(midi(86), { gain: 0.012, dur: 0.6, wet: 0.3 }); },
+    gulp(tier = 0) { bubble(rand(240, 380) * (1 - tier * 0.05), { dur: rand(0.05, 0.09), gain: 0.024, wet: 0.25 }); },
+    mates() { [76, 81, 84, 88].forEach((n, i) => pluck(midi(n), { t: i * 0.11, gain: 0.04, dur: 1.6, wet: 0.35 })); bell(midi(93), { t: 0.5, gain: 0.02, dur: 2.4, partials: GLASS, wet: 0.5 }); },
+    shy() { osc(900, { type: 'triangle', glide: 480, a: 0.005, d: 0.16, gain: 0.014, wet: 0.2 }); },
+    squirt() { noise({ type: 'bandpass', f: 2600, f1: 1600, q: 1.5, a: 0.004, d: 0.12, gain: 0.03, wet: 0.15 }); bubble(1100, { t: 0.3, dur: 0.04, gain: 0.02 }); },
+    flakes() { for (let i = 0; i < 10; i++) noise({ t: i * rand(0.03, 0.06), kind: 'white', type: 'highpass', f: 4200, q: 0.7, a: 0.002, d: 0.02, gain: 0.02, pan: rand(-0.3, 0.3), wet: 0.1 }); for (let i = 0; i < 3; i++) S.plip(); },
+    pearlDrop(tier = 1) { bell(midi(91 + tier), { gain: 0.016, dur: 1.4, partials: GLASS, wet: 0.45, beat: false }); },
+    pearlLand() { bell(midi(98), { gain: 0.01, dur: 0.5, partials: GLASS, wet: 0.3, beat: false }); },
+    pearlGet(v = 1) {
+      const notes = [84, 88, 91, 96, 100], k = Math.min(5, 2 + Math.floor(Math.log10(v + 1) * 2));
+      for (let i = 0; i < k; i++) bell(midi(notes[i]), { t: i * 0.055, gain: 0.03, dur: 1.4, partials: GLASS, pan: (i - k / 2) * 0.15, wet: 0.3 });
+    },
+    splashIn(size = 1) { splashFx(size * 0.45, { pan: rand(-0.2, 0.2) }); },
+    fish(kind, tier = 0) {
+      const pan = rand(-0.3, 0.3);
+      switch (kind) {
+        case 'dart': noise({ type: 'bandpass', f: 1100, f1: 2600, fTime: 0.15, q: 1.2, a: 0.01, d: 0.14, gain: 0.03, pan, wet: 0.15 }); break;
+        case 'flash': bell(midi(100), { gain: 0.012, dur: 0.8, partials: GLASS, pan, wet: 0.3, beat: false }); break;
+        case 'gulp': S.gulp(tier); break;
+        case 'nuzzle': bubble(rand(520, 640), { dur: 0.06, gain: 0.025, pan }); break;
+        case 'hop': wood(midi(76), { gain: 0.03, dur: 0.12, pan }); bubble(520, { t: 0.05, dur: 0.05, gain: 0.014 }); break;
+        case 'glow': bell(midi(91), { gain: 0.02, dur: 2.4, partials: GLASS, pan, wet: 0.55 }); bell(midi(98), { t: 0.12, gain: 0.01, dur: 2, partials: GLASS, pan, wet: 0.55, beat: false }); break;
+        case 'wiggle': for (let i = 0; i < 3; i++) bubble(600 + i * 160, { t: i * 0.06, dur: 0.05, gain: 0.018, pan }); break;
+        case 'glide': noise({ type: 'bandpass', f: 500, f1: 900, q: 0.8, a: 0.2, d: 0.6, gain: 0.014, pan, wet: 0.4 }); bell(midi(84), { t: 0.1, gain: 0.012, dur: 2, partials: GLASS, pan, wet: 0.5 }); break;
+        case 'flare': S.flare(); break;
+        case 'bury': noise({ type: 'lowpass', f: 700, q: 0.5, a: 0.03, d: 0.35, gain: 0.04, pan, wet: 0.1 }); break;
+        case 'curl': pluck(midi(79), { gain: 0.022, dur: 0.9, pan, wet: 0.3 }); pluck(midi(83), { t: 0.1, gain: 0.018, dur: 0.9, pan, wet: 0.3 }); break;
+        case 'spin': [88, 91, 95].forEach((n, i) => bell(midi(n), { t: i * 0.05, gain: 0.012, dur: 0.9, partials: GLASS, pan, wet: 0.35, beat: false })); break;
+        case 'puff': S.puff(); break;
+        case 'bubble': S.bubbles(0.5); break;
+        case 'blush': [84, 88, 91].forEach((n, i) => pluck(midi(n), { t: i * 0.08, gain: 0.024, dur: 1, pan, wet: 0.3 })); break;
+        case 'penguin': noise({ type: 'bandpass', f: 700, f1: 1800, fTime: 0.3, q: 1, a: 0.03, d: 0.3, gain: 0.03, pan, wet: 0.2 }); pluck(midi(86), { t: 0.1, gain: 0.03, dur: 0.6, wet: 0.25 }); pluck(midi(91), { t: 0.18, gain: 0.03, dur: 0.6, wet: 0.25 }); break;
+        case 'loop': osc(1300, { curve: Float32Array.from([1300, 1900, 1500, 2100, 1700, 2300]), curveTime: 0.45, a: 0.02, hold: 0.35, d: 0.12, gain: 0.012, pan, wet: 0.4 }); break;
+        case 'ember': for (let i = 0; i < 10; i++) noise({ t: i * rand(0.02, 0.06), kind: 'white', type: 'bandpass', f: rand(1800, 3800), q: 3, a: 0.001, d: 0.012, gain: 0.02, pan: rand(-0.4, 0.4), wet: 0.2 }); bell(midi(72), { gain: 0.02, dur: 2, wet: 0.5 }); break;
+        default: S.boop();
+      }
+    },
+
     /* ---- the waters' rare moments ---- */
     croak() { croak({ pan: rand(-0.4, 0.4), gain: 0.9 }); },
     gull() { gullCall({ n: 3, pan: 0.45, panTo: -0.35, wet: 0.3, gain: 0.36 }); },
