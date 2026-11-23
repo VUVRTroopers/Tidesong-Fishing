@@ -165,6 +165,7 @@ const Flourish = (() => {
         }
         return { pts, n, size: L.m * 0.028, dur: n * 0.95 };
       },
+      tick(s) { if (!s.a) { s.a = 1; api.play('buzz', s.dur); } },
       draw(ctx, L, s, t) {
         const segT = s.age / 0.95, i = Math.min(s.n - 1, Math.floor(segT)), f = segT - i;
         const travel = clamp(f / 0.45, 0, 1), k = ease(travel);
@@ -309,6 +310,7 @@ const Flourish = (() => {
         return { ...p, dir: Math.random() < 0.5 ? -1 : 1, size: L.m * 0.095 * k, k, dur: 2.6, fl: {} };
       },
       tick(s) {
+        if (!s.w) { s.w = 1; api.play('whistle'); }
         for (const [i, d] of [[0, 0], [1, 0.5]]) {
           const k = (s.age - d) / 1.25, bx = s.x + i * s.dir * s.size * 1.5;
           if (k >= 0 && !s.fl['a' + i]) { s.fl['a' + i] = 1; api.splash({ x: bx, y: s.y }, 0.5 * s.k); }

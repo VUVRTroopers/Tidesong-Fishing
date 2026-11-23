@@ -178,10 +178,39 @@ drops. Without WebGL, or with `#nogl` in the URL, the game falls back to a 2D re
 
 ## Sound
 
-All sound is synthesised at runtime with the Web Audio API. Each water has its own ambient
-soundscape, and the reel gives continuous feedback: the ratchet ticks while you hold, a rising
-pentatonic phrase plays as the ring fills, a strained whine sounds while the fish is outside the
-band, and a soft heartbeat warns when it is about to escape. Sound can be muted from the top bar.
+All sound is synthesised at runtime with the Web Audio API: there are no audio files. It is
+built to feel natural rather than electronic:
+
+- **Soft instruments:** musical notes are a physically modelled plucked string (Karplus–Strong),
+  bells and chimes are modal (a few decaying partials, the higher ones dying first), and noise is
+  pink or brown rather than harsh white noise. Every envelope is smooth, so nothing clicks.
+- **Real-sounding water:** drops and splashes are clusters of tiny bubbles whose pitch rises as they
+  ring, as real bubbles do. Small waves lap the bank, surf gathers, breaks and washes back, and
+  droplets patter down after a splash.
+- **Living creatures:** frogs and gulls are a pulsing voice shaped by throat formants, crickets are a
+  tone gated into chirps of pulses, songbirds sing phrases of rising chirps, slurs and trills, and a
+  dove coos across the pond.
+- **A space for every water:** each one has its own generated reverb, from the open air of
+  Coralspire to the cliff echoes of Frostveil and the long temple ring of Dragonmere.
+- **Scenes that dissolve into each other:** travelling muffles the old water and lets it drift into
+  its own echo while the new one opens up, and the reverb itself crossfades.
+- **A living backdrop:** a quiet chord breathes under each scene and moves to a new chord every
+  twenty seconds or so, one voice at a time.
+- **The fight:** you hear the water churned up by the fish, panned to where it pulls; the line
+  humming under strain when the fish is outside the band; the spool whirring as you wind; a harp
+  climbing the pentatonic scale as the ring fills; and a soft heartbeat when the fish is about to
+  escape.
+
+| Water | Soundscape |
+| --- | --- |
+| Mistwillow Pond | Songbirds, a cooing dove, willow leaves stirring, fish rising |
+| Lanternfen Marsh | Cricket chorus, frogs calling and answering, marsh bubbles |
+| Coralspire Lagoon | Surf on the reef, distant gulls, palms in the breeze |
+| Frostveil Fjord | Howling wind, ice chimes, groaning and singing ice, the aurora's hum |
+| Dragonmere Sanctum | Temple wind chimes, a far-off temple bell, crackling lanterns |
+
+A master chain softens the top end and glues everything with a gentle compressor and limiter.
+Sound can be muted from the top bar.
 
 ## Project structure
 
@@ -189,7 +218,7 @@ band, and a soft heartbeat warns when it is about to escape. Sound can be muted 
 index.html          Page markup and all styling (HUD, reel slider and ring, panels)
 js/
   data.js           Rarities, species, the five waters and their odds, reel tuning, XP curve
-  audio.js          Synthesised sound effects, reel feedback and ambient soundscapes
+  audio.js          Synthesised sound: instruments, water, creatures, spaces, ambience and the fight
   fish-art.js       Procedural drawings of all 35 species and their rarity auras
   fish-gl.js        WebGL lighting engine for painted sprites (fish and bobbers)
   flourish.js       Rare per-water moments (frog, gull, dolphins, owl, whale, dragon and more)
