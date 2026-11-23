@@ -1,7 +1,8 @@
-/* Tidesong — cosmetic gear (rods, bobbers, lines) with the painters that draw them, plus bait icons.
-   Gear is grouped into themes. Heirloom pieces (the ultra tier) need a fishing level and carry one
-   small perk for the reel fight: rods widen the green band, lines slow the meter's drain,
-   bobbers speed up how fast it fills. Everything else is purely cosmetic. */
+/* Tidesong — gear (rods, bobbers, lines) with the painters that draw them, plus bait icons.
+   Every piece sits on a rung of one shared tier ladder. A rung sets the price and the boost, and every
+   theme is offered on most rungs, so a player picks a look without giving anything up. Rods widen the
+   green band, bobbers fill the meter faster, lines slow its drain. The top three rungs are Heirlooms,
+   which also need a fishing level. */
 'use strict';
 
 const Gear = (() => {
@@ -108,97 +109,130 @@ const Gear = (() => {
     { id: 'mountain', name: 'Mountain' },
     { id: 'bakery', name: 'Bakery' },
   ];
-  /* Heirloom perk tiers: small on purpose. Tested so a full top set helps without deciding fights. */
-  const TIER = {
-    1: { level: 18, band: 1.04, drain: 0.95, fill: 1.04 },
-    2: { level: 22, band: 1.05, drain: 0.94, fill: 1.05 },
-    3: { level: 26, band: 1.06, drain: 0.93, fill: 1.06 },
-  };
+  /* The tier ladder, shared by rods, bobbers and lines. Equal 2.5% steps from the starter kit to 20%.
+     Prices grow about 2.5x a rung, so the first upgrades come within minutes and Tier V takes a few
+     hours. Heirlooms also need a fishing level. Tuned in simulation alongside the legendary and extreme
+     fights in REEL (js/data.js): each rung lifts the odds on the hardest fish noticeably, a full Tier V
+     kit still leaves the Dragon Fish a real contest, and only the full Heirloom kit makes it routine. */
+  const TIERS = [
+    { n: 0, name: 'Starter',      mark: '—',   pct: 0,    price: 0 },
+    { n: 1, name: 'Tier I',       mark: 'I',   pct: 2.5,  price: 250 },
+    { n: 2, name: 'Tier II',      mark: 'II',  pct: 5,    price: 750 },
+    { n: 3, name: 'Tier III',     mark: 'III', pct: 7.5,  price: 2000 },
+    { n: 4, name: 'Tier IV',      mark: 'IV',  pct: 10,   price: 5000 },
+    { n: 5, name: 'Tier V',       mark: 'V',   pct: 12.5, price: 12000 },
+    { n: 6, name: 'Heirloom I',   mark: 'I',   pct: 15,   price: 36000, level: 18, heir: true },
+    { n: 7, name: 'Heirloom II',  mark: 'II',  pct: 17.5, price: 55000, level: 22, heir: true },
+    { n: 8, name: 'Heirloom III', mark: 'III', pct: 20,   price: 80000, level: 26, heir: true },
+  ];
+  const TOP_LEVEL = TIERS[TIERS.length - 1].level;
+  /* Which part of the fight each slot improves. */
+  const PERK_KEY = { rods: 'band', bobbers: 'fill', lines: 'drain' };
+  const perkFor = (kind, pct) => ({ [PERK_KEY[kind]]: PERK_KEY[kind] === 'drain' ? 1 - pct / 100 : 1 + pct / 100 });
+  const pctText = v => `${Math.round(v * 10) / 10}%`;
   function perkText(p) {
     if (!p) return '';
-    if (p.band) return `Green band ${Math.round((p.band - 1) * 100)}% wider`;
-    if (p.drain) return `Meter drains ${Math.round((1 - p.drain) * 100)}% slower`;
-    if (p.fill) return `Meter fills ${Math.round((p.fill - 1) * 100)}% faster`;
+    if (p.band) return `Green band ${pctText((p.band - 1) * 100)} wider`;
+    if (p.drain) return `Meter drains ${pctText((1 - p.drain) * 100)} slower`;
+    if (p.fill) return `Meter fills ${pctText((p.fill - 1) * 100)} faster`;
     return '';
   }
-  const heir = (tier, key) => ({ level: TIER[tier].level, perk: { [key]: TIER[tier][key] }, tier });
+  /* The same boost as a short label for a slot at a tier, e.g. "Band +7.5%". */
+  const PERK_SHORT = { rods: 'Band', bobbers: 'Fill', lines: 'Drain' };
+  const perkShort = (kind, pct) => `${PERK_SHORT[kind]} ${kind === 'lines' ? '−' : '+'}${pctText(pct)}`;
 
-  /* ================= Rods ================= */
+  /* ================= Rods =================
+     tier: the rung on the ladder above. Price, level and boost all come from it. */
   const RODS = [
     // classic
-    { id: 'willow', theme: 'classic', name: 'Willow Switch', price: 0, blurb: 'Your first rod. Graphite-dark and dependable.',
+    { id: 'willow', theme: 'classic', name: 'Willow Switch', tier: 0, blurb: 'Your first rod. Graphite-dark and dependable.',
       blank: ['#2c2a33', '#38343f'], grip: '#a57c52', cork: true, seat: '#1b1a1f', guide: '#cfc6b4',
       reel: ['#d9d4cc', '#8d887f', '#4a4640'], knob: '#e8c46c', tip: '#e8c46c' },
-    { id: 'birch', theme: 'classic', name: 'Birchwood Classic', price: 150, blurb: 'Hand-planed birch with walnut wraps. Smells faintly of summer.',
+    { id: 'birch', theme: 'classic', name: 'Birchwood Classic', tier: 1, blurb: 'Hand-planed birch with walnut wraps. Smells faintly of summer.',
       blank: ['#a77b4c', '#e0c79f'], grip: '#5b3a24', seat: '#3a2418', wrap: '#5a2f1d', guide: '#d8cdb8',
       reel: ['#d2a876', '#7a5434', '#3e2716'], knob: '#f1dcb4', tip: '#5a2f1d' },
-    { id: 'mariner', theme: 'classic', name: "Mariner's Brass", price: 600, blurb: 'Navy lacquer, polished brass fittings and a reel that clicks like a pocket watch.',
+    { id: 'mariner', theme: 'classic', name: "Mariner's Brass", tier: 2, blurb: 'Navy lacquer, polished brass fittings and a reel that clicks like a pocket watch.',
       blank: ['#172845', '#2a4573'], grip: '#2a1c14', seat: '#c9a24a', wrap: '#e0b45a', guide: '#f0cf7a',
       reel: ['#fff0b8', '#d9a84a', '#7a5518'], knob: '#20365c', tip: '#e0b45a', gloss: true },
-    { id: 'dragonbone', theme: 'classic', name: 'Dragonbone', price: 25000, blurb: 'Carved from a shed dragon spine. Ember runes smoulder along its length.',
+    { id: 'splitcane', theme: 'classic', name: 'Split Cane', tier: 4, blurb: 'Six strips of golden bamboo, split by hand and bound in burgundy silk. Rods were made this way for a century.',
+      blank: ['#c08a3a', '#e9c57c'], grip: '#c8a06a', cork: true, seat: '#c9ced6', wrap: '#7a1f2a', guide: '#e8e2d4',
+      reel: ['#f4f2ec', '#aaa69c', '#4a4640'], knob: '#3a2418', tip: '#7a1f2a', decor: ['nodes'], gloss: true },
+    { id: 'dragonbone', theme: 'classic', name: 'Dragonbone', tier: 5, blurb: 'Carved from a shed dragon spine. Ember runes smoulder along its length.',
       blank: ['#5e0d17', '#e2622a'], grip: '#2a0c10', seat: '#ffcf5a', wrap: '#ffcf5a', guide: '#ffd98a',
       reel: ['#ffe9a6', '#e0702a', '#6e1414'], knob: '#ffcf5a', tip: '#ffb347', decor: ['runes', 'embers'], glow: '255,110,60', tipStyle: 'spark' },
     // critters
-    { id: 'fetch', theme: 'critters', name: 'Fetch Stick', price: 900, blurb: 'A very good stick, chosen with great care by a very good dog. The reel is a tennis ball.',
+    { id: 'fetch', theme: 'critters', name: 'Fetch Stick', tier: 1, blurb: 'A very good stick, chosen with great care by a very good dog. The reel is a tennis ball.',
       blank: ['#6b4a2c', '#94744c'], grip: '#5a3c22', seat: '#4a3220', guide: '#d8cdb8', thick: 1.15,
       decor: ['bark'], reelStyle: 'tennis', knob: '#ffffff', tip: '#94744c' },
-    { id: 'tabby', theme: 'critters', name: 'Tabby Tail', price: 2800, blurb: 'Marmalade stripes all the way up, ending in a fluffy tail that never stops twitching.',
+    { id: 'tabby', theme: 'critters', name: 'Tabby Tail', tier: 3, blurb: 'Marmalade stripes all the way up, ending in a fluffy tail that never stops twitching.',
       blank: ['#e8913a', '#f6b673'], stripes: { color: '#a8521c', n: 16, slant: 0.5, width: 0.42 }, grip: '#f6e6d0', seat: '#3a2a22',
       wrap: '#f6e6d0', guide: '#f6e6d0', reel: ['#fff3e0', '#f0b27a', '#a8521c'], knob: '#ff9eb5', tip: '#f6b673', tipStyle: 'tail' },
+    { id: 'kingfisher', theme: 'critters', name: 'Kingfisher', tier: 5, blurb: 'Iridescent kingfisher blue over a copper-orange grip, crowned with a plume. The finest fisher on any river.',
+      stops: ['#0b3a6a', '#1680c8', '#28b8e0', '#8ae8f2'], grip: '#d8662a', seat: '#ffd08a', wrap: '#ff9a4a', guide: '#fff0d8',
+      reel: ['#fff4e0', '#ff9a4a', '#8a3a10'], knob: '#1680c8', tip: '#ff9a4a', decor: ['feathers'], tipStyle: 'plume', glow: '90,200,255', gloss: true },
     // beach
-    { id: 'driftwood', theme: 'beach', name: 'Driftwood', price: 700, blurb: 'Sun-bleached driftwood with rope wraps and a seashell reel.',
+    { id: 'driftwood', theme: 'beach', name: 'Driftwood', tier: 1, blurb: 'Sun-bleached driftwood with rope wraps and a seashell reel.',
       blank: ['#bcae96', '#e6dccb'], grip: '#a89880', seat: '#8a7a64', wrap: '#c8a46a', guide: '#e9e2d4',
       decor: ['bark'], reelStyle: 'shell', knob: '#f4c9c0', tip: '#c8a46a' },
-    { id: 'coral', theme: 'beach', name: 'Coral Lacquer', price: 1500, blurb: 'Rose-pink lacquer over coral wood, gilded wraps and a pearl reel.',
+    { id: 'coral', theme: 'beach', name: 'Coral Lacquer', tier: 3, blurb: 'Rose-pink lacquer over coral wood, gilded wraps and a pearl reel.',
       blank: ['#b8395f', '#ffadbf'], grip: '#f6efe6', seat: '#e8c46c', wrap: '#f2cf6e', guide: '#fff1c9',
       reel: ['#ffffff', '#f3dce6', '#b99aac'], knob: '#ff8aa5', tip: '#f2cf6e', gloss: true },
-    { id: 'surf', theme: 'beach', name: 'Sunset Surf', price: 5200, blurb: 'Retro sunset stripes, like a longboard at golden hour.',
+    { id: 'surf', theme: 'beach', name: 'Sunset Surf', tier: 5, blurb: 'Retro sunset stripes, like a longboard at golden hour.',
       stops: ['#ff5f6d', '#ff9a5a', '#ffd36b', '#7fd6c8'], stripes: { color: 'rgba(255,255,255,0.8)', n: 9, slant: 0, width: 0.16 },
       grip: '#2b3a55', seat: '#ffd36b', wrap: '#ffffff', guide: '#ffffff', reel: ['#ffffff', '#7fd6c8', '#2b7a8a'], knob: '#ff5f6d', tip: '#ffffff', gloss: true },
-    { id: 'trident', theme: 'beach', name: 'Trident of the Tides', price: 55000, ...heir(2, 'band'),
+    { id: 'trident', theme: 'beach', name: 'Trident of the Tides', tier: 7,
       blurb: 'A sea king’s golden trident, reforged as a rod. The tide itself steadies your hand.',
       stops: ['#0f5b6b', '#1fa3a8', '#7fe6d8'], grip: '#d9a83a', seat: '#ffd86b', wrap: '#ffd86b', guide: '#ffe7a0',
       reel: ['#fff4c2', '#e8b94a', '#8a5a12'], knob: '#7fe6d8', tip: '#ffd86b', tipStyle: 'trident', glow: '120,230,220', decor: ['bubbles'], gloss: true },
     // mountain
-    { id: 'alpine', theme: 'mountain', name: 'Alpine Ash', price: 1200, blurb: 'Pale ash wood, red-and-white checked wraps and a leather grip. Smells of pine.',
+    { id: 'alpine', theme: 'mountain', name: 'Alpine Ash', tier: 2, blurb: 'Pale ash wood, red-and-white checked wraps and a leather grip. Smells of pine.',
       blank: ['#cdb48c', '#e8d8bc'], grip: '#7a4a2a', seat: '#5a3620', wrap: '#c8323a', check: '#ffffff', guide: '#d8d0c4',
       reel: ['#e9e4dc', '#9a948a', '#4a4640'], knob: '#c8323a', tip: '#c8323a' },
-    { id: 'glacier', theme: 'mountain', name: 'Glacier Crystal', price: 7500, blurb: 'Cut from blue glacier ice that never melts. Frost blooms along its length.',
+    { id: 'evergreen', theme: 'mountain', name: 'Evergreen', tier: 4, blurb: 'Spruce-green lacquer with copper wraps and fresh pine sprigs tucked along the blank.',
+      stops: ['#18301f', '#2c5234', '#4c7a46'], grip: '#5a3a22', seat: '#b8733a', wrap: '#c8803a', guide: '#f0d0a8',
+      reel: ['#ffd8b0', '#c8803a', '#5a2e12'], knob: '#2c5234', tip: '#c8803a', decor: ['boughs'], tipStyle: 'cone', gloss: true },
+    { id: 'glacier', theme: 'mountain', name: 'Glacier Crystal', tier: 5, blurb: 'Cut from blue glacier ice that never melts. Frost blooms along its length.',
       stops: ['#8fd0ff', '#e6f7ff', '#b0e2ff'], grip: '#3c5a78', seat: '#dff3ff', wrap: '#ffffff', guide: '#ffffff',
       reel: ['#ffffff', '#bfe6ff', '#5d8fb8'], knob: '#ffffff', tip: '#ffffff', glow: '170,225,255', decor: ['frost'], tipStyle: 'snowcap', gloss: true },
     // blossom
-    { id: 'sakura', theme: 'blossom', name: 'Sakura Branch', price: 1800, blurb: 'A blossoming cherry branch, polished smooth. Petals drift from it while you fish.',
+    { id: 'sakura', theme: 'blossom', name: 'Sakura Branch', tier: 2, blurb: 'A blossoming cherry branch, polished smooth. Petals drift from it while you fish.',
       blank: ['#5a3a32', '#7a524a'], grip: '#3e2822', seat: '#ffb7c9', wrap: '#ffd3df', guide: '#ffe3ea',
       reel: ['#fff0f4', '#ffbfd0', '#c46a86'], knob: '#ffffff', tip: '#ffc3d6', decor: ['blossoms', 'petals'], tipStyle: 'flower' },
-    { id: 'ribbon', theme: 'blossom', name: 'Ribbon & Lace', price: 6200, blurb: 'Lilac lacquer spiralled in satin ribbon, finished with a bow and a pearl.',
+    { id: 'wisteria', theme: 'blossom', name: 'Wisteria', tier: 4, blurb: 'Pearl-white lacquer hung with trailing wisteria that sways as you fish.',
+      blank: ['#d6cde2', '#f4f0f8'], grip: '#5e4270', seat: '#c8a2e8', wrap: '#b48ae0', guide: '#f2eaff',
+      reel: ['#ffffff', '#e2d2f6', '#8a6ab8'], knob: '#c8a2e8', tip: '#b48ae0', decor: ['wisteria'], tipStyle: 'flower', bloom: ['#c8a2f0', '#fff0a8'], gloss: true },
+    { id: 'ribbon', theme: 'blossom', name: 'Ribbon & Lace', tier: 5, blurb: 'Lilac lacquer spiralled in satin ribbon, finished with a bow and a pearl.',
       blank: ['#c9b2ff', '#f3d6ff'], stripes: { color: '#ff9ec4', n: 15, slant: 1.1, width: 0.36 }, grip: '#ffffff', seat: '#ff9ec4',
       wrap: '#ffffff', guide: '#ffffff', reel: ['#ffffff', '#f2e6ff', '#b9a2d6'], knob: '#ff9ec4', tip: '#ffffff', decor: ['bow'], gloss: true },
-    { id: 'rose', theme: 'blossom', name: 'Enchanted Rose', price: 36000, ...heir(1, 'band'),
+    { id: 'rose', theme: 'blossom', name: 'Enchanted Rose', tier: 6,
       blurb: 'A rose stem kept under glass and charmed never to wilt. Neither does your grip.',
       blank: ['#1f5a32', '#3f8a4e'], grip: '#5a0f24', seat: '#e8c46c', wrap: '#e8c46c', guide: '#ffe7a3',
       reel: ['#fff1f4', '#ff7a9a', '#8a0f2e'], knob: '#e8c46c', tip: '#c8123a', tipStyle: 'rose', glow: '255,120,160', decor: ['leaves', 'petals'] },
     // cosmic
-    { id: 'aurora', theme: 'cosmic', name: 'Aurora Glass', price: 4000, blurb: 'Spun from northern-lights glass. It glows and shifts colour as it moves.',
+    { id: 'twilight', theme: 'cosmic', name: 'Twilight Reed', tier: 2, blurb: 'Dusk-blue lacquer fading to rose, with a crescent moon at the tip and the first stars coming out.',
+      stops: ['#1b1f4a', '#36397a', '#7a5aa8', '#e89ab8'], grip: '#141634', seat: '#c8d0ff', wrap: '#dfe4ff', guide: '#e8ecff',
+      reel: ['#ffffff', '#c9cff0', '#5a5f9a'], knob: '#ffd98a', tip: '#fff3c4', decor: ['specks'], tipStyle: 'moon', gloss: true },
+    { id: 'aurora', theme: 'cosmic', name: 'Aurora Glass', tier: 3, blurb: 'Spun from northern-lights glass. It glows and shifts colour as it moves.',
       hue: true, grip: '#20314a', seat: '#c8d6ff', wrap: '#e8f4ff', guide: '#e8f4ff',
       reel: ['#ffffff', '#c9d6ea', '#6d7f9c'], knob: '#7ff6dc', tip: '#e8f4ff', glow: '120,240,220', gloss: true },
-    { id: 'nebula', theme: 'cosmic', name: 'Nebula Wand', price: 9000, blurb: 'Starlight swirled into violet and teal clouds, crowned with a newborn star.',
+    { id: 'nebula', theme: 'cosmic', name: 'Nebula Wand', tier: 4, blurb: 'Starlight swirled into violet and teal clouds, crowned with a newborn star.',
       stops: ['#2a0f4a', '#7a2a9a', '#e05ab8', '#5ad6ff'], grip: '#1a0f2e', seat: '#c8a2ff', wrap: '#e8d6ff', guide: '#f2e6ff',
       reel: ['#ffffff', '#c8a2ff', '#4a2a7a'], knob: '#5ad6ff', tip: '#ffffff', decor: ['nebula', 'specks'], tipStyle: 'star', glow: '200,140,255' },
-    { id: 'starforged', theme: 'cosmic', name: 'Starforged', price: 10000, blurb: 'A midnight blank flecked with living starlight and golden filigree.',
+    { id: 'starforged', theme: 'cosmic', name: 'Starforged', tier: 5, blurb: 'A midnight blank flecked with living starlight and golden filigree.',
       blank: ['#0d1130', '#1f2758'], grip: '#151a3a', seat: '#e8c46c', wrap: '#f5d27a', guide: '#ffe7a3',
       reel: ['#fff6cf', '#e8c04f', '#8a6414'], knob: '#ffffff', tip: '#fff3c4', decor: ['specks'], glow: '255,220,140', tipStyle: 'spark' },
-    { id: 'horizon', theme: 'cosmic', name: 'Event Horizon', price: 80000, ...heir(3, 'band'),
+    { id: 'horizon', theme: 'cosmic', name: 'Event Horizon', tier: 8,
       blurb: 'Forged at the edge of a black hole. Light bends around it, and so do the fish.',
       blank: ['#050507', '#16161f'], grip: '#0a0a10', seat: '#ffb35a', wrap: '#ffcf8a', guide: '#ffe2b0',
       reel: ['#ffe9c4', '#ff8a3a', '#2a0a04'], knob: '#ffffff', tip: '#000000', tipStyle: 'blackhole', glow: '255,150,70', decor: ['specks'] },
     // bakery
-    { id: 'candycane', theme: 'bakery', name: 'Candy Cane', price: 1500, blurb: 'Peppermint striped from grip to tip. Slightly sticky.',
+    { id: 'candycane', theme: 'bakery', name: 'Candy Cane', tier: 1, blurb: 'Peppermint striped from grip to tip. Slightly sticky.',
       blank: ['#ffffff', '#fff4f4'], stripes: { color: '#e0283a', n: 18, slant: 1.2, width: 0.42 }, grip: '#e0283a', seat: '#ffffff',
       wrap: '#2f9a4a', guide: '#ffffff', reel: ['#ffffff', '#ffd6da', '#e0283a'], knob: '#2f9a4a', tip: '#e0283a', tipStyle: 'curl' },
-    { id: 'baguette', theme: 'bakery', name: 'Baguette', price: 4500, blurb: 'A crusty baguette, fresh from the oven and ninety centimetres long. The reel is a wheel of brie.',
+    { id: 'baguette', theme: 'bakery', name: 'Baguette', tier: 3, blurb: 'A crusty baguette, fresh from the oven and ninety centimetres long. The reel is a wheel of brie.',
       blank: ['#c98a3a', '#e3ae5e'], grip: '#b8762e', seat: '#f1e2b8', guide: '#f1e6cc', thick: 1.7,
       decor: ['scoring', 'flour'], reelStyle: 'brie', knob: '#f6edd2', tip: '#a86a2a' },
-    { id: 'patisserie', theme: 'bakery', name: 'Pâtisserie', price: 8200, blurb: 'Pistachio, rose and lavender lacquer, stacked like a box of macarons and finished in gold leaf.',
+    { id: 'patisserie', theme: 'bakery', name: 'Pâtisserie', tier: 5, blurb: 'Pistachio, rose and lavender lacquer, stacked like a box of macarons and finished in gold leaf.',
       stops: ['#b8e0b0', '#ffc3d6', '#d6c3ff'], stripes: { color: 'rgba(255,255,255,0.7)', n: 11, slant: 0, width: 0.12 },
       grip: '#fff4e6', seat: '#e8c46c', wrap: '#e8c46c', guide: '#fff1c9', decor: ['sprinkles'], reelStyle: 'macaron', knob: '#ffffff', tip: '#e8c46c', gloss: true },
   ];
@@ -206,75 +240,104 @@ const Gear = (() => {
   /* ================= Bobbers ================= */
   /* top: where the line attaches, in bobber radii above the waterline. */
   const BOBBERS = [
-    { id: 'classic', theme: 'classic', name: 'Classic Float', price: 0, top: 2.1, blurb: 'Red and white, bright and honest.' },
-    { id: 'quill', theme: 'classic', name: 'Heron Quill', price: 400, top: 3.0, blurb: 'A slender painted quill that stands tall and twitches at the faintest nibble.' },
-    { id: 'lantern', theme: 'classic', name: 'Paper Lantern', price: 900, top: 1.9, blurb: 'A little lantern float that glows on dark water.' },
-    { id: 'duck', theme: 'critters', name: 'Puddle Duck', price: 100, top: 1.5, blurb: 'A tiny wooden duck that bobs with great dignity.' },
-    { id: 'kitten', theme: 'critters', name: 'Sleepy Kitten', price: 2400, top: 1.2, blurb: 'Curled up, fast asleep and floating. Do not wake her.' },
-    { id: 'frenchie', theme: 'critters', name: 'French Bulldog', price: 3600, top: 1.75, blurb: 'Bat ears, a squashed nose and a red collar. The goodest float on the water.' },
-    { id: 'koi', theme: 'critters', name: 'Koi Charm', price: 5000, top: 1.05, blurb: 'A carved koi float, said to call good fortune to your line.' },
-    { id: 'frog', theme: 'critters', name: 'Frog Prince', price: 6800, top: 1.75, blurb: 'Kiss it if you like. It will still be a frog, but a very regal one.' },
-    { id: 'beachball', theme: 'beach', name: 'Beach Ball', price: 500, top: 1.35, blurb: 'Red, yellow and blue, and it never stops wanting to roll.' },
-    { id: 'seashell', theme: 'beach', name: 'Scallop Shell', price: 1400, top: 1.5, blurb: 'A blush-pink scallop, found at low tide.' },
-    { id: 'pineapple', theme: 'beach', name: 'Pineapple', price: 2600, top: 2.2, blurb: 'Golden, spiky and dressed for a holiday.' },
-    { id: 'daisy', theme: 'blossom', name: 'Daisy', price: 300, top: 0.5, blurb: 'A single white daisy drifting on the water. He loves me, he loves me not.' },
-    { id: 'lily', theme: 'blossom', name: 'Lily Bud', price: 220, top: 2.0, blurb: 'A closed lotus bud, blushing pink at the tip.' },
-    { id: 'heart', theme: 'blossom', name: 'Heart Locket', price: 1200, top: 1.6, blurb: 'A rose-pink locket with a gold rim. Who is inside? Only you know.' },
-    { id: 'butterfly', theme: 'blossom', name: 'Butterfly', price: 4200, top: 0.5, blurb: 'A lilac butterfly resting on a petal float, wings softly beating.' },
-    { id: 'tiara', theme: 'blossom', name: 'Diamond Tiara', price: 55000, top: 0.6, ...heir(2, 'fill'),
+    { id: 'classic', theme: 'classic', name: 'Classic Float', tier: 0, top: 2.1, blurb: 'Red and white, bright and honest.' },
+    { id: 'quill', theme: 'classic', name: 'Heron Quill', tier: 1, top: 3.0, blurb: 'A slender painted quill that stands tall and twitches at the faintest nibble.' },
+    { id: 'lantern', theme: 'classic', name: 'Paper Lantern', tier: 3, top: 1.9, blurb: 'A little lantern float that glows on dark water.' },
+    { id: 'gilded', theme: 'classic', name: 'Gilded Float', tier: 5, top: 2.5, blurb: 'The classic float, remade in crimson enamel and gold leaf beneath a crystal cap.' },
+    { id: 'duck', theme: 'critters', name: 'Puddle Duck', tier: 1, top: 1.5, blurb: 'A tiny wooden duck that bobs with great dignity.' },
+    { id: 'kitten', theme: 'critters', name: 'Sleepy Kitten', tier: 2, top: 1.2, blurb: 'Curled up, fast asleep and floating. Do not wake her.' },
+    { id: 'frenchie', theme: 'critters', name: 'French Bulldog', tier: 3, top: 1.75, blurb: 'Bat ears, a squashed nose and a red collar. The goodest float on the water.' },
+    { id: 'koi', theme: 'critters', name: 'Koi Charm', tier: 4, top: 1.05, blurb: 'A carved koi float, said to call good fortune to your line.' },
+    { id: 'frog', theme: 'critters', name: 'Frog Prince', tier: 5, top: 1.75, blurb: 'Kiss it if you like. It will still be a frog, but a very regal one.' },
+    { id: 'beachball', theme: 'beach', name: 'Beach Ball', tier: 1, top: 1.35, blurb: 'Red, yellow and blue, and it never stops wanting to roll.' },
+    { id: 'seashell', theme: 'beach', name: 'Scallop Shell', tier: 2, top: 1.5, blurb: 'A blush-pink scallop, found at low tide.' },
+    { id: 'lifebuoy', theme: 'beach', name: 'Life Ring', tier: 4, top: 1.55, blurb: 'A tiny red-and-white life ring, rope and all. Safety first, even for floats.' },
+    { id: 'pineapple', theme: 'beach', name: 'Pineapple', tier: 5, top: 2.2, blurb: 'Golden, spiky and dressed for a holiday.' },
+    { id: 'daisy', theme: 'blossom', name: 'Daisy', tier: 1, top: 0.5, blurb: 'A single white daisy drifting on the water. He loves me, he loves me not.' },
+    { id: 'lily', theme: 'blossom', name: 'Lily Bud', tier: 2, top: 2.0, blurb: 'A closed lotus bud, blushing pink at the tip.' },
+    { id: 'heart', theme: 'blossom', name: 'Heart Locket', tier: 4, top: 1.6, blurb: 'A rose-pink locket with a gold rim. Who is inside? Only you know.' },
+    { id: 'butterfly', theme: 'blossom', name: 'Butterfly', tier: 5, top: 0.5, blurb: 'A lilac butterfly resting on a petal float, wings softly beating.' },
+    { id: 'tiara', theme: 'blossom', name: 'Diamond Tiara', tier: 7, top: 0.6,
       blurb: 'A diamond tiara on a velvet cushion. Utterly impractical. The fish seem honoured to be caught.' },
-    { id: 'pinecone', theme: 'mountain', name: 'Pinecone', price: 450, top: 1.5, blurb: 'Fell from a mountain pine and decided to go fishing.' },
-    { id: 'peak', theme: 'mountain', name: 'Snow Peak', price: 2000, top: 2.0, blurb: 'A tiny snow-capped mountain with its own pine forest.' },
-    { id: 'globe', theme: 'mountain', name: 'Snow Globe', price: 5500, top: 1.75, blurb: 'A pine tree in a never-ending snowfall, sealed in glass.' },
-    { id: 'pearl', theme: 'cosmic', name: 'Moon Pearl', price: 2200, top: 1.35, blurb: 'An iridescent pearl that catches every colour of the sky.' },
-    { id: 'planet', theme: 'cosmic', name: 'Ringed Planet', price: 3800, top: 1.25, blurb: 'A small gas giant with a tilted ring. It insists it is not a beach ball.' },
-    { id: 'saucer', theme: 'cosmic', name: 'Little Saucer', price: 5200, top: 1.3, blurb: 'A flying saucer with a very small, very curious pilot.' },
-    { id: 'comet', theme: 'cosmic', name: 'Comet', price: 7500, top: 1.0, blurb: 'A ball of bright ice trailing a tail of stardust.' },
-    { id: 'star', theme: 'cosmic', name: 'Fallen Star', price: 12000, top: 1.9, blurb: 'A shard of starlight that hums softly as it floats.' },
-    { id: 'galaxy', theme: 'cosmic', name: 'Galaxy Orb', price: 80000, top: 1.5, ...heir(3, 'fill'),
+    { id: 'pinecone', theme: 'mountain', name: 'Pinecone', tier: 1, top: 1.5, blurb: 'Fell from a mountain pine and decided to go fishing.' },
+    { id: 'peak', theme: 'mountain', name: 'Snow Peak', tier: 3, top: 2.0, blurb: 'A tiny snow-capped mountain with its own pine forest.' },
+    { id: 'globe', theme: 'mountain', name: 'Snow Globe', tier: 5, top: 1.75, blurb: 'A pine tree in a never-ending snowfall, sealed in glass.' },
+    { id: 'pearl', theme: 'cosmic', name: 'Moon Pearl', tier: 2, top: 1.35, blurb: 'An iridescent pearl that catches every colour of the sky.' },
+    { id: 'planet', theme: 'cosmic', name: 'Ringed Planet', tier: 3, top: 1.25, blurb: 'A small gas giant with a tilted ring. It insists it is not a beach ball.' },
+    { id: 'saucer', theme: 'cosmic', name: 'Little Saucer', tier: 4, top: 1.3, blurb: 'A flying saucer with a very small, very curious pilot.' },
+    { id: 'comet', theme: 'cosmic', name: 'Comet', tier: 4, top: 1.0, blurb: 'A ball of bright ice trailing a tail of stardust.' },
+    { id: 'star', theme: 'cosmic', name: 'Fallen Star', tier: 5, top: 1.9, blurb: 'A shard of starlight that hums softly as it floats.' },
+    { id: 'galaxy', theme: 'cosmic', name: 'Galaxy Orb', tier: 8, top: 1.5,
       blurb: 'An entire spiral galaxy, slowly turning inside a glass orb on a gold stand.' },
-    { id: 'cupcake', theme: 'bakery', name: 'Cupcake', price: 900, top: 1.85, blurb: 'Strawberry frosting, rainbow sprinkles and a cherry on top.' },
-    { id: 'donut', theme: 'bakery', name: 'Glazed Donut', price: 1800, top: 0.8, blurb: 'Pink glaze and sprinkles. It floats remarkably well.' },
-    { id: 'macaron', theme: 'bakery', name: 'Macaron', price: 3200, top: 0.95, blurb: 'Lavender shells with a vanilla cream filling.' },
-    { id: 'gateau', theme: 'bakery', name: 'Grand Gâteau', price: 36000, top: 2.7, ...heir(1, 'fill'),
+    { id: 'cupcake', theme: 'bakery', name: 'Cupcake', tier: 2, top: 1.85, blurb: 'Strawberry frosting, rainbow sprinkles and a cherry on top.' },
+    { id: 'donut', theme: 'bakery', name: 'Glazed Donut', tier: 3, top: 0.8, blurb: 'Pink glaze and sprinkles. It floats remarkably well.' },
+    { id: 'macaron', theme: 'bakery', name: 'Macaron', tier: 5, top: 0.95, blurb: 'Lavender shells with a vanilla cream filling.' },
+    { id: 'gateau', theme: 'bakery', name: 'Grand Gâteau', tier: 6, top: 2.7,
       blurb: 'A three-tier celebration cake with gold leaf and sugar roses, floating serenely on the lake.' },
   ];
 
   /* ================= Lines ================= */
   const LINES = [
-    { id: 'mono', theme: 'classic', name: 'Clear Mono', price: 0, blurb: 'Plain, strong and nearly invisible.', color: 'rgba(246,244,236,0.72)' },
-    { id: 'gold', theme: 'classic', name: 'Golden Thread', price: 700, blurb: 'Spun gold that glints in any light.', color: 'rgba(255,214,110,0.95)', width: 1.25, glow: 'rgba(255,200,90,0.16)' },
-    { id: 'leash', theme: 'critters', name: 'Dog Leash', price: 1200, blurb: 'Bright red nylon with white stitching and a proper snap clip. Walkies!',
+    { id: 'mono', theme: 'classic', name: 'Clear Mono', tier: 0, blurb: 'Plain, strong and nearly invisible.', color: 'rgba(246,244,236,0.72)' },
+    { id: 'linen', theme: 'classic', name: 'Waxed Linen', tier: 1, blurb: 'Waxed linen thread the colour of old sailcloth. Quiet, strong and honest.',
+      color: '#e6d9bc', width: 1.5, pattern: 'twist', twist: '#b49f72' },
+    { id: 'gold', theme: 'classic', name: 'Golden Thread', tier: 3, blurb: 'Spun gold that glints in any light.', color: 'rgba(255,214,110,0.95)', width: 1.25, glow: 'rgba(255,200,90,0.16)' },
+    { id: 'chain', theme: 'classic', name: "Mariner's Chain", tier: 4, blurb: 'A fine brass chain, link by tiny link. It chimes faintly in the wind.',
+      color: 'rgba(214,170,84,0.55)', width: 0.9, pattern: 'chain', chain: ['#fff0b8', '#c8963a'], glow: 'rgba(255,210,120,0.1)' },
+    { id: 'ember', theme: 'classic', name: 'Ember Braid', tier: 5, blurb: 'Black silk braided around a living coal. Sparks drift up from it after dark.',
+      color: '#1c0a0a', width: 2, pattern: 'embers', glow: 'rgba(255,100,40,0.12)' },
+    { id: 'yarn', theme: 'critters', name: 'Ball of Yarn', tier: 1, blurb: 'Chunky tangerine wool, borrowed from a kitten who would like it back.',
+      color: '#ff9a5a', width: 2.6, pattern: 'twist', twist: '#e0703a' },
+    { id: 'leash', theme: 'critters', name: 'Dog Leash', tier: 3, blurb: 'Bright red nylon with white stitching and a proper snap clip. Walkies!',
       color: '#d8343c', width: 2.4, pattern: 'stitch', stitch: 'rgba(255,255,255,0.85)', clip: '#c9ced6' },
-    { id: 'diamondleash', theme: 'critters', name: 'Diamond Leash', price: 55000, ...heir(2, 'drain'),
+    { id: 'koisilk', theme: 'critters', name: 'Koi Silk', tier: 5, blurb: 'Kohaku silk, patched red and white like a prize koi, with a glint of gold.',
+      color: '#fff6ee', width: 2.3, pattern: 'camo', camo: ['#e8432a', '#ff7a3a'] },
+    { id: 'diamondleash', theme: 'critters', name: 'Diamond Leash', tier: 7,
       blurb: 'Pink patent leather set with a row of diamonds. For the pampered fisher who wants a line that never lets go.',
       color: '#ff7fb0', width: 2.6, pattern: 'gems', clip: '#ffd86b', glow: 'rgba(255,140,190,0.22)' },
-    { id: 'rope', theme: 'beach', name: 'Sailor Rope', price: 500, blurb: 'Twisted hemp rope from an old harbour.', color: '#d9c39a', width: 2.1, pattern: 'twist', twist: '#9a7a4c' },
-    { id: 'seaglass', theme: 'beach', name: 'Sea Glass', price: 2800, blurb: 'A fine line strung with frosted sea-glass beads.',
+    { id: 'rope', theme: 'beach', name: 'Sailor Rope', tier: 1, blurb: 'Twisted hemp rope from an old harbour.', color: '#d9c39a', width: 2.1, pattern: 'twist', twist: '#9a7a4c' },
+    { id: 'seaglass', theme: 'beach', name: 'Sea Glass', tier: 3, blurb: 'A fine line strung with frosted sea-glass beads.',
       color: 'rgba(220,240,240,0.6)', pattern: 'beads', beads: ['#8fe3d0', '#a6d8f5', '#c6f0b0', '#e3f7f4'], beadAlpha: 0.8 },
-    { id: 'paracord', theme: 'mountain', name: 'Paracord', price: 800, blurb: 'Tough woven cord in trail colours.', color: '#6f7a3c', width: 2.1, pattern: 'camo', camo: ['#c9a86a', '#3e4422'] },
-    { id: 'summit', theme: 'mountain', name: 'Summit Rope', price: 36000, ...heir(1, 'drain'),
+    { id: 'mermaid', theme: 'beach', name: "Mermaid's Braid", tier: 5, blurb: 'Sea-green to violet, shimmering like a tail flicked in the shallows.',
+      color: '#6ad0e0', grad: ['#3ad6c0', '#4aa8ff', '#a87aff', '#ff8ad0'], width: 1.8, pattern: 'sparkle', spark: ['#b8fff0', '#ffffff'], glow: 'rgba(120,230,230,0.16)' },
+    { id: 'paracord', theme: 'mountain', name: 'Paracord', tier: 2, blurb: 'Tough woven cord in trail colours.', color: '#6f7a3c', width: 2.1, pattern: 'camo', camo: ['#c9a86a', '#3e4422'] },
+    { id: 'pine', theme: 'mountain', name: 'Pine Garland', tier: 4, blurb: 'A twist of evergreen and red winterberries, like the trail to a mountain cabin.',
+      color: '#3f6a3a', width: 1.4, pattern: 'sprigs' },
+    { id: 'frost', theme: 'mountain', name: 'Hoarfrost', tier: 5, blurb: 'Ice-blue line furred with frost. Snowflakes form on it, glint and melt away.',
+      color: 'rgba(205,238,255,0.95)', width: 1.4, glow: 'rgba(150,210,255,0.22)', pattern: 'flakes' },
+    { id: 'summit', theme: 'mountain', name: 'Summit Rope', tier: 6,
       blurb: 'The rope that roped the highest peak, with a steel carabiner. Built not to slip.',
       color: '#2f7be0', width: 2.5, pattern: 'twist', twist: '#ff8a2a', clip: '#dfe4ea', glow: 'rgba(120,180,255,0.16)' },
-    { id: 'rose', theme: 'blossom', name: 'Rose Silk', price: 120, blurb: 'Braided silk in a soft rose pink.', color: 'rgba(255,176,196,0.9)', width: 1.15 },
-    { id: 'daisychain', theme: 'blossom', name: 'Daisy Chain', price: 900, blurb: 'A green stem threaded with little daisies.', color: '#6fae5a', width: 1.2, pattern: 'flowers' },
-    { id: 'satin', theme: 'blossom', name: 'Satin Ribbon', price: 1600, blurb: 'A wide pink satin ribbon with a soft sheen.', color: '#ffa9c8', width: 3, pattern: 'sheen' },
-    { id: 'pearls', theme: 'blossom', name: 'Pearl Strand', price: 3200, blurb: 'A long string of creamy pearls, like your grandmother’s best necklace.',
+    { id: 'rose', theme: 'blossom', name: 'Rose Silk', tier: 1, blurb: 'Braided silk in a soft rose pink.', color: 'rgba(255,176,196,0.9)', width: 1.15 },
+    { id: 'daisychain', theme: 'blossom', name: 'Daisy Chain', tier: 2, blurb: 'A green stem threaded with little daisies.', color: '#6fae5a', width: 1.2, pattern: 'flowers' },
+    { id: 'satin', theme: 'blossom', name: 'Satin Ribbon', tier: 3, blurb: 'A wide pink satin ribbon with a soft sheen.', color: '#ffa9c8', width: 3, pattern: 'sheen' },
+    { id: 'pearls', theme: 'blossom', name: 'Pearl Strand', tier: 5, blurb: 'A long string of creamy pearls, like your grandmother’s best necklace.',
       color: 'rgba(255,250,240,0.5)', pattern: 'beads', beads: ['#fffaf0', '#fff0f4', '#f6f2ff'], beadAlpha: 1 },
-    { id: 'moon', theme: 'cosmic', name: 'Moonbeam', price: 2500, blurb: 'A strand of moonlight that glows on the water.', color: 'rgba(214,240,255,0.98)', width: 1.2, glow: 'rgba(150,210,255,0.3)' },
-    { id: 'stardust', theme: 'cosmic', name: 'Stardust Trail', price: 4500, blurb: 'A violet thread that sheds twinkling stardust.', color: 'rgba(180,150,255,0.85)', glow: 'rgba(160,120,255,0.22)', pattern: 'sparkle' },
-    { id: 'prism', theme: 'cosmic', name: 'Prism Cord', price: 8000, blurb: 'A rainbow cord that ripples through every colour.', prism: true, width: 1.4, glow: 'rgba(255,255,255,0.18)' },
-    { id: 'constellation', theme: 'cosmic', name: 'Constellation Thread', price: 80000, ...heir(3, 'drain'),
+    { id: 'moon', theme: 'cosmic', name: 'Moonbeam', tier: 2, blurb: 'A strand of moonlight that glows on the water.', color: 'rgba(214,240,255,0.98)', width: 1.2, glow: 'rgba(150,210,255,0.3)' },
+    { id: 'stardust', theme: 'cosmic', name: 'Stardust Trail', tier: 4, blurb: 'A violet thread that sheds twinkling stardust.', color: 'rgba(180,150,255,0.85)', glow: 'rgba(160,120,255,0.22)', pattern: 'sparkle' },
+    { id: 'prism', theme: 'cosmic', name: 'Prism Cord', tier: 5, blurb: 'A rainbow cord that ripples through every colour.', prism: true, width: 1.4, glow: 'rgba(255,255,255,0.18)' },
+    { id: 'constellation', theme: 'cosmic', name: 'Constellation Thread', tier: 8,
       blurb: 'Stars joined into a constellation that holds as fast as the night sky.',
       color: 'rgba(190,210,255,0.55)', glow: 'rgba(150,180,255,0.3)', pattern: 'stars' },
-    { id: 'licorice', theme: 'bakery', name: 'Licorice Twist', price: 700, blurb: 'Red licorice, twisted tight.', color: '#d61f3a', width: 2.4, pattern: 'twist', twist: '#8a0a1e' },
-    { id: 'spaghetti', theme: 'bakery', name: 'Spaghetti', price: 1000, blurb: 'One very long noodle, cooked perfectly al dente.', color: '#f3d98a', width: 2, wavy: true, pattern: 'sheen' },
-    { id: 'icing', theme: 'bakery', name: 'Icing Swirl', price: 2200, blurb: 'Piped buttercream in strawberry, pistachio and lemon.', color: '#fff6ee', width: 2.6, pattern: 'piped', piped: ['#ffb3cf', '#bfe8b0', '#fff0a0'] },
+    { id: 'licorice', theme: 'bakery', name: 'Licorice Twist', tier: 1, blurb: 'Red licorice, twisted tight.', color: '#d61f3a', width: 2.4, pattern: 'twist', twist: '#8a0a1e' },
+    { id: 'spaghetti', theme: 'bakery', name: 'Spaghetti', tier: 2, blurb: 'One very long noodle, cooked perfectly al dente.', color: '#f3d98a', width: 2, wavy: true, pattern: 'sheen' },
+    { id: 'icing', theme: 'bakery', name: 'Icing Swirl', tier: 4, blurb: 'Piped buttercream in strawberry, pistachio and lemon.', color: '#fff6ee', width: 2.6, pattern: 'piped', piped: ['#ffb3cf', '#bfe8b0', '#fff0a0'] },
+    { id: 'sugar', theme: 'bakery', name: 'Spun Sugar', tier: 5, blurb: 'Caramel pulled into a glassy golden thread that glitters like crème brûlée.',
+      color: 'rgba(255,196,96,0.9)', width: 1.5, glow: 'rgba(255,190,90,0.22)', pattern: 'sparkle', spark: ['#ffd27a', '#fff6d8'] },
   ];
 
+  /* Every piece takes its price, level and boost from its tier. */
+  const CATALOG = { rods: RODS, bobbers: BOBBERS, lines: LINES };
+  for (const kind in CATALOG) for (const g of CATALOG[kind]) {
+    const T = TIERS[g.tier];
+    g.price = T.price;
+    g.pct = T.pct;
+    g.perk = T.pct ? perkFor(kind, T.pct) : null;
+    if (T.level) g.level = T.level;
+    if (T.heir) g.heir = true;
+  }
   const byId = list => Object.fromEntries(list.map(x => [x.id, x]));
   const ROD = byId(RODS), BOB = byId(BOBBERS), LINE = byId(LINES);
-  const CATALOG = { rods: RODS, bobbers: BOBBERS, lines: LINES };
   const SLOT = { rods: 'rod', bobbers: 'bobber', lines: 'line' };
 
   /* ================= Rod painter ================= */
@@ -410,9 +473,120 @@ const Gear = (() => {
       c.fillStyle = D.tone('#ff7fb0'); c.beginPath(); c.arc(0, 0, w0 * 0.3, 0, TAU); c.fill();
       c.restore();
     },
+    // bamboo: a raised node between each pair of guides, and fine fibres running along the cane
+    nodes(D) {
+      const c = D.ctx;
+      c.lineCap = 'butt';
+      c.strokeStyle = 'rgba(150,100,35,0.28)'; c.lineWidth = 0.8;
+      for (const f of [-0.22, 0.12, 0.3]) {
+        c.beginPath();
+        for (let i = 0; i <= 20; i++) { const k = 0.28 + i * 0.035, p = D.Q(k), w = D.Wd(k) * f; if (i) c.lineTo(p.x + D.nx * w, p.y + D.ny * w); else c.moveTo(p.x + D.nx * w, p.y + D.ny * w); }
+        c.stroke();
+      }
+      for (const k of [0.35, 0.49, 0.62, 0.735, 0.835, 0.915]) {
+        const p = D.Q(k), q = D.Q(k + 0.008), w = D.Wd(k) * 0.56;
+        c.strokeStyle = 'rgba(110,66,18,0.6)'; c.lineWidth = Math.max(1, w * 0.32);
+        c.beginPath(); c.moveTo(p.x - D.nx * w, p.y - D.ny * w); c.lineTo(p.x + D.nx * w, p.y + D.ny * w); c.stroke();
+        c.strokeStyle = 'rgba(255,238,190,0.55)'; c.lineWidth = Math.max(0.7, w * 0.16);
+        c.beginPath(); c.moveTo(q.x - D.nx * w, q.y - D.ny * w); c.lineTo(q.x + D.nx * w, q.y + D.ny * w); c.stroke();
+      }
+      c.lineCap = 'round';
+    },
+    // kingfisher: rows of small feather scallops, paler toward their edges
+    feathers(D) {
+      const c = D.ctx;
+      c.lineWidth = 1;
+      for (let i = 0; i < 22; i++) {
+        const k = 0.3 + i * 0.031, p = D.Q(k), [tx, ty] = D.T(k), w = D.Wd(k), off = w * 0.22 * ((i % 2) ? 1 : -1), s = Math.max(1.6, w * 0.34);
+        const x = p.x + D.nx * off, y = p.y + D.ny * off;
+        c.strokeStyle = i % 3 ? 'rgba(200,250,255,0.5)' : 'rgba(10,40,90,0.35)';
+        c.beginPath(); c.moveTo(x - D.nx * s - tx * s * 0.2, y - D.ny * s - ty * s * 0.2); c.quadraticCurveTo(x + tx * s * 1.2, y + ty * s * 1.2, x + D.nx * s - tx * s * 0.2, y + D.ny * s - ty * s * 0.2); c.stroke();
+      }
+    },
+    // evergreen: pine sprigs tucked along the blank, with a few winterberries
+    boughs(D) {
+      const c = D.ctx;
+      c.lineCap = 'round';
+      for (let i = 0; i < 6; i++) {
+        const k = 0.33 + i * 0.105, p = D.Q(k), [tx, ty] = D.T(k), w = D.Wd(k), side = i % 2 ? 1 : -1;
+        const len = Math.max(8, D.w0 * 1.7) * (1 - i * 0.07);
+        const dx = tx * 0.75 + D.nx * side * 0.66, dy = ty * 0.75 + D.ny * side * 0.66, dl = Math.hypot(dx, dy);
+        const ux = dx / dl, uy = dy / dl, sx = p.x + D.nx * side * w * 0.3, sy = p.y + D.ny * side * w * 0.3;
+        c.strokeStyle = D.tone('#5a3a22'); c.lineWidth = Math.max(0.8, w * 0.14);
+        c.beginPath(); c.moveTo(sx, sy); c.lineTo(sx + ux * len, sy + uy * len); c.stroke();
+        c.lineWidth = Math.max(0.9, w * 0.16);
+        for (let j = 1; j <= 6; j++) {
+          const u = j / 6.4, bx = sx + ux * len * u, by = sy + uy * len * u, nl = len * 0.34 * (1 - u * 0.45);
+          for (const d of [-1, 1]) {
+            const ax = ux * 0.55 - uy * d * 0.84, ay = uy * 0.55 + ux * d * 0.84;
+            c.strokeStyle = D.tone(j % 2 ? '#2f6a3a' : '#4f8f4a');
+            c.beginPath(); c.moveTo(bx, by); c.lineTo(bx + ax * nl, by + ay * nl); c.stroke();
+          }
+        }
+        if (i % 2 === 0) {
+          for (const [ox, oy] of [[0, 0], [0.9, 0.5], [0.2, 1]]) {
+            const bx = sx + ux * len * 0.2 + ox * w * 0.32, by = sy + uy * len * 0.2 + oy * w * 0.32, r = Math.max(1.2, w * 0.2);
+            c.fillStyle = D.tone('#c8283a'); c.beginPath(); c.arc(bx, by, r, 0, TAU); c.fill();
+            c.fillStyle = 'rgba(255,255,255,0.6)'; c.beginPath(); c.arc(bx - r * 0.35, by - r * 0.35, r * 0.35, 0, TAU); c.fill();
+          }
+        }
+      }
+    },
+    // wisteria: lilac racemes hanging from the blank, swaying a little
+    wisteria(D) {
+      const c = D.ctx;
+      for (let i = 0; i < 5; i++) {
+        const k = 0.36 + i * 0.125, p = D.Q(k), w = D.Wd(k);
+        const L = Math.max(12, D.w0 * 2.5) * (1 - i * 0.1), sway = Math.sin(D.t * 1.1 + i * 1.3) * 0.16;
+        const x0 = p.x + w * 0.15, y0 = p.y + w * 0.35;
+        c.fillStyle = D.tone('#5f9a52');
+        for (const d of [-1, 1]) { c.beginPath(); c.ellipse(x0 + d * w * 0.55, y0 - w * 0.05, Math.max(2, w * 0.5), Math.max(1, w * 0.22), d * 0.5, 0, TAU); c.fill(); }
+        for (let j = 0; j < 10; j++) {
+          const u = j / 9, a = sway * u;
+          const fx = x0 + Math.sin(a) * L * u + Math.sin(j * 2.4) * w * 0.18 * (1 - u), fy = y0 + Math.cos(a) * L * u;
+          const r = Math.max(1.1, w * 0.36) * (1 - u * 0.55);
+          c.fillStyle = D.tone(mix('#9a6ad8', '#efe2ff', u * 0.85));
+          c.beginPath(); c.arc(fx, fy, r, 0, TAU); c.fill();
+          c.fillStyle = 'rgba(255,255,255,0.35)'; c.beginPath(); c.arc(fx - r * 0.3, fy - r * 0.3, r * 0.35, 0, TAU); c.fill();
+        }
+      }
+    },
   };
 
   const TIPS = {
+    // a crescent moon, lit from its own side, with a star beside it
+    moon(D) {
+      const { ctx, tip, w0 } = D, R = w0 * 0.95, cx = tip.x + w0 * 0.2, cy = tip.y - w0 * 0.55;
+      halo(ctx, cx, cy, w0 * 2.6, '255,232,170', 0.34 + 0.08 * Math.sin(D.t * 1.7));
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(-0.45);
+      ctx.beginPath(); ctx.arc(0, 0, R, -Math.PI / 2, Math.PI / 2, true); ctx.ellipse(0, 0, R * 0.42, R, 0, Math.PI / 2, Math.PI * 1.5, false); ctx.closePath();
+      ctx.fillStyle = lgr(ctx, -R, 0, 0, 0, [[0, '#fff8dc'], [1, '#ffd98a']]); ctx.fill();
+      ctx.restore();
+      twinkle(ctx, cx + w0 * 1.25, cy - w0 * 0.7, w0 * 0.5, 0.45 + 0.55 * Math.max(0, Math.sin(D.t * 2.3)));
+    },
+    // a tuft of kingfisher feathers that stirs in the breeze
+    plume(D) {
+      const { ctx, tip, w0 } = D, [tx, ty] = D.T(1), base = Math.atan2(ty, tx);
+      const cols = ['#1680c8', '#ff9a4a', '#28b8e0'];
+      for (let j = -1; j <= 1; j++) {
+        const a = base + j * 0.5 + Math.sin(D.t * 2.1 + j) * 0.09, cx = tip.x + Math.cos(a) * w0 * 0.95, cy = tip.y + Math.sin(a) * w0 * 0.95;
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(a);
+        ctx.fillStyle = D.tone(cols[j + 1]);
+        ctx.beginPath(); ctx.ellipse(0, 0, w0 * 1.05, w0 * 0.34, 0, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 0.8;
+        ctx.beginPath(); ctx.moveTo(-w0 * 0.95, 0); ctx.lineTo(w0 * 0.9, 0); ctx.stroke();
+        ctx.restore();
+      }
+    },
+    // a little pinecone
+    cone(D) {
+      const { ctx, tip, w0 } = D, [tx, ty] = D.T(1), a = Math.atan2(ty, tx);
+      ctx.save(); ctx.translate(tip.x + tx * w0 * 0.45, tip.y + ty * w0 * 0.45); ctx.rotate(a);
+      ctx.fillStyle = D.tone('#7a4a24'); ctx.beginPath(); ctx.ellipse(0, 0, w0 * 0.58, w0 * 0.38, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = D.tone('#b07a3e'); ctx.lineWidth = Math.max(0.8, w0 * 0.1);
+      for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(i * w0 * 0.26 - w0 * 0.1, -w0 * 0.28); ctx.lineTo(i * w0 * 0.26 + w0 * 0.1, 0); ctx.lineTo(i * w0 * 0.26 - w0 * 0.1, w0 * 0.28); ctx.stroke(); }
+      ctx.restore();
+    },
     spark(D) {
       halo(D.ctx, D.tip.x, D.tip.y, D.w0 * 2.6, D.S.glow || '255,230,160', 0.5 + 0.2 * Math.sin(D.t * 3));
       twinkle(D.ctx, D.tip.x, D.tip.y, D.w0 * (0.9 + 0.3 * Math.sin(D.t * 2.4)), 0.85);
@@ -422,7 +596,7 @@ const Gear = (() => {
       starPath(D.ctx, D.tip.x, D.tip.y, D.w0 * 0.95, 5, 0.45, -Math.PI / 2 + D.t * 0.6);
       D.ctx.fillStyle = '#fffbe8'; D.ctx.fill();
     },
-    flower(D) { flower(D.ctx, D.tip.x, D.tip.y, D.w0 * 0.85, D.tone('#ffc3d6'), D.tone('#ffd56a'), D.t * 0.3); },
+    flower(D) { const b = D.S.bloom || ['#ffc3d6', '#ffd56a']; flower(D.ctx, D.tip.x, D.tip.y, D.w0 * 0.85, D.tone(b[0]), D.tone(b[1]), D.t * 0.3); },
     rose(D) {
       const { ctx, tip, w0 } = D, s = w0 * 1.1;
       halo(ctx, tip.x, tip.y, s * 3, '255,110,150', 0.45 + 0.1 * Math.sin(D.t * 2));
@@ -575,9 +749,9 @@ const Gear = (() => {
 
   /* Decor painted onto the blank is lit with it; decor that stands off the blank is drawn after, in
      colours toned by the light; decor and tips that give off their own light are drawn last, untouched. */
-  const ONBLANK = new Set(['bark', 'scoring', 'flour', 'sprinkles']);
+  const ONBLANK = new Set(['bark', 'scoring', 'flour', 'sprinkles', 'nodes', 'feathers']);
   const EMISSIVE = new Set(['specks', 'runes', 'embers', 'nebula', 'frost', 'bubbles']);
-  const GLOW_TIPS = new Set(['spark', 'star', 'rose', 'trident', 'blackhole']);
+  const GLOW_TIPS = new Set(['spark', 'star', 'rose', 'trident', 'blackhole', 'moon']);
   /* A colour as the lake's light shows it (hex only; anything else passes through). */
   function toner(sh) {
     if (sh.dim <= 0.02) return c => c;
@@ -763,6 +937,66 @@ const Gear = (() => {
       ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI); ctx.fillStyle = '#f6efe4'; ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.beginPath(); ctx.ellipse(x - r * 0.35, y - r * 0.45, r * 0.28, r * 0.18, -0.5, 0, TAU); ctx.fill();
       ctx.strokeStyle = 'rgba(40,20,20,0.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
+    },
+    gilded(ctx, x, y, r, t) {
+      // a brass stem with a faceted crystal cap
+      ctx.strokeStyle = lgr(ctx, x - r * 0.1, 0, x + r * 0.1, 0, [[0, '#fff0b8'], [1, '#9a6a14']]); ctx.lineWidth = Math.max(1.3, r * 0.17);
+      ctx.beginPath(); ctx.moveTo(x, y - r * 0.9); ctx.lineTo(x, y - r * 2.05); ctx.stroke();
+      const gy = y - r * 2.3, s = r * 0.36;
+      ctx.beginPath(); ctx.moveTo(x, gy - s); ctx.lineTo(x + s * 0.72, gy - s * 0.1); ctx.lineTo(x, gy + s); ctx.lineTo(x - s * 0.72, gy - s * 0.1); ctx.closePath();
+      ctx.fillStyle = lgr(ctx, x - s, gy - s, x + s, gy + s, [[0, '#ffffff'], [0.45, '#d8f2ff'], [1, '#6aa6d6']]); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.moveTo(x - s * 0.72, gy - s * 0.1); ctx.lineTo(x + s * 0.72, gy - s * 0.1); ctx.moveTo(x, gy - s); ctx.lineTo(x - s * 0.25, gy - s * 0.1); ctx.lineTo(x, gy + s); ctx.stroke();
+      // crimson enamel above, ivory below
+      ctx.beginPath(); ctx.arc(x, y, r, Math.PI, TAU); ctx.fillStyle = rg(ctx, x - r * 0.4, y - r * 0.6, 0, r * 1.4, [[0, '#ff6b72'], [0.5, '#c81e32'], [1, '#6e0816']]); ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI); ctx.fillStyle = rg(ctx, x - r * 0.3, y + r * 0.05, 0, r * 1.3, [[0, '#fffdf6'], [0.6, '#f0e4cc'], [1, '#bfae8c']]); ctx.fill();
+      ctx.save(); ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.clip();
+      // gold-leaf scrolls on the enamel and a gold band at the waist
+      ctx.strokeStyle = '#ffd77a'; ctx.lineWidth = Math.max(0.8, r * 0.07); ctx.lineCap = 'round';
+      for (const d of [-1, 1]) {
+        ctx.beginPath(); ctx.moveTo(x, y - r * 0.2);
+        ctx.bezierCurveTo(x + d * r * 0.25, y - r * 0.75, x + d * r * 0.75, y - r * 0.6, x + d * r * 0.62, y - r * 0.35);
+        ctx.arc(x + d * r * 0.5, y - r * 0.36, r * 0.12, 0, Math.PI * 1.6 * d, d < 0); ctx.stroke();
+      }
+      ctx.fillStyle = lgr(ctx, 0, y - r * 0.13, 0, y + r * 0.13, [[0, '#fff4b8'], [0.5, '#e6b442'], [1, '#8a5c10']]);
+      ctx.fillRect(x - r, y - r * 0.12, r * 2, r * 0.24);
+      ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.ellipse(x - r * 0.38, y - r * 0.5, r * 0.26, r * 0.15, -0.5, 0, TAU); ctx.fill();
+      ctx.restore();
+      // a gold collar where the stem meets the body
+      ctx.fillStyle = lgr(ctx, x - r * 0.25, 0, x + r * 0.25, 0, [[0, '#fff4b8'], [1, '#a8741a']]);
+      ctx.beginPath(); ctx.ellipse(x, y - r * 0.95, r * 0.26, r * 0.12, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(70,30,10,0.45)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
+      twinkle(ctx, x + s * 0.3, gy - s * 0.45, s * 1.1, 0.35 + 0.65 * Math.pow(Math.max(0, Math.sin(t * 1.9)), 3));
+    },
+    lifebuoy(ctx, x, y, r, t) {
+      const cx = x, cy = y - r * 0.15, R = r * 1.18, Ri = r * 0.56;
+      const seg = (a0, a1, col) => { ctx.beginPath(); ctx.arc(cx, cy, R, a0, a1); ctx.arc(cx, cy, Ri, a1, a0, true); ctx.closePath(); ctx.fillStyle = col; ctx.fill(); };
+      for (let i = 0; i < 8; i++) seg(-Math.PI / 2 - Math.PI / 8 + (i * Math.PI) / 4, -Math.PI / 2 + Math.PI / 8 + (i * Math.PI) / 4, i % 2 ? '#f8f4ec' : '#e2382f');
+      // round the ring: dark at both edges, a soft crest of light along the middle
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.arc(cx, cy, Ri, 0, TAU, true); ctx.clip('evenodd');
+      ctx.fillStyle = rg(ctx, cx, cy, Ri, R, [[0, 'rgba(40,10,10,0.38)'], [0.32, 'rgba(255,255,255,0.12)'], [0.5, 'rgba(255,255,255,0.22)'], [0.72, 'rgba(0,0,0,0)'], [1, 'rgba(40,10,10,0.42)']]);
+      ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.beginPath(); ctx.ellipse(cx - R * 0.5, cy - R * 0.55, R * 0.26, R * 0.1, -0.75, 0, TAU); ctx.fill();
+      ctx.restore();
+      // grab rope looped round the outside, lashed on at four points
+      const ties = [-0.25, 0.25, 0.75, 1.25].map(f => f * Math.PI);
+      ctx.strokeStyle = '#d9c39a'; ctx.lineWidth = Math.max(1.1, r * 0.11); ctx.lineCap = 'round';
+      for (let i = 0; i < 4; i++) {
+        const a0 = ties[i], a1 = ties[(i + 1) % 4] + (i === 3 ? TAU : 0), am = (a0 + a1) / 2, sag = Math.sin(t * 1.6 + i) * 0.03;
+        ctx.beginPath(); ctx.moveTo(cx + Math.cos(a0) * R * 1.02, cy + Math.sin(a0) * R * 1.02);
+        ctx.quadraticCurveTo(cx + Math.cos(am + sag) * R * 1.24, cy + Math.sin(am + sag) * R * 1.24, cx + Math.cos(a1) * R * 1.02, cy + Math.sin(a1) * R * 1.02); ctx.stroke();
+      }
+      for (const a of ties) {
+        ctx.save(); ctx.translate(cx + Math.cos(a) * (R + Ri) / 2, cy + Math.sin(a) * (R + Ri) / 2); ctx.rotate(a);
+        ctx.fillStyle = '#c8ad7c'; ctx.fillRect(-(R - Ri) * 0.62, -r * 0.1, (R - Ri) * 1.24, r * 0.2);
+        ctx.strokeStyle = 'rgba(110,80,40,0.6)'; ctx.lineWidth = 0.8;
+        for (const o of [-0.3, 0, 0.3]) { ctx.beginPath(); ctx.moveTo(o * (R - Ri), -r * 0.1); ctx.lineTo(o * (R - Ri) + r * 0.05, r * 0.1); ctx.stroke(); }
+        ctx.restore();
+      }
+      ctx.strokeStyle = 'rgba(60,20,20,0.4)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(cx, cy, Ri, 0, TAU); ctx.stroke();
     },
     duck(ctx, x, y, r, t) {
       const by = y - r * 0.1;
@@ -1244,6 +1478,7 @@ const Gear = (() => {
     tiara: t => ['255,190,225', 3.4, 0.4 + 0.1 * Math.sin(t * 2)],
     gateau: () => ['255,225,150', 3.2, 0.3],
     globe: () => ['220,240,255', 2.4, 0.18],
+    gilded: t => ['255,220,150', 2.4, 0.16 + 0.06 * Math.sin(t * 1.9)],
   };
 
   /* Bobber materials for the lighting engine. */
@@ -1260,7 +1495,7 @@ const Gear = (() => {
   const BOB_KIND = {
     quill: 'wood', duck: 'wood', pinecone: 'wood', lantern: 'paper',
     kitten: 'matte', frenchie: 'matte', pineapple: 'matte', daisy: 'matte', lily: 'matte', butterfly: 'matte', peak: 'matte',
-    heart: 'metal', tiara: 'metal', saucer: 'metal', star: 'metal',
+    heart: 'metal', tiara: 'metal', lifebuoy: 'matte', saucer: 'metal', star: 'metal',
     seashell: 'pearl', pearl: 'pearl', globe: 'glass', comet: 'glass', galaxy: 'glass',
     cupcake: 'sugar', donut: 'sugar', macaron: 'sugar', gateau: 'sugar',
   };
@@ -1268,7 +1503,7 @@ const Gear = (() => {
   function bobMat(id) {
     if (matCache[id]) return matCache[id];
     const B = BOB[id] || {};
-    return (matCache[id] = Object.assign({ scale: 0, bend: 0, caust: 0, sweep: B.tier ? 0.32 : 0, rim: [0.9, 0.95, 1] }, MATS[BOB_KIND[id] || 'plastic']));
+    return (matCache[id] = Object.assign({ scale: 0, bend: 0, caust: 0, sweep: B.heir ? 0.32 : 0, rim: [0.9, 0.95, 1] }, MATS[BOB_KIND[id] || 'plastic']));
   }
 
   /* Paint a bobber into its own canvas and light it. Returns the sprite and where the bobber's anchor sits.
@@ -1444,6 +1679,14 @@ const Gear = (() => {
       const g = ctx.createLinearGradient(a.x, a.y, b.x, b.y), h = (t * 60) % 360;
       for (let i = 0; i <= 6; i++) g.addColorStop(i / 6, `hsla(${(h + i * 60) % 360},95%,72%,0.95)`);
       ctx.strokeStyle = g;
+    } else if (S.grad) {
+      // colours that drift slowly down the line
+      const g = ctx.createLinearGradient(a.x, a.y, b.x, b.y), n = S.grad.length;
+      for (let i = 0; i <= 8; i++) {
+        const f = (((i / 8) * 1.5 - t * 0.09) % 1 + 1) % 1 * n, i0 = Math.floor(f) % n;
+        g.addColorStop(i / 8, mix(S.grad[i0], S.grad[(i0 + 1) % n], f - Math.floor(f)));
+      }
+      ctx.strokeStyle = g;
     } else ctx.strokeStyle = S.color;
     for (let c = 0; c < chunks; c++) {
       sub(Math.round(c * per), Math.round((c + 1) * per));
@@ -1489,8 +1732,75 @@ const Gear = (() => {
       case 'flowers':
         along(pts, gap, gap * 0.5).forEach((p, i) => flower(ctx, p.x, p.y, Math.max(2.4, base * 2.6), '#ffffff', '#ffd23f', i * 0.8));
         break;
-      case 'sparkle':
-        along(pts, gap * 0.55, (t * 8) % (gap * 0.55)).forEach((p, i) => twinkle(ctx, p.x + Math.sin(i * 3.1) * base * 2, p.y + Math.cos(i * 2.3) * base * 2, Math.max(1.6, base * 1.6), Math.max(0, Math.sin(t * 3 + i * 1.7)), i % 2 ? '#ffffff' : '#d6c8ff'));
+      case 'sparkle': {
+        const sc = S.spark || ['#d6c8ff', '#ffffff'];
+        along(pts, gap * 0.55, (t * 8) % (gap * 0.55)).forEach((p, i) => twinkle(ctx, p.x + Math.sin(i * 3.1) * base * 2, p.y + Math.cos(i * 2.3) * base * 2, Math.max(1.6, base * 1.6), Math.max(0, Math.sin(t * 3 + i * 1.7)), sc[i % 2]));
+        break;
+      }
+      case 'chain': {
+        // links alternate between face-on rings and edge-on bars, with a glint now and then
+        const s = Math.max(1.7, base * 1.5);
+        along(pts, s * 1.7, 0).forEach((p, i) => {
+          ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.a);
+          if (i % 2) {
+            ctx.strokeStyle = S.chain[1]; ctx.lineWidth = Math.max(1.2, s * 0.62); ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.moveTo(-s * 0.85, 0); ctx.lineTo(s * 0.85, 0); ctx.stroke();
+            ctx.strokeStyle = S.chain[0]; ctx.lineWidth = Math.max(0.5, s * 0.2);
+            ctx.beginPath(); ctx.moveTo(-s * 0.7, -s * 0.1); ctx.lineTo(s * 0.7, -s * 0.1); ctx.stroke();
+          } else {
+            ctx.strokeStyle = S.chain[1]; ctx.lineWidth = Math.max(0.9, s * 0.36);
+            ctx.beginPath(); ctx.ellipse(0, 0, s * 1.05, s * 0.6, 0, 0, TAU); ctx.stroke();
+            ctx.strokeStyle = S.chain[0]; ctx.lineWidth = Math.max(0.5, s * 0.16);
+            ctx.beginPath(); ctx.ellipse(0, -s * 0.06, s * 1.0, s * 0.54, 0, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+          }
+          ctx.restore();
+          if (i % 5 === 2) twinkle(ctx, p.x, p.y - s * 0.3, s * 1.5, Math.pow(Math.max(0, Math.sin(t * 1.8 + i * 0.9)), 6), '#fff6d0');
+        });
+        break;
+      }
+      case 'sprigs':
+        along(pts, gap * 0.42, gap * 0.2).forEach((p, i) => {
+          const L = Math.max(2.6, base * 2.4);
+          ctx.lineCap = 'round'; ctx.lineWidth = Math.max(0.8, base * 0.55);
+          for (let j = -1; j <= 1; j++) for (const d of [-1, 1]) {
+            const a = p.a + d * (0.75 + j * 0.18) + (j - 1) * 0.12;
+            ctx.strokeStyle = (i + j) % 2 ? '#4f8f4a' : '#2c5a2c';
+            const ox = Math.cos(p.a) * j * L * 0.45, oy = Math.sin(p.a) * j * L * 0.45;
+            ctx.beginPath(); ctx.moveTo(p.x + ox, p.y + oy); ctx.lineTo(p.x + ox + Math.cos(a) * L, p.y + oy + Math.sin(a) * L); ctx.stroke();
+          }
+          if (i % 3 === 1) for (const [ox, oy] of [[0, 0], [1.1, 0.7]]) {
+            const R = Math.max(1.2, base * 1.05), bx = p.x + ox * R, by = p.y + oy * R;
+            ctx.fillStyle = '#d02a3a'; ctx.beginPath(); ctx.arc(bx, by, R, 0, TAU); ctx.fill();
+            ctx.fillStyle = 'rgba(255,255,255,0.65)'; ctx.beginPath(); ctx.arc(bx - R * 0.35, by - R * 0.35, R * 0.38, 0, TAU); ctx.fill();
+          }
+        });
+        break;
+      case 'embers': {
+        // a coal-red core breathing along the braid, and sparks lifting off it
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        const heat = 0.75 + 0.25 * Math.sin(t * 2.3);
+        ctx.setLineDash([w * 2.6, w * 1.5]); ctx.lineDashOffset = -t * 7; ctx.lineCap = 'round';
+        path(); ctx.strokeStyle = `rgba(255,90,30,${0.32 * heat})`; ctx.lineWidth = w * 1.9; ctx.stroke();
+        path(); ctx.strokeStyle = `rgba(255,${150 + 40 * heat},70,${0.95 * heat})`; ctx.lineWidth = w * 0.6; ctx.stroke();
+        ctx.setLineDash([]);
+        along(pts, gap * 0.6, gap * 0.3).forEach((p, i) => {
+          const ph = (t * (0.45 + (i % 3) * 0.12) + i * 0.37) % 1, rr = Math.max(1.1, base * 1.25) * (1 - ph * 0.6);
+          ctx.fillStyle = `rgba(255,${150 + (i % 3) * 35},70,${(1 - ph) * 0.9})`;
+          ctx.beginPath(); ctx.arc(p.x + Math.sin(t * 2 + i) * gap * 0.15 * ph, p.y - ph * gap * 1.3, rr, 0, TAU); ctx.fill();
+        });
+        ctx.restore();
+        break;
+      }
+      case 'flakes':
+        along(pts, gap * 0.75, gap * 0.35).forEach((p, i) => {
+          const tw = Math.max(0, Math.sin(t * 1.3 + i * 1.9)), s = Math.max(2, base * 2.1) * (0.55 + 0.45 * tw);
+          if (tw < 0.05) return;
+          ctx.strokeStyle = `rgba(255,255,255,${0.25 + 0.7 * tw})`; ctx.lineWidth = 0.8; ctx.lineCap = 'round';
+          ctx.beginPath();
+          for (let j = 0; j < 3; j++) { const a = (j / 3) * Math.PI + i; ctx.moveTo(p.x - Math.cos(a) * s, p.y - Math.sin(a) * s); ctx.lineTo(p.x + Math.cos(a) * s, p.y + Math.sin(a) * s); }
+          ctx.stroke();
+          if (tw > 0.8) twinkle(ctx, p.x, p.y, s * 0.7, (tw - 0.8) * 5);
+        });
         break;
       case 'stars':
         along(pts, gap * 1.4, gap * 0.4).forEach((p, i) => {
@@ -1610,5 +1920,5 @@ const Gear = (() => {
     }
   }
 
-  return { THEMES, TIER, perkText, RODS, BOBBERS, LINES, ROD, BOB, LINE, CATALOG, SLOT, STUDIO, paintRod, paintBobber, bobberFX, paintLine, paintBait, preview };
+  return { THEMES, TIERS, TOP_LEVEL, PERK_KEY, perkText, perkShort, RODS, BOBBERS, LINES, ROD, BOB, LINE, CATALOG, SLOT, STUDIO, paintRod, paintBobber, bobberFX, paintLine, paintBait, preview };
 })();

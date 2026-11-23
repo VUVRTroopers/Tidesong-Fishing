@@ -18,13 +18,16 @@ const RARITIES = {
    stiff: spring stiffness range (how violently the fish moves to its destination).
    zeta: damping ratio (lower = more overshoot and twitchiness).
    hold/dart/thrash: probabilities of pausing, dashing to the far side, or thrashing in place.
-   wiggle: amplitude of constant small jitter. */
+   wiggle: amplitude of constant small jitter.
+   Legendary and extreme fish are tuned against the gear ladder in js/gear.js: with the starter kit they
+   are a long shot, every tier of rod, bobber and line lifts the odds, and only a full Heirloom kit makes
+   the Dragon Fish a likely catch. */
 const REEL = {
   common:    { fill: 0.16,  drain: 0.07,  band: 0.30, interval: [1.2, 2.5],  stiff: [3, 6],    zeta: 0.9,  hold: 0.32, dart: 0.04, thrash: 0,    wiggle: 0.006 },
   rare:      { fill: 0.14,  drain: 0.08,  band: 0.27, interval: [0.9, 1.9],  stiff: [5, 10],   zeta: 0.78, hold: 0.26, dart: 0.1,  thrash: 0.03, wiggle: 0.01 },
   epic:      { fill: 0.125, drain: 0.085, band: 0.25,  interval: [0.7, 1.45],  stiff: [7, 13],   zeta: 0.68, hold: 0.2,  dart: 0.17, thrash: 0.06, wiggle: 0.015 },
-  legendary: { fill: 0.11,  drain: 0.085, band: 0.235, interval: [0.55, 1.2],  stiff: [9, 17],   zeta: 0.58, hold: 0.17, dart: 0.22, thrash: 0.09, wiggle: 0.02 },
-  extreme:   { fill: 0.1,   drain: 0.078, band: 0.23,  interval: [0.5, 1.1],   stiff: [10, 19],  zeta: 0.52, hold: 0.15, dart: 0.24, thrash: 0.11, wiggle: 0.024 },
+  legendary: { fill: 0.106, drain: 0.088, band: 0.226, interval: [0.55, 1.2],  stiff: [9, 17],   zeta: 0.58, hold: 0.17, dart: 0.22, thrash: 0.09, wiggle: 0.02 },
+  extreme:   { fill: 0.092, drain: 0.084, band: 0.212, interval: [0.5, 1.1],   stiff: [10, 19],  zeta: 0.52, hold: 0.15, dart: 0.24, thrash: 0.11, wiggle: 0.024 },
 };
 
 /* The player's band: holding accelerates it right, releasing lets it sink left; drag keeps it responsive. */

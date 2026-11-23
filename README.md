@@ -11,8 +11,8 @@ wait for a bite, then hold to keep the gold fish marker inside your green band u
   Dragon Fish.
 - **WebGL water and lighting** with reflections, ripples, bloom and god rays, plus a 2D fallback for
   devices without WebGL.
-- **A market of 70 pieces of gear** in seven themes, including Heirloom pieces that take a whole
-  career to save for.
+- **A market of 88 pieces of gear** in seven themes on one tier ladder. Every tier offers several
+  styles at the same price and boost, up to Heirloom pieces that take a whole career to save for.
 - **Progress saves automatically** in the browser.
 
 ## Contents
@@ -127,16 +127,12 @@ Sell fish for **Moonpearls** (the price grows with rarity, weight and length) an
 
 - **Bait:** Glow Worms, Moon Shrimp and Ember Roe. One is used up on each bite. Bait tilts the odds
   toward Epic, Legendary and Extreme fish and brings bites sooner, but never guarantees them.
-- **Rods, bobbers and lines:** 22 rods, 29 bobbers and 19 lines in seven themes (Classic, Cosmic,
+- **Rods, bobbers and lines:** 29 rods, 31 bobbers and 28 lines in seven themes (Classic, Cosmic,
   Blossom, Critters, Beach, Mountain and Bakery), from a dog-leash line and a French Bulldog float
-  to a baguette rod with a wheel of brie for a reel.
-- **Heirloom gear:** the ultra tier. Three rods, three bobbers and three lines need fishing level
-  18, 22 or 26 and cost 36,000 to 80,000 Moonpearls. Each adds one small perk to the fight:
-  - Heirloom rods widen the green band by 4–6%.
-  - Heirloom lines slow the ring's drain by 5–7%.
-  - Heirloom bobbers make it fill 4–6% faster.
-
-  The perks were tuned in simulation so a full set shortens fights without deciding them.
+  to a baguette rod with a wheel of brie for a reel. Each slot helps a different part of the fight:
+  - **Rods** widen the green band.
+  - **Bobbers** make the ring fill faster while the fish is in the band.
+  - **Lines** slow the ring's drain when it slips out.
 - **Keepnet upgrades:** from 8 slots up to 48. A full keepnet sends you to the market before you
   can keep more fish.
 
@@ -144,9 +140,41 @@ Star a fish to protect it from "Sell all". Legendary and Extreme catches are sta
 The journal keeps lifetime records (counts, heaviest, longest, most valuable, rarest) even after
 fish are sold.
 
+### Gear tiers
+
+All gear sits on one tier ladder shared by the three slots. Every piece on a tier costs the same and
+gives the same boost, and most themes appear on most tiers. Every theme has a piece on
+Tier V, so you can dress your kit in cosmic, bakery or critters style without giving anything up.
+You can skip tiers, and a new piece is equipped straight away unless it is a step down from what you
+already have on.
+
+| Tier | Boost | Price | Choice of styles |
+| --- | --- | --- | --- |
+| Starter | none | free | Willow Switch, Classic Float, Clear Mono |
+| Tier I | 2.5% | 250 | 4 rods, 5 bobbers, 5 lines |
+| Tier II | 5% | 750 | 4 rods, 5 bobbers, 4 lines |
+| Tier III | 7.5% | 2,000 | 4 rods, 5 bobbers, 4 lines |
+| Tier IV | 10% | 5,000 | 4 rods, 5 bobbers, 4 lines |
+| Tier V | 12.5% | 12,000 | 7 rods, 7 bobbers, 7 lines: one in every theme |
+| Heirloom I | 15% | 36,000, from level 18 | Enchanted Rose, Grand Gâteau, Summit Rope |
+| Heirloom II | 17.5% | 55,000, from level 22 | Trident of the Tides, Diamond Tiara, Diamond Leash |
+| Heirloom III | 20% | 80,000, from level 26 | Event Horizon, Galaxy Orb, Constellation Thread |
+
+The ladder and the Legendary and Extreme fights were tuned together in a simulation of whole
+careers, with three models of human play (casual, steady and focused):
+
+- The first upgrade comes within minutes, and early on a new piece is affordable every 5 to 15 minutes.
+- For a steady player, Tier V in every slot takes about six and a half hours, and the Heirlooms are
+  the long goal after that.
+- Each tier makes common fights shorter and lifts the odds on the hardest fish. A steady player lands
+  a Legendary about half the time with Tier II in every slot, and nearly every time from Tier IV.
+- The Dragon Fish is the real test. A steady player lands it about a quarter of the time with a full
+  Tier V kit and two thirds of the time with Heirloom I. Only a full Heirloom III kit makes it close
+  to certain, and a casual player still finds it a challenge even then.
+
 <p>
-  <img src="docs/screenshots/rods.jpg" alt="Every rod, lit by the dusk light of Lanternfen Marsh" width="49%">
-  <img src="docs/screenshots/bobbers.jpg" alt="Every bobber floating on the water, with reflections" width="49%">
+  <img src="docs/screenshots/rods.jpg" alt="Every rod by tier, lit by the dusk light of Lanternfen Marsh" width="49%">
+  <img src="docs/screenshots/bobbers.jpg" alt="Every bobber by tier, floating on the water with reflections" width="49%">
 </p>
 
 ## Graphics
@@ -281,8 +309,9 @@ Most balance lives in `js/data.js`:
 | Bait | `BAITS`: pack size, price, odds boost per rarity, bite speed-up |
 | Keepnet sizes | `NET_TIERS` |
 
-Gear prices, themes and Heirloom levels are in the catalogue at the top of `js/gear.js`, and
-Heirloom perk strengths are in `Gear.TIER`. Each water's colours and light are in `PAL` in
+The gear tier ladder (boost, price and level for each tier) is `TIERS` at the top of `js/gear.js`.
+Each piece in the catalogue below it names its theme and tier and takes everything else from the
+ladder. If you change the ladder, retune the Legendary and Extreme rows of `REEL` with it. Each water's colours and light are in `PAL` in
 `js/scenes.js`.
 
 ## Testing shortcuts

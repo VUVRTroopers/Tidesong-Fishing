@@ -8,7 +8,7 @@ const Shop = (() => {
   let theme = 'all';
   let sellAllArmed = 0;
   const FILTERS = [{ id: 'all', name: 'All' }, ...Gear.THEMES, { id: 'heirloom', name: 'Heirloom' }];
-  const matches = (g, f) => f === 'all' || (f === 'heirloom' ? !!g.perk : g.theme === f);
+  const matches = (g, f) => f === 'all' || (f === 'heirloom' ? !!g.heir : g.theme === f);
   const themeName = id => (Gear.THEMES.find(x => x.id === id) || { name: '' }).name;
   const LOCK = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
   const $ = s => document.querySelector(s);
@@ -164,55 +164,87 @@ const Shop = (() => {
     return html + '</div>';
   }
 
-  function perkSummary() {
-    const P = api.perks(), parts = [];
-    if (P.band > 1) parts.push(`green band ${Math.round((P.band - 1) * 100)}% wider`);
-    if (P.drain < 1) parts.push(`meter drains ${Math.round((1 - P.drain) * 100)}% slower`);
-    if (P.fill > 1) parts.push(`meter fills ${Math.round((P.fill - 1) * 100)}% faster`);
-    return parts.length
-      ? `<p class="perk-summary on"><b>Heirloom perks in use:</b> ${parts.join(' · ')}.</p>`
-      : `<p class="perk-summary">Heirloom gear opens from level ${Gear.TIER[1].level}. Each piece adds one small perk to the reel fight: rods widen the green band, lines slow the meter's drain, bobbers fill it faster.</p>`;
+  const pct = v => `${Math.round(v * 10) / 10}%`;
+
+  /* The equipped piece for this slot, where it sits on the ladder, and what the whole kit adds to a fight. */
+  function renderKit(kind) {
+    const s = api.save, slot = Gear.SLOT[kind], cur = Gear.CATALOG[kind].find(g => g.id === s.equip[slot]) || Gear.CATALOG[kind][0];
+    const T = Gear.TIERS, level = api.level(), P = api.perks();
+    const owned = new Set(s.owned[kind].map(id => (Gear.CATALOG[kind].find(g => g.id === id) || {}).tier));
+    const pips = T.map(t => {
+      const state = t.n < cur.tier ? 'done' : t.n === cur.tier ? 'on' : 'ahead';
+      const locked = t.level && level < t.level;
+      const label = `${t.name}, ${t.pct ? `${pct(t.pct)} boost` : 'no boost'}${owned.has(t.n) ? ', owned' : ''}${locked ? `, opens at level ${t.level}` : ''}`;
+      return `<li${t.n === 6 ? ' class="heir-start"' : ''}><button type="button" class="pip ${state}${t.heir ? ' heir' : ''}${owned.has(t.n) ? ' owned' : ''}${locked ? ' locked' : ''}" data-action="jump" data-tier="${t.n}" aria-label="${label}"${t.n === cur.tier ? ' aria-current="true"' : ''}>
+        <i>${t.n ? t.mark : '•'}</i><span>${t.n ? `<em>${kind === 'lines' ? '−' : '+'}</em>${pct(t.pct)}` : '0%'}</span></button></li>`;
+    }).join('');
+    const nouns = { rods: 'rod', bobbers: 'bobber', lines: 'line' };
+    return `
+      <div class="kit">
+        <p class="kit-now"><span class="kit-label">Your ${nouns[kind]}</span><b>${esc(cur.name)}</b>
+          <span class="kit-perk${cur.heir ? ' heir' : ''}">${T[cur.tier].name}${cur.perk ? ` · ${Gear.perkText(cur.perk)}` : ' · no boost yet'}</span></p>
+        <ol class="tier-track" style="--fill:${cur.tier / (T.length - 1)}">${pips}</ol>
+        <p class="kit-all">Your whole kit in a fight: <b>band +${pct((P.band - 1) * 100)}</b> · <b>fill +${pct((P.fill - 1) * 100)}</b> · <b>drain −${pct((1 - P.drain) * 100)}</b></p>
+      </div>`;
+  }
+
+  function gearCard(kind, g) {
+    const s = api.save, slot = Gear.SLOT[kind], level = api.level();
+    const owned = s.owned[kind].includes(g.id), on = s.equip[slot] === g.id;
+    const locked = !owned && g.level && level < g.level;
+    const afford = s.pearls >= g.price;
+    let foot;
+    if (on) foot = '<span class="on-pill">Equipped</span>';
+    else if (owned) foot = `<button type="button" class="secondary-btn" data-action="equip" data-kind="${kind}" data-id="${g.id}">Equip</button>`;
+    else if (locked) foot = `<span class="lock-pill">${LOCK}Opens at level ${g.level}</span>`;
+    else foot = `<button type="button" class="buy-btn" data-action="buy-gear" data-kind="${kind}" data-id="${g.id}" ${afford ? '' : 'disabled'}>Buy · ${pearls(g.price)}</button>${afford ? '' : `<span class="need">Need ${pearls(g.price - s.pearls)} more</span>`}`;
+    return `
+        <article class="item gear${on ? ' on' : ''}${owned ? '' : ' unowned'}${g.heir ? ' heirloom' : ''}">
+          <div class="art-wrap">
+            <canvas class="item-art gear-art ${kind}" data-gear="${kind}" data-id="${g.id}" aria-hidden="true"></canvas>
+            <span class="theme-tag">${themeName(g.theme)}</span>
+            ${g.pct ? `<span class="boost-tag${g.heir ? ' heir' : ''}">${Gear.perkShort(kind, g.pct)}</span>` : ''}
+          </div>
+          <div class="item-body">
+            <h4>${esc(g.name)}${g.heir ? '<span class="heir-tag">Heirloom</span>' : ''}</h4>
+            <p>${esc(g.blurb)}</p>
+          </div>
+          <div class="item-foot">${foot}</div>
+        </article>`;
   }
 
   function renderGear(kind) {
-    const s = api.save, slot = Gear.SLOT[kind], level = api.level(), all = Gear.CATALOG[kind];
+    const all = Gear.CATALOG[kind], level = api.level();
     const notes = {
-      rods: 'Rods come in every style. Heirloom rods also widen the green band a little.',
-      bobbers: 'Your bobber floats on the water while you wait for a bite. Heirloom bobbers fill the meter a little faster.',
-      lines: 'Line shows from the rod tip all the way to the water. Heirloom lines slow the meter\u2019s drain a little.',
+      rods: 'Rods widen the green band. Every rod on a tier costs the same and gives the same boost, so choose whichever style you love.',
+      bobbers: 'Bobbers make the meter fill faster while the fish is in your band. Every bobber on a tier costs the same and does the same.',
+      lines: 'Lines slow the meter\u2019s drain when the fish slips out of your band. Every line on a tier costs the same and does the same.',
     };
     if (!all.some(g => matches(g, theme))) theme = 'all';
-    let html = `<p class="tab-note">${notes[kind]}</p>${perkSummary()}`;
+    let html = `<p class="tab-note">${notes[kind]}</p>${renderKit(kind)}`;
     html += `<div class="filters" role="group" aria-label="Filter by theme">${FILTERS.map(f => {
       const n = all.filter(g => matches(g, f.id)).length;
       if (!n) return '';
       return `<button type="button" class="filter${theme === f.id ? ' on' : ''}${f.id === 'heirloom' ? ' heir' : ''}" data-action="theme" data-id="${f.id}" aria-pressed="${theme === f.id}">${f.name}<span>${n}</span></button>`;
-    }).join('')}</div><div class="items gear-grid">`;
-    const list = all.filter(g => matches(g, theme)).slice().sort((a, b) => a.price - b.price);
-    for (const g of list) {
-      const owned = s.owned[kind].includes(g.id), on = s.equip[slot] === g.id;
-      const locked = !owned && g.level && level < g.level;
-      const afford = s.pearls >= g.price;
-      let foot;
-      if (on) foot = '<span class="on-pill">Equipped</span>';
-      else if (owned) foot = `<button type="button" class="secondary-btn" data-action="equip" data-kind="${kind}" data-id="${g.id}">Equip</button>`;
-      else if (locked) foot = `<span class="lock-pill">${LOCK}Opens at level ${g.level}</span><span class="muted">${pearls(g.price)}</span>`;
-      else foot = `<button type="button" class="buy-btn" data-action="buy-gear" data-kind="${kind}" data-id="${g.id}" ${afford ? '' : 'disabled'}>Buy · ${pearls(g.price)}</button>${afford ? '' : `<span class="need">Need ${pearls(g.price - s.pearls)} more</span>`}`;
+    }).join('')}</div>`;
+    const order = Gear.THEMES.map(t => t.id);
+    for (const T of Gear.TIERS) {
+      const list = all.filter(g => g.tier === T.n && matches(g, theme)).sort((a, b) => order.indexOf(a.theme) - order.indexOf(b.theme));
+      if (!list.length) continue;
+      const locked = T.level && level < T.level;
+      const cost = !T.n ? '<span class="tier-cost free">Where you began</span>'
+        : `<span class="tier-cost">${locked ? `${LOCK}Level ${T.level} · ` : ''}${pearls(T.price)}</span>`;
       html += `
-        <article class="item gear${on ? ' on' : ''}${owned ? '' : ' unowned'}${g.perk ? ' heirloom' : ''}">
-          <div class="art-wrap">
-            <canvas class="item-art gear-art ${kind}" data-gear="${kind}" data-id="${g.id}" aria-hidden="true"></canvas>
-            <span class="theme-tag">${themeName(g.theme)}</span>
-          </div>
-          <div class="item-body">
-            <h4>${esc(g.name)}${g.perk ? '<span class="heir-tag">Heirloom</span>' : ''}</h4>
-            <p>${esc(g.blurb)}</p>
-            ${g.perk ? `<p class="perk-line">${Gear.perkText(g.perk)}</p>` : ''}
-          </div>
-          <div class="item-foot">${foot}</div>
-        </article>`;
+      <section class="tier-group${T.heir ? ' heir' : ''}${locked ? ' locked' : ''}" id="tier-${kind}-${T.n}" aria-label="${T.name}">
+        <header class="tier-head">
+          <span class="tier-mark">${T.n ? T.mark : '•'}</span>
+          <div class="tier-title"><b>${T.name}</b><span>${T.n ? Gear.perkText(Gear.CATALOG[kind].find(g => g.tier === T.n).perk) : 'No boost'}</span></div>
+          ${cost}
+        </header>
+        <div class="items gear-grid">${list.map(g => gearCard(kind, g)).join('')}</div>
+      </section>`;
     }
-    return html + '</div>';
+    return html;
   }
 
   function renderNet() {
@@ -330,10 +362,29 @@ const Shop = (() => {
         if (!g || (g.level && api.level() < g.level)) { api.play('deny'); return; }
         if (!spend(g.price)) return;
         s.owned[kind].push(id);
-        s.equip[Gear.SLOT[kind]] = id;
         api.play('buy');
-        api.toast(g.perk ? `${g.name} is yours and equipped. ${Gear.perkText(g.perk)}.` : `${g.name} is yours and equipped`, '#e8c46c', g.perk ? 4200 : 2400);
+        // a new piece goes straight on, unless it would be a step down the ladder from what is equipped
+        const slot = Gear.SLOT[kind], cur = Gear.CATALOG[kind].find(x => x.id === s.equip[slot]);
+        if (!cur || g.tier >= cur.tier) {
+          s.equip[slot] = id;
+          api.toast(`${g.name} is yours and equipped. ${Gear.perkText(g.perk)}.`, '#e8c46c', 3600);
+        } else {
+          api.toast(`${g.name} is yours. ${cur.name} stays equipped for its higher tier; swap whenever you like.`, '#e8c46c', 4200);
+        }
         break;
+      }
+      case 'jump': {
+        const n = +b.dataset.tier, card = $('#shop-panel').closest('.card');
+        const go = () => {
+          const sec = document.getElementById(`tier-${tab}-${n}`);
+          if (!sec) return;
+          // the section's scroll-margin keeps its label clear of the sticky tabs
+          sec.scrollIntoView({ block: 'start', behavior: UIFX.reduced() ? 'auto' : 'smooth' });
+          sec.classList.remove('flash'); void sec.offsetWidth; sec.classList.add('flash');
+        };
+        api.play('click');
+        if (!document.getElementById(`tier-${tab}-${n}`)) { theme = 'all'; UIFX.morph(card, render); requestAnimationFrame(go); } else go();
+        return;
       }
       case 'equip':
         s.equip[Gear.SLOT[b.dataset.kind]] = id;

@@ -75,13 +75,15 @@
   const xpToReach = level => { let s = 0; for (let i = 1; i < level; i++) s += xpForLevel(i); return s; };
   const netCap = () => NET_TIERS[save.netTier].cap;
   const activeBait = () => (save.equip.bait && save.bait[save.equip.bait] > 0 ? save.equip.bait : null);
-  /* Heirloom gear perks: rod widens the band, line slows the drain, bobber speeds the fill. */
+  /* What the equipped gear does for the fight, from each piece's tier: the rod widens the band, the line
+     slows the drain, the bobber speeds the fill. heir marks slots holding an Heirloom, which get a gilded reel. */
   function gearPerks() {
     const rod = Gear.ROD[save.equip.rod], line = Gear.LINE[save.equip.line], bob = Gear.BOB[save.equip.bobber];
     return {
       band: (rod && rod.perk && rod.perk.band) || 1,
       drain: (line && line.perk && line.perk.drain) || 1,
       fill: (bob && bob.perk && bob.perk.fill) || 1,
+      heir: { rod: !!(rod && rod.heir), line: !!(line && line.heir), bobber: !!(bob && bob.heir) },
     };
   }
   if (!isUnlocked(locById(save.loc))) save.loc = 'mistwillow';
@@ -339,8 +341,8 @@
     G.entry = bobPos();
     setPrompt('');
     ui.reelHint.hidden = save.total >= 3;
-    ui.reel.classList.toggle('perk-band', P.band > 1);
-    ui.reel.classList.toggle('perk-meter', P.fill > 1 || P.drain < 1);
+    ui.reel.classList.toggle('perk-band', P.heir.rod);
+    ui.reel.classList.toggle('perk-meter', P.heir.bobber || P.heir.line);
     ui.reel.hidden = false;
     updateReelUI();
     Sound.startReel();
@@ -1359,7 +1361,7 @@
     hookRarity(r) { const ids = SPECIES_ORDER.filter(id => SPECIES[id].rarity === r); if (ids.length) G.forced = ids[Math.floor(Math.random() * ids.length)]; return G.forced; },
     addXp(n) { save.xp += n; persist(); updateHUD(); },
     addPearls(n) { save.pearls += n; persist(); updateHUD(); },
-    unlockAll() { save.xp = Math.max(save.xp, xpToReach(Gear.TIER[3].level)); persist(); updateHUD(); },
+    unlockAll() { save.xp = Math.max(save.xp, xpToReach(Gear.TOP_LEVEL)); persist(); updateHUD(); },
     reset() { save = fresh(); persist(); location.reload(); },
     get state() { return { t: G.t, phase: G.phase, save: JSON.parse(JSON.stringify(save)), reel: G.reel && { progress: G.reel.progress, band: G.reel.band.x, width: G.reel.band.w, mods: G.reel.mods, fish: G.reel.fish.shown, inBand: G.reel.inBand }, shadow: { ...FS }, bob: G.phase === 'reeling' ? { ...G.entry } : bobPos(), tip: rodTip() }; },
   };
