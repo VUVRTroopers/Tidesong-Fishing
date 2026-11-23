@@ -198,8 +198,20 @@ js/
   gear.js           Rod, bobber and line catalogue, and the code that draws and lights each one
   shop.js           The Driftwood Market: selling, bait, gear and keepnet upgrades
   game.js           Game loop, cast, bite, reel and catch logic, input, saving, map and journal
-docs/screenshots/   Images used in this README
+docs/
+  social-preview.jpg  The 1200×630 banner shown when the site's link is shared
+  screenshots/        Images used in this README
 ```
+
+### Link previews
+
+`index.html` carries Open Graph and Twitter card tags, so a shared link to the hosted site
+(`https://vuvrtroopers.github.io/tidesong-fishing/`) shows a title, a short description and the
+banner in `docs/social-preview.jpg`. If the site moves, update the absolute URLs in those tags.
+
+![The link preview banner](docs/social-preview.jpg)
+
+### Scripts and saves
 
 Scripts load in the order above as plain `<script>` tags, and each file exposes one global
 (`FishArt`, `WaterGL`, `Gear` and so on). Saves are stored in `localStorage` under
