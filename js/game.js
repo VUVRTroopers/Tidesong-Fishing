@@ -107,7 +107,7 @@
   /* ================= Interface refs ================= */
   const ui = {
     prompt: $('#prompt'), reelIn: $('#btn-reelin'), reel: $('#reel'), band: $('#band'), marker: $('#marker'),
-    ringFill: $('#ring-fill'), ringNotch: $('#ring-notch'), reelHint: $('#reel-hint'),
+    ringFill: $('#ring-fill'), ringNotch: $('#ring-notch'), ring: $('#reel .ring'), ringHead: $('#ring-head'), reelHint: $('#reel-hint'),
     placeName: $('#place-name'), placeTime: $('#place-time'), lvl: $('#lvl-num'), xpFill: $('#xp-fill'), xpText: $('#xp-text'),
     sound: $('#btn-sound'), toasts: $('#toasts'), veil: $('#veil'), rvCanvas: $('#rv-canvas'),
     pearls: $('#pearl-count'), pearlBtn: $('#btn-pearls'), netBtn: $('#btn-net'), netCount: $('#net-count'),
@@ -343,8 +343,12 @@
     ui.reelHint.hidden = save.total >= 3;
     ui.reel.classList.toggle('perk-band', P.heir.rod);
     ui.reel.classList.toggle('perk-meter', P.heir.bobber || P.heir.line);
+    clearTimeout(G.reelHideT);
+    ui.reel.classList.remove('won', 'lost');
+    G.reel.fx = { s: 1, v: 0, step: -1, flash: 0, d: 0, beat: 0, t: 0 };
+    ui.ring.style.transform = '';
     ui.reel.hidden = false;
-    updateReelUI();
+    updateReelUI(0);
     Sound.startReel(save.equip.rod);
   }
 
@@ -435,7 +439,7 @@
       unlocks: LOCATIONS.filter(l => l.level > before && l.level <= after),
       dir: from.x > W * 0.5 ? -1 : 1,
     };
-    ui.reel.hidden = true;
+    hideReel('won');
     setPhase('landing');
     splash(from, 1.6);
     buzz(30);
@@ -448,7 +452,7 @@
     splash(p, 1);
     G.bob.fx = p.x / W;
     G.bob.fy = (p.y - L.horizon) / (H - L.horizon);
-    ui.reel.hidden = true;
+    hideReel('lost');
     setPhase('escaped');
     setPrompt('It got away…');
   }
@@ -597,7 +601,7 @@
           danger: clamp(1 - (R.progress - REEL_ESCAPE) / 0.18, 0, 1),
           speed: clamp(Math.abs(R.fish.v), 0, 1), fishPos: R.fish.shown,
         });
-        updateReelUI();
+        updateReelUI(dt);
         if (R.progress >= 1) landFish();
         else if (R.progress < REEL_ESCAPE && R.el > REEL_GRACE) escapeFish();
         break;
@@ -840,15 +844,79 @@
     ui.prompt.classList.toggle('empty', !text);
   }
 
-  function updateReelUI() {
+  function updateReelUI(dt = 0) {
     const R = G.reel;
     if (!R) return;
     ui.band.style.left = ((R.band.x - R.band.w / 2) * 100).toFixed(3) + '%';
     ui.band.style.width = (R.band.w * 100).toFixed(3) + '%';
     ui.marker.style.left = (R.fish.shown * 100).toFixed(3) + '%';
-    ui.ringFill.style.strokeDashoffset = (RING_C * (1 - clamp(R.progress, 0, 1))).toFixed(2);
+    const p = clamp(R.progress, 0, 1);
+    ui.ringFill.style.strokeDashoffset = (RING_C * (1 - p)).toFixed(2);
     ui.reel.classList.toggle('in', R.inBand);
     ui.reel.classList.toggle('danger', !R.inBand && R.progress < REEL_ESCAPE + 0.09);
+    // the head of the fill: bright while it grows, an ember while it drains
+    const a = (p * 360 - 90) * Math.PI / 180;
+    ui.ringHead.setAttribute('cx', (60 + 50 * Math.cos(a)).toFixed(2));
+    ui.ringHead.setAttribute('cy', (60 + 50 * Math.sin(a)).toFixed(2));
+    if (R.fx) ringFx(R, p, dt);
+  }
+
+  /* The ring is meant to be read from the corner of the eye. It blooms on every note of the harp (the same
+     steps the sound climbs), from about 7% early on to about 17% near full, and sends a ripple out each
+     time; it glows more as it fills; and as it drains toward the red mark it fidgets, then shakes, then
+     thumps with the heartbeat. A damped spring carries the blooms so they bounce rather than snap. */
+  function ringFx(R, p, dt) {
+    const F = R.fx, reduced = UIFX.reduced();
+    F.t += dt;
+    const step = Math.floor(p / 0.07);
+    if (R.inBand && step > F.step) {
+      const k = 0.3 + 0.7 * Math.pow(p, 1.4);
+      if (F.step >= 0) { F.v += 0.5 + 4.5 * Math.pow(k, 1.5); F.flash = Math.max(F.flash, 0.45 + 0.55 * k); ringWave(k); }
+      F.step = step;
+    } else if (step < F.step - 1) F.step = step + 1;
+    // danger: how close the ring is to letting the fish go (the heartbeat starts at the same point as the sound's)
+    const near = R.inBand ? 0 : clamp(1 - (R.progress - REEL_ESCAPE) / 0.24, 0, 1);
+    F.d += (near - F.d) * (1 - Math.exp(-dt * (near > F.d ? 6 : 3)));
+    const beatOn = !R.inBand && clamp(1 - (R.progress - REEL_ESCAPE) / 0.18, 0, 1) > 0.55;
+    F.beat -= dt;
+    if (beatOn && F.beat <= 0) { F.v -= 1.5; F.beat = 0.85; }
+    else if (!beatOn) F.beat = Math.min(F.beat, 0.2);
+    // the spring: rests a touch smaller while draining, breathes when nearly full
+    const rest = 1 - (R.inBand ? 0 : 0.03) + (R.inBand && p > 0.75 ? 0.012 * Math.sin(F.t * 9) * (p - 0.75) * 4 : 0);
+    // integrated in fixed small steps so the bloom is the same size at any frame rate
+    const n = Math.min(40, Math.ceil(dt * 240)), h = n ? dt / n : 0;
+    for (let i = 0; i < n; i++) { F.v += ((rest - F.s) * 180 - F.v * 14) * h; F.s += F.v * h; }
+    F.flash *= Math.exp(-dt * 4.5);
+    const fill = R.inBand ? p * p : p * p * 0.35;
+    ui.ring.style.setProperty('--glow', Math.min(1.4, 0.1 + 0.55 * fill + F.flash).toFixed(3));
+    ui.ring.style.setProperty('--halo', Math.min(1, 0.6 * Math.pow(p, 2.2) * (R.inBand ? 1 : 0.35) + 0.7 * F.flash).toFixed(3));
+    ui.ring.classList.toggle('draining', !R.inBand);
+    if (reduced) { ui.ring.style.transform = ''; return; }
+    // fidget, then shake: two out-of-step wobbles so it never looks mechanical
+    const sh = Math.pow(F.d, 1.4), t = F.t;
+    const x = sh * 5.5 * (Math.sin(t * 41) * 0.6 + Math.sin(t * 67 + 1.3) * 0.4);
+    const y = sh * 3.4 * (Math.sin(t * 53 + 0.7) * 0.6 + Math.sin(t * 79 + 2.1) * 0.4);
+    const rot = sh * 8 * Math.sin(t * 29 + 0.4) + F.d * 1.5 * Math.sin(t * 11);
+    ui.ring.style.transform = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) rotate(${rot.toFixed(2)}deg) scale(${F.s.toFixed(4)})`;
+  }
+
+  /* A ripple of light that leaves the ring on each note; k (0–1) is how far along the catch is. */
+  function ringWave(k, big) {
+    if (UIFX.reduced()) return;
+    const w = document.createElement('i');
+    w.className = 'ring-wave' + (big ? ' big' : '');
+    w.style.setProperty('--k', k.toFixed(3));
+    w.addEventListener('animationend', () => w.remove());
+    ui.ring.appendChild(w);
+  }
+
+  /* Take the reel away with a flourish: a burst when the fish is landed, a slump when it escapes. */
+  function hideReel(kind) {
+    clearTimeout(G.reelHideT);
+    if (UIFX.reduced()) { ui.reel.hidden = true; return; }
+    ui.reel.classList.add(kind);
+    if (kind === 'won') { ringWave(1, true); ringWave(1); }
+    G.reelHideT = setTimeout(() => { ui.reel.hidden = true; ui.reel.classList.remove('won', 'lost'); ui.ring.style.transform = ''; }, 560);
   }
 
   function updateHUD() {
