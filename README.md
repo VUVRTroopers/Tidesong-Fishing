@@ -181,7 +181,8 @@ drops. Without WebGL, or with `#nogl` in the URL, the game falls back to a 2D re
 All sound is synthesised at runtime with the Web Audio API: there are no audio files. It is
 built to feel natural rather than electronic:
 
-- **Soft instruments:** musical notes are a physically modelled plucked string (Karplus–Strong),
+- **Soft instruments:** musical notes are a physically modelled plucked string (Karplus–Strong,
+  plucked from a triangle shape like a fingered harp string, with a round body under it),
   bells and chimes are modal (a few decaying partials, the higher ones dying first), and noise is
   pink or brown rather than harsh white noise. Every envelope is smooth, so nothing clicks.
 - **Real-sounding water:** drops and splashes are clusters of tiny bubbles whose pitch rises as they
@@ -197,7 +198,9 @@ built to feel natural rather than electronic:
 - **A living backdrop:** a quiet chord breathes under each scene and moves to a new chord every
   twenty seconds or so, one voice at a time.
 - **The fight:** you hear the water churned up by the fish, panned to where it pulls; the line
-  humming under strain when the fish is outside the band; the spool whirring as you wind; a harp
+  humming under strain when the fish is outside the band; the reel's ratchet clicking in an even
+"trrrr" as you wind (generated at audio rate and locked to the spool, so it never stutters), coasting
+down when you let go and buzzing as drag when the fish runs; a harp
   climbing the pentatonic scale as the ring fills; and a soft heartbeat when the fish is about to
   escape.
 

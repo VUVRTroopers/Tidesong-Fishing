@@ -17,8 +17,8 @@
 
 const Sound = (() => {
   let ctx = null, enabled = true;
-  let master, sfx, amb, verbIn, verbHP;
-  let whiteBuf, pinkBuf, brownBuf, warmWave, reedWave, pulseCurve, softPulse, gateCurve;
+  let master, sfx, amb, music, verbIn, verbHP;
+  let whiteBuf, pinkBuf, brownBuf, warmWave, reedWave, pulseCurve, softPulse, gateCurve, clickCurve;
   let ambient = null, ambientWanted = null, reel = null, ticker = null, offline = false;
   const space = { slots: [], active: 0, id: null };
   const MASTER = 0.92;
@@ -41,8 +41,8 @@ const Sound = (() => {
     // master: remove rumble, soften the top end, glue, then catch peaks
     master = ctx.createGain(); master.gain.value = enabled ? MASTER : 0;
     const low = filter('highpass', 30, 0.6);
-    const shelf = filter('highshelf', 5200); shelf.gain.value = -4.5;
-    const top = filter('lowpass', 14500, 0.5);
+    const shelf = filter('highshelf', 6500); shelf.gain.value = -3;
+    const top = filter('lowpass', 16000, 0.707);
     const glue = ctx.createDynamicsCompressor();
     glue.threshold.value = -20; glue.knee.value = 16; glue.ratio.value = 2.4; glue.attack.value = 0.02; glue.release.value = 0.3;
     const limit = ctx.createDynamicsCompressor();
@@ -51,8 +51,8 @@ const Sound = (() => {
 
     // the acoustic space: two convolver slots so one water's reverb can crossfade into the next
     verbIn = ctx.createGain();
-    verbHP = filter('highpass', 170, 0.6);
-    const vLP = filter('lowpass', 6500, 0.5);
+    verbHP = filter('highpass', 130, 0.6);
+    const vLP = filter('lowpass', 8500, 0.6);
     const vOut = ctx.createGain(); vOut.gain.value = 0.85;
     verbIn.connect(verbHP);
     for (let i = 0; i < 2; i++) {
@@ -64,6 +64,12 @@ const Sound = (() => {
 
     sfx = ctx.createGain(); sfx.gain.value = 1; sfx.connect(master);
     amb = ctx.createGain(); amb.gain.value = 0.9; amb.connect(master);
+    // the music bus (harp, bells, fanfares): a little warmth underneath and presence on top,
+    // so the notes sit close and full rather than thin and far away
+    music = ctx.createGain(); music.gain.value = 0.72;
+    const warmth = filter('lowshelf', 260); warmth.gain.value = 3;
+    const presence = filter('peaking', 2800, 0.9); presence.gain.value = 1.5;
+    music.connect(warmth); warmth.connect(presence); presence.connect(master);
 
     whiteBuf = makeNoise(2, 'white');
     pinkBuf = makeNoise(6, 'pink');
@@ -73,6 +79,7 @@ const Sound = (() => {
     pulseCurve = shapeCurve(x => Math.pow(0.5 + 0.5 * x, 3));
     softPulse = shapeCurve(x => Math.pow(0.5 + 0.5 * x, 1.6));
     gateCurve = shapeCurve(x => { const v = clamp((x - 0.35) / 0.3, 0, 1); return v * v * (3 - 2 * v); });
+    clickCurve = shapeCurve(x => Math.pow(Math.max(0, x), 60));
 
     setSpace('default', 0);
     if (ctx.state === 'suspended') ctx.resume().catch(() => {});
@@ -263,9 +270,15 @@ const Sound = (() => {
     const sr = ctx.sampleRate, N = Math.floor(sr * Math.min(4.5, sustain * 1.2 + 0.25));
     const period = sr / freq, L = Math.max(2, Math.floor(period - 0.5)), frac = period - 0.5 - L;
     const C = (1 - frac) / (1 + frac); // all-pass for exact tuning
-    const ring = new Float32Array(L);
+    // the string starts as a finger would leave it: a triangle displaced at the plucking point,
+    // which puts most of the energy in the fundamental, plus a little texture from the fingertip
+    const ring = new Float32Array(L), pos = 0.27;
     let lp = 0, mean = 0;
-    for (let i = 0; i < L; i++) { lp += (Math.random() * 2 - 1 - lp) * bright; ring[i] = lp; mean += lp; }
+    for (let i = 0; i < L; i++) {
+      const x = i / L, tri = x < pos ? x / pos : (1 - x) / (1 - pos);
+      lp += (Math.random() * 2 - 1 - lp) * bright;
+      ring[i] = tri + lp * 0.45; mean += ring[i];
+    }
     mean /= L;
     for (let i = 0; i < L; i++) ring[i] -= mean;
     const loss = Math.pow(0.001, 1 / (freq * sustain));
@@ -291,11 +304,13 @@ const Sound = (() => {
     if (!ctx) return;
     const t0 = ctx.currentTime + (o.t || 0);
     const src = ctx.createBufferSource();
-    src.buffer = ksBuffer(Math.round(freq * 10) / 10, o.bright ?? 0.26, Math.round((o.dur || 1.4) * 10) / 10);
-    const tone = filter('lowpass', o.lpf || Math.min(4200, freq * 4.5), 0.4);
+    src.buffer = ksBuffer(Math.round(freq * 10) / 10, o.bright ?? 0.3, Math.round((o.dur || 1.4) * 10) / 10);
+    // a gentle top that keeps the attack's presence, and a round sine body under the string
+    const tone = filter('lowpass', o.lpf || Math.min(7500, freq * 9), 0.5);
     const g = gainNode(o.gain ?? 0.1);
     src.connect(tone); tone.connect(g);
-    route(g, { ...o, _t0: t0, wet: o.wet ?? 0.3 });
+    osc(freq, { t: o.t, a: 0.004, d: Math.min(1.4, (o.dur || 1.4) * 0.55), gain: 0.4, into: tone });
+    route(g, { ...o, _t0: t0, dest: o.dest || music, wet: o.wet ?? 0.2 });
     src.start(t0);
   }
 
@@ -306,7 +321,7 @@ const Sound = (() => {
   function bell(freq, o = {}) {
     if (!ctx) return;
     const g = o.gain ?? 0.05, dur = o.dur ?? 2.2, bus = ctx.createGain();
-    route(bus, { ...o, _t0: ctx.currentTime + (o.t || 0), wet: o.wet ?? 0.35 });
+    route(bus, { ...o, _t0: ctx.currentTime + (o.t || 0), dest: o.dest || music, wet: o.wet ?? 0.25 });
     for (const [m, amp, dm] of o.partials || BELL) {
       const f = freq * m;
       if (f > 9500) continue;
@@ -421,8 +436,8 @@ const Sound = (() => {
     click() { wood(midi(84), { gain: 0.022, dur: 0.12, wet: 0.08 }); },
 
     open() {
-      pluck(midi(79), { gain: 0.085, dur: 1.1, bright: 0.22, wet: 0.35 });
-      pluck(midi(86), { t: 0.07, gain: 0.065, dur: 1.2, bright: 0.22, wet: 0.35 });
+      pluck(midi(79), { gain: 0.052, dur: 1.1, wet: 0.22 });
+      pluck(midi(86), { t: 0.07, gain: 0.04, dur: 1.2, wet: 0.22 });
     },
 
     cast() {
@@ -432,7 +447,7 @@ const Sound = (() => {
       noise({ t: 0.16, type: 'bandpass', f: 2400, f1: 1200, fTime: 0.6, q: 1.8, a: 0.04, hold: 0.15, d: 0.45, gain: 0.04, pan: 0.2, wet: 0.08, lp2: 4500 });
       let t = 0.18;
       for (let i = 0; i < 16; i++) {
-        noise({ t: t + rand(-0.003, 0.003), type: 'bandpass', f: rand(2300, 2800), q: 2, a: 0.001, d: 0.008, gain: 0.02 * (1 - i / 20), pan: 0.2, wet: 0.05, lp2: 5000 });
+        noise({ t: t + rand(-0.003, 0.003), kind: 'white', type: 'bandpass', f: rand(2900, 3400), q: 5, a: 0.0008, d: 0.016, gain: 0.07 * (1 - i / 20), pan: 0.2, wet: 0.05, lp2: 6000 });
         t += 0.02 + i * 0.0035;
       }
     },
@@ -457,17 +472,17 @@ const Sound = (() => {
     bite() {
       splashFx(1);
       osc(110, { a: 0.004, d: 0.14, glide: 66, glideTime: 0.12, gain: 0.12, lp: 380, wet: 0.05 });
-      pluck(midi(76), { t: 0.03, gain: 0.13, dur: 1.2, bright: 0.35, wet: 0.3 });
-      pluck(midi(83), { t: 0.13, gain: 0.12, dur: 1.6, bright: 0.35, wet: 0.32 });
+      pluck(midi(76), { t: 0.03, gain: 0.12, dur: 1.2, bright: 0.35, wet: 0.2 });
+      pluck(midi(83), { t: 0.13, gain: 0.11, dur: 1.6, bright: 0.35, wet: 0.22 });
     },
 
     escape() {
       splashFx(0.7);
       // the line going slack
       noise({ t: 0.04, type: 'bandpass', f: 1800, f1: 500, fTime: 0.3, q: 1.4, a: 0.01, d: 0.3, gain: 0.035, pan: 0.2, wet: 0.1 });
-      pluck(midi(67), { t: 0.12, gain: 0.09, dur: 1.4, bright: 0.25, wet: 0.35 });
-      pluck(midi(62), { t: 0.36, gain: 0.085, dur: 1.8, bright: 0.22, wet: 0.38 });
-      pluck(midi(55), { t: 0.62, gain: 0.08, dur: 2.4, bright: 0.2, wet: 0.42 });
+      pluck(midi(67), { t: 0.12, gain: 0.085, dur: 1.4, bright: 0.25, wet: 0.24 });
+      pluck(midi(62), { t: 0.36, gain: 0.08, dur: 1.8, bright: 0.24, wet: 0.27 });
+      pluck(midi(55), { t: 0.62, gain: 0.075, dur: 2.4, bright: 0.22, wet: 0.3 });
       osc(midi(43), { t: 0.6, a: 0.25, d: 1.6, gain: 0.04, type: 'warm', lp: 600, wet: 0.3 });
     },
 
@@ -476,49 +491,49 @@ const Sound = (() => {
       const tier = RARITIES[rarity].tier;
       const scale = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24], root = 67, n = 4 + tier * 2;
       for (let i = 0; i < n; i++) {
-        pluck(midi(root + scale[i % scale.length]), { t: 0.15 + i * 0.08, gain: 0.1, dur: 1.6, bright: 0.32, pan: (i / n - 0.5) * 0.7, wet: 0.32 });
+        pluck(midi(root + scale[i % scale.length]), { t: 0.15 + i * 0.08, gain: 0.095, dur: 1.6, bright: 0.34, pan: (i / n - 0.5) * 0.7, wet: 0.2 });
       }
       const chordAt = 0.15 + n * 0.08, len = 2 + tier * 0.6;
       // a warm resolving chord under the last notes
-      [0, 4, 7, 12].forEach((s, i) => osc(midi(root - 12 + s), { t: chordAt, a: 0.12, hold: 0.3, d: len, gain: 0.035, type: 'warm', lp: 1700, detune: rand(-4, 4), pan: (i - 1.5) * 0.25, wet: 0.4 }));
-      if (tier >= 1) bell(midi(root + 24), { t: chordAt, gain: 0.04, dur: 2.6, wet: 0.45 });
+      [0, 4, 7, 12].forEach((s, i) => osc(midi(root - 12 + s), { t: chordAt, a: 0.1, hold: 0.3, d: len, gain: 0.04, type: 'warm', lp: 2600, detune: rand(-4, 4), pan: (i - 1.5) * 0.25, dest: music, wet: 0.26 }));
+      if (tier >= 1) bell(midi(root + 24), { t: chordAt, gain: 0.038, dur: 2.6, wet: 0.3 });
       if (tier >= 3) {
-        for (let i = 0; i < 12; i++) bell(midi(root + 12 + scale[(i * 3) % scale.length]), { t: chordAt + 0.1 + i * 0.09, gain: 0.026, dur: 2.4, pan: Math.sin(i) * 0.6, wet: 0.5 });
-        osc(midi(root - 24), { t: chordAt, a: 0.4, hold: 0.6, d: 2.8, gain: 0.055, wet: 0.3 });
-        osc(midi(root - 17), { t: chordAt, a: 0.4, hold: 0.6, d: 2.8, gain: 0.028, type: 'warm', lp: 800, wet: 0.35 });
+        for (let i = 0; i < 12; i++) bell(midi(root + 12 + scale[(i * 3) % scale.length]), { t: chordAt + 0.1 + i * 0.09, gain: 0.025, dur: 2.4, pan: Math.sin(i) * 0.6, wet: 0.34 });
+        osc(midi(root - 24), { t: chordAt, a: 0.4, hold: 0.6, d: 2.8, gain: 0.05, dest: music, wet: 0.22 });
+        osc(midi(root - 17), { t: chordAt, a: 0.4, hold: 0.6, d: 2.8, gain: 0.026, type: 'warm', lp: 900, dest: music, wet: 0.26 });
       }
       if (tier >= 4) {
         noise({ kind: 'brown', type: 'lowpass', f: 260, f1: 60, t: chordAt, a: 0.03, d: 3, gain: 0.17, wet: 0.35 });
-        bell(midi(root - 12), { t: chordAt, gain: 0.07, dur: 5, wet: 0.5 });
-        for (let i = 0; i < 10; i++) bell(midi(root + 24 + scale[i % 6]), { t: chordAt + 0.8 + i * 0.12, gain: 0.02, dur: 2.6, pan: Math.cos(i) * 0.7, wet: 0.55 });
+        bell(midi(root - 12), { t: chordAt, gain: 0.065, dur: 5, wet: 0.36 });
+        for (let i = 0; i < 10; i++) bell(midi(root + 24 + scale[i % 6]), { t: chordAt + 0.8 + i * 0.12, gain: 0.02, dur: 2.6, pan: Math.cos(i) * 0.7, wet: 0.38 });
       }
     },
 
     levelUp() {
-      [0, 4, 7, 12, 16].forEach((n, i) => bell(midi(72 + n), { t: i * 0.085, gain: 0.028, dur: 2, pan: (i - 2) * 0.2, wet: 0.45 }));
-      pluck(midi(60), { gain: 0.05, dur: 2, bright: 0.25, wet: 0.35 });
+      [0, 4, 7, 12, 16].forEach((n, i) => bell(midi(72 + n), { t: i * 0.085, gain: 0.027, dur: 2, pan: (i - 2) * 0.2, wet: 0.3 }));
+      pluck(midi(60), { gain: 0.048, dur: 2, bright: 0.28, wet: 0.22 });
     },
 
     unlock() {
       const s = [0, 2, 4, 7, 9, 12, 14, 16, 19];
-      s.forEach((n, i) => pluck(midi(79 + n), { t: i * 0.06, gain: 0.045, dur: 1.8, bright: 0.25, pan: i / 8 - 0.5, wet: 0.45 }));
-      bell(midi(91), { t: 0.55, gain: 0.03, dur: 2.6, wet: 0.5 });
-      osc(midi(55), { a: 0.5, hold: 0.5, d: 2.2, gain: 0.032, type: 'warm', lp: 700, wet: 0.4 });
+      s.forEach((n, i) => pluck(midi(79 + n), { t: i * 0.06, gain: 0.043, dur: 1.8, bright: 0.3, pan: i / 8 - 0.5, wet: 0.3 }));
+      bell(midi(91), { t: 0.55, gain: 0.028, dur: 2.6, wet: 0.34 });
+      osc(midi(55), { a: 0.5, hold: 0.5, d: 2.2, gain: 0.03, type: 'warm', lp: 900, dest: music, wet: 0.28 });
     },
 
     coin(n = 1) {
       const notes = [84, 88, 91, 96], k = Math.min(4, 1 + Math.floor(Math.log2(n + 1)));
-      for (let i = 0; i < k + 1; i++) bell(midi(notes[i % 4] + (i >= 4 ? 12 : 0)), { t: i * 0.07, gain: 0.04, dur: 1.3, partials: GLASS, pan: (i - k / 2) * 0.2, wet: 0.3 });
+      for (let i = 0; i < k + 1; i++) bell(midi(notes[i % 4] + (i >= 4 ? 12 : 0)), { t: i * 0.07, gain: 0.038, dur: 1.3, partials: GLASS, pan: (i - k / 2) * 0.2, wet: 0.22 });
     },
 
     buy() {
-      [0, 4, 7, 12].forEach((n, i) => pluck(midi(72 + n), { t: i * 0.06, gain: 0.08, dur: 1.2, bright: 0.32, wet: 0.3 }));
-      bell(midi(96), { t: 0.26, gain: 0.03, dur: 1.8, partials: GLASS, wet: 0.4 });
+      [0, 4, 7, 12].forEach((n, i) => pluck(midi(72 + n), { t: i * 0.06, gain: 0.075, dur: 1.2, bright: 0.32, wet: 0.2 }));
+      bell(midi(96), { t: 0.26, gain: 0.028, dur: 1.8, partials: GLASS, wet: 0.28 });
     },
 
     equip() {
       wood(midi(76), { gain: 0.045, dur: 0.2 });
-      pluck(midi(83), { t: 0.05, gain: 0.05, dur: 0.9, wet: 0.25 });
+      pluck(midi(83), { t: 0.05, gain: 0.046, dur: 0.9, wet: 0.18 });
     },
 
     deny() {
@@ -528,8 +543,8 @@ const Sound = (() => {
 
     release() {
       S.plop(1.1);
-      pluck(midi(74), { t: 0.12, gain: 0.065, dur: 1.2, wet: 0.35 });
-      pluck(midi(79), { t: 0.22, gain: 0.055, dur: 1.6, wet: 0.4 });
+      pluck(midi(74), { t: 0.12, gain: 0.06, dur: 1.2, wet: 0.22 });
+      pluck(midi(79), { t: 0.22, gain: 0.05, dur: 1.6, wet: 0.26 });
     },
 
     /* ---- the waters' rare moments ---- */
@@ -615,8 +630,24 @@ const Sound = (() => {
     const strain = layer(pinkBuf, 'bandpass', 480, 3.5), sLP = filter('lowpass', 1900, 0.5);
     strain.g.connect(sLP); sLP.connect(sfx);
     // the spool whirring while you wind
-    const whir = layer(pinkBuf, 'bandpass', 1500, 1.4), wLP = filter('lowpass', 3200, 0.5);
+    const whir = layer(pinkBuf, 'bandpass', 1400, 1.2), wLP = filter('lowpass', 3000, 0.5);
     whir.g.connect(wLP); wLP.connect(sfx);
+    // the reel's ratchet: clicks generated at audio rate, locked to how fast the spool turns, so they
+    // run as an even, satisfying "trrrr" however the frames fall. Each pulse rings a small metal
+    // pawl, the reel housing and a little wooden knock.
+    const drive = ctx.createOscillator(); drive.frequency.value = 6;
+    const flutter = ctx.createOscillator(); flutter.frequency.value = 7.3; const fl = gainNode(0.6);
+    flutter.connect(fl); fl.connect(drive.frequency);
+    const spike = ctx.createWaveShaper(); spike.curve = clickCurve;
+    const clickMix = gainNode(1);
+    for (const [f, q, lvl] of [[3300, 9, 1], [2150, 7, 0.8], [1250, 5, 0.6]]) {
+      const b = filter('bandpass', f, q), g = gainNode(lvl); spike.connect(b); b.connect(g); g.connect(clickMix);
+    }
+    // keep only the crisp click: no low buzz from the pulse rate itself
+    const clickLow = filter('highpass', 850, 0.7), clickTop = filter('lowpass', 6000, 0.6), ratchet = gainNode(0), rP = panNode(0.22);
+    drive.connect(spike); clickMix.connect(clickLow); clickLow.connect(clickTop); clickTop.connect(ratchet); ratchet.connect(rP); rP.connect(sfx);
+    const rs = gainNode(0.06); rP.connect(rs); rs.connect(verbIn);
+    drive.start(t0); flutter.start(t0);
     // a soft drone that warms as the ring fills
     const o1 = ctx.createOscillator(); o1.frequency.value = midi(55);
     const o2 = ctx.createOscillator(); o2.setPeriodicWave(warmWave); o2.frequency.value = midi(62);
@@ -624,7 +655,7 @@ const Sound = (() => {
     o1.connect(dg); o2.connect(lp); lp.connect(dg); dg.connect(sfx);
     const ds = gainNode(0.4); dg.connect(ds); ds.connect(verbIn);
     o1.start(t0); o2.start(t0);
-    reel = { churn, churnP, strain, whir, o1, o2, lp, dg, step: -1, tickT: 0, beatT: 0 };
+    reel = { churn, churnP, strain, whir, drive, flutter, ratchet, o1, o2, lp, dg, step: -1, beatT: 0, wound: false };
   }
 
   function updateReel(dt, s) {
@@ -636,21 +667,27 @@ const Sound = (() => {
     if (r.churnP.pan) T(r.churnP.pan, ((s.fishPos ?? 0.5) - 0.5) * 0.9, 0.1);
     T(r.strain.g.gain, s.inBand ? 0.0001 : 0.03 + s.danger * 0.05, 0.12);
     T(r.strain.fl.frequency, 420 + s.danger * 360 + sp * 180, 0.15);
-    T(r.whir.g.gain, s.holding ? 0.03 : 0.0001, 0.06);
+    T(r.whir.g.gain, s.holding ? 0.016 : 0.0001, 0.06);
     T(r.dg.gain, s.inBand ? 0.012 + s.progress * 0.018 : 0.005, 0.2);
     T(r.lp.frequency, 300 + s.progress * 1300, 0.25);
 
-    // a light ratchet under the whir while winding
-    r.tickT -= dt;
-    if (s.holding && r.tickT <= 0) {
-      noise({ type: 'bandpass', f: rand(2300, 2700), q: 2, a: 0.001, d: 0.007, gain: 0.014, wet: 0.04, lp2: 5000 });
-      r.tickT = rand(0.075, 0.095);
+    // the ratchet: spins up quickly while you wind and coasts down when you let go; when the fish
+    // runs hard against a slack reel, the drag buzzes faster and softer
+    const drag = !s.holding && !s.inBand && sp > 0.55;
+    if (s.holding) {
+      if (!r.wound) { r.drive.frequency.cancelScheduledValues(now); r.drive.frequency.setValueAtTime(Math.max(9, r.drive.frequency.value), now); }
+      T(r.drive.frequency, 26, 0.07); T(r.ratchet.gain, 0.62, 0.025);
+    } else if (drag) {
+      T(r.drive.frequency, 40, 0.1); T(r.ratchet.gain, 0.24, 0.08);
+    } else {
+      T(r.drive.frequency, 7, 0.3); T(r.ratchet.gain, 0, 0.16);
     }
+    r.wound = s.holding;
     // a harp climbs the pentatonic scale as the ring fills
     const step = Math.floor(s.progress / 0.07);
     if (s.inBand && step > r.step) {
       const n = Math.max(0, step), note = 62 + REEL_SCALE[n % 5] + 12 * Math.floor(n / 5);
-      pluck(midi(Math.min(note, 98)), { gain: 0.06, dur: 1.3, bright: 0.3, pan: ((s.fishPos ?? 0.5) - 0.5) * 0.8, wet: 0.3 });
+      pluck(midi(Math.min(note, 98)), { gain: 0.07, dur: 1.3, bright: 0.34, pan: ((s.fishPos ?? 0.5) - 0.5) * 0.8, wet: 0.18 });
       r.step = step;
     } else if (step < r.step - 1) r.step = step + 1;
     // droplets flicked up when the fish thrashes
@@ -668,8 +705,8 @@ const Sound = (() => {
     if (!reel || !ctx) { reel = null; return; }
     const now = ctx.currentTime, r = reel;
     reel = null;
-    for (const g of [r.churn.g, r.strain.g, r.whir.g, r.dg]) g.gain.setTargetAtTime(0, now, 0.12);
-    setTimeout(() => { for (const x of [r.churn.src, r.strain.src, r.whir.src, r.o1, r.o2]) { try { x.stop(); } catch (e) {} } }, 900);
+    for (const g of [r.churn.g, r.strain.g, r.whir.g, r.dg, r.ratchet]) g.gain.setTargetAtTime(0, now, 0.12);
+    setTimeout(() => { for (const x of [r.churn.src, r.strain.src, r.whir.src, r.drive, r.flutter, r.o1, r.o2]) { try { x.stop(); } catch (e) {} } }, 900);
   }
 
   /* ================= Ambience ================= */
@@ -989,6 +1026,6 @@ const Sound = (() => {
     get enabled() { return enabled; },
     get ready() { return !!ctx; },
     /* for offline rendering in tests */
-    _test: { S, EV, LAKES, tick, lap, offline(on) { offline = on; if (on && ticker) { clearInterval(ticker); ticker = null; } } },
+    _test: { S, EV, LAKES, tick, lap, pluck, bell, reel: () => reel, offline(on) { offline = on; if (on && ticker) { clearInterval(ticker); ticker = null; } } },
   };
 })();
