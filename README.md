@@ -139,7 +139,7 @@ the catch screen or later from your aquarium, and spend them on:
 
 - **Bait:** Glow Worms, Moon Shrimp and Ember Roe. One is used up on each bite. Bait tilts the odds
   toward Epic, Legendary and Extreme fish and brings bites sooner, but never guarantees them.
-- **Rods, bobbers and lines:** 29 rods, 31 bobbers and 28 lines in seven themes (Classic, Cosmic,
+- **Rods, bobbers and lines:** 27 rods, 31 bobbers and 28 lines in seven themes (Classic, Cosmic,
   Blossom, Critters, Beach, Mountain and Bakery), from a dog-leash line and a French Bulldog float
   to a baguette rod with a wheel of brie for a reel. Each slot helps a different part of the fight:
   - **Rods** widen the green band.
@@ -285,9 +285,21 @@ The sky and water render in WebGL behind a 2D canvas:
 Each water has its own light (direction, key and ambient colour, rim colour), and the gear and the
 leaping fish are lit by it:
 
-- **Rods** are shaded as cylinders: a shadow side, a highlight and a specular line that follow the
-  light around the bend, a rim light at night, metal guides, and a reel with the equipped line wound
-  on its spool.
+- **Rods** are modelled as tapered tubes laid along a bending spline: a thick grip, a metal reel seat
+  with locking hoods, then a blank that tapers to a whippy tip and bends most near the tip when a fish
+  pulls (and quivers under a heavy load). Each rod's surface is baked once into a texture wrapped round
+  the tube, with patterns projected onto the round surface: cork rings, cord, leather and rope wraps,
+  wood grain, split bamboo, bark, ice and frost, glowing runes, thread wraps at every guide, and stripes
+  that spiral round the blank and tighten as it tapers. Each frame the surface is lit unrolled, using
+  lighting baked per material for the water's light (lacquer, candy, ice, glass, metal, pearl, fur,
+  bread...), then wrapped onto the bent rod. The key light always comes from above the rod, so every rod
+  has a specular ridge along its top, a dark core underneath and a warm bounce on its lower edge, and
+  ice and glass add a Fresnel rim. The guides are angled rings with a ceramic insert and a catchlight.
+  The reel has a bevelled rim, a recessed spool with the equipped line showing through its ports, and a
+  drop shadow. The line runs from the spool through every guide to a tip-top that glints. A candy
+  cane's crook is part of the tube, the Tabby Tail ends in a fluffy wagging tail, and themed rods carry
+  a mist that drifts and dissolves along them, plus a small pool of particles: ice crystals, sugar
+  sparkles, embers, petals, bubbles, water drops, flour or stardust.
 - **Bobbers** share the fish's lighting engine, with a material each: plastic, wood, felt, paper,
   metal, pearl, glass or icing. On the water, the part below the waterline is tinted and wobbles
   through the water, with a broken reflection and a meniscus at the surface.
@@ -402,7 +414,8 @@ js/
   flourish.js       Rare per-water moments (frog, gull, dolphins, owl, whale, dragon and more)
   scenes.js         The five painted, animated waters and each water's light
   water-gl.js       WebGL sky and water, underwater fish shadow, bloom, god rays, haze
-  gear.js           Rod, bobber and line catalogue, and the code that draws and lights each one
+  gear.js           Rod, bobber and line catalogue, and the code that draws and lights bobbers and lines
+  rods.js           Rod modelling: materials, baked surfaces, lighting, guides, reels, ornaments, effects
   ui.js             Interface motion: cards glide to new sizes and new sections slide in
   shop.js           The Driftwood Market: bait, gear and aquariums
   tank-env.js       The six aquariums: glass, water, sand, plants and decor that can be touched
