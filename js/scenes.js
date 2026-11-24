@@ -591,6 +591,24 @@ const Scenes = (() => {
     return P.lit;
   }
 
+  /* What floats or stands on the water where a cast could strike it: its footprint on the water (an ellipse
+     around x, y), the height it stands to, and what it is made of. Positions include any bob from a knock. */
+  const knockDip = (f, t) => { const e = t - (f.hitT ?? -99); return e > 0 && e < 3 ? Math.sin(e * 13) * Math.exp(-e * 3) * (f.hitA || 1) : 0; };
+  function obstacles(L, t) {
+    const P = cur.parts, wh = L.h - L.horizon, out = [];
+    if (!P) return out;
+    for (const f of P.fixed) {
+      const y = L.horizon + Math.pow(f.fy, 1.25) * wh, persp = 0.35 + (y - L.horizon) / wh, x = f.fx * L.w, s = f.s * persp * (L.m / 600), d = knockDip(f, t);
+      if (f.k === 'pad') out.push({ f, kind: 'leaf', x, y: y + d * 2.5 * s, rx: 22 * s, ry: 22 * s * 0.38, top: y + d * 2.5 * s, s });
+      else if (f.k === 'floe') out.push({ f, kind: 'ice', x: x + s, y: y + 2 * s, rx: 45 * s, ry: 8 * s, top: y - 5 * s + d * 2 * s, s });
+      else if (f.k === 'float') out.push({ f, kind: 'paper', x, y, rx: 11 * s, ry: 5 * s, top: y - 16 * s + d * 3 * s, s });
+      else if (f.k === 'post') { const ph = L.m / 600 * f.s; out.push({ f, kind: 'wood', x, y, rx: 8 * ph, ry: 5 * ph, top: y - 50 * ph, post: true, s: ph }); }
+    }
+    return out;
+  }
+  /* Something struck it: it dips, rocks and settles. */
+  function knock(f, t, a = 1) { f.hitT = t; f.hitA = a; }
+
   /* Lily pad positions (for the frog). */
   function pads(L) {
     const wh = L.h - L.horizon, out = [];
@@ -678,12 +696,14 @@ const Scenes = (() => {
       }
     }
     for (const f of P.fixed) {
-      const y = L.horizon + Math.pow(f.fy, 1.25) * wh;
-      const persp = 0.35 + (y - L.horizon) / wh;
+      const y0 = L.horizon + Math.pow(f.fy, 1.25) * wh;
+      const persp = 0.35 + (y0 - L.horizon) / wh;
       const x = f.fx * L.w;
       const s = f.s * persp * (L.m / 600);
+      // a knock from a bobber: it dips, rocks and settles
+      const kn = knockDip(f, t), y = y0 + (f.k === 'post' ? 0 : kn * (f.k === 'float' ? 3 : 2.5) * s);
       if (f.k === 'pad') {
-        ctx.save(); ctx.translate(x, y + Math.sin(t * 0.8 + f.ph) * 1.2); ctx.scale(1, 0.38);
+        ctx.save(); ctx.translate(x, y + Math.sin(t * 0.8 + f.ph) * 1.2); ctx.rotate(kn * 0.05); ctx.scale(1, 0.38);
         ctx.fillStyle = 'rgba(30,60,45,0.35)'; ctx.beginPath(); ctx.arc(2, 3, 22 * s, 0, TAU); ctx.fill();
         ctx.fillStyle = '#4f8a5a';
         ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 22 * s, 0.25 + f.ph, TAU - 0.25 + f.ph); ctx.closePath(); ctx.fill();
@@ -709,7 +729,7 @@ const Scenes = (() => {
         glow(ctx, '255,190,110', x + 15 * ph, top + 16 * ph, 60 * ph, 0.55 * flick);
         ctx.save();
         ctx.translate(x + 15 * ph, top + 2 * ph);
-        ctx.rotate(Math.sin(t * 1.2 + x * 0.01) * 0.09);
+        ctx.rotate(Math.sin(t * 1.2 + x * 0.01) * 0.09 + kn * 0.35);
         ctx.strokeStyle = '#3b2a2a'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 3 * ph); ctx.stroke();
         ctx.fillStyle = '#3b2a2a'; ctx.fillRect(-5 * ph, 2 * ph, 10 * ph, 3 * ph);
         ctx.fillStyle = `rgba(255,214,140,${flick})`; ctx.fillRect(-4 * ph, 5 * ph, 8 * ph, 14 * ph);
@@ -719,7 +739,7 @@ const Scenes = (() => {
         ctx.fillStyle = 'rgba(255,190,120,0.25)';
         for (let i = 0; i < 5; i++) ctx.fillRect(x + 15 * ph - (10 - i) * ph, y + (4 + i * 7) * ph, (20 - i * 2) * ph, 1.4);
       } else if (f.k === 'floe') {
-        ctx.save(); ctx.translate(x, y + Math.sin(t * 0.7 + f.ph) * 1.5);
+        ctx.save(); ctx.translate(x, y + Math.sin(t * 0.7 + f.ph) * 1.5); ctx.rotate(kn * 0.04);
         ctx.fillStyle = 'rgba(10,30,50,0.4)'; ctx.beginPath(); ctx.ellipse(3, 5 * s, 46 * s, 8 * s, 0, 0, TAU); ctx.fill();
         ctx.fillStyle = '#d9ebf8';
         ctx.beginPath(); ctx.moveTo(-44 * s, 2 * s); ctx.lineTo(-30 * s, -7 * s); ctx.lineTo(10 * s, -9 * s); ctx.lineTo(40 * s, -4 * s); ctx.lineTo(46 * s, 3 * s); ctx.lineTo(-20 * s, 6 * s); ctx.closePath(); ctx.fill();
@@ -842,7 +862,7 @@ const Scenes = (() => {
   }
 
   return {
-    layout, ensure, update, preview, renderDyn, glMeta, lighting, pads, drawSurface,
+    layout, ensure, update, preview, renderDyn, glMeta, lighting, pads, obstacles, knock, drawSurface,
     drawBack(ctx, L, t) { ctx.drawImage(cur.bg, 0, 0, L.w, L.h); drawSky(ctx, L, t); drawWater(ctx, L, t); drawSurface(ctx, L, t); },
     drawFront, drawAir,
     palette: id => PAL[id],

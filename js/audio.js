@@ -482,6 +482,28 @@ const Sound = (() => {
       noise({ type: 'lowpass', f: 1300, f1: 320, a: 0.003, d: 0.28, gain: 0.08 * s, wet: 0.2 });
     },
 
+    /* The bobber striking something in the water before it falls in: ice knocks and tinkles, a lily pad
+       slaps, a post thunks hollow, a paper lantern gives a soft papery tap. */
+    thud(kind = 'ice', pan = 0) {
+      if (kind === 'ice') {
+        wood(midi(76), { gain: 0.05, dur: 0.1, pan, wet: 0.25 });
+        noise({ type: 'bandpass', f: 3200, q: 1.2, a: 0.001, d: 0.05, gain: 0.05, pan, wet: 0.2 });
+        bell(midi(91), { gain: 0.012, dur: 0.5, partials: GLASS, pan, wet: 0.35, beat: false });
+        for (let i = 0; i < 4; i++) bell(midi(96 + Math.floor(Math.random() * 7)), { t: 0.06 + i * rand(0.03, 0.06), gain: 0.006, dur: 0.3, partials: GLASS, pan: pan + rand(-0.15, 0.15), wet: 0.3, beat: false });
+      } else if (kind === 'leaf') {
+        noise({ type: 'lowpass', f: 900, f1: 300, a: 0.002, d: 0.09, gain: 0.07, pan, wet: 0.15 });
+        wood(midi(60), { gain: 0.028, dur: 0.12, pan, wet: 0.15 });
+        bubble(rand(700, 900), { t: 0.05, dur: 0.04, gain: 0.014, pan });
+      } else if (kind === 'wood') {
+        wood(midi(52), { gain: 0.075, dur: 0.32, pan, wet: 0.3 });
+        wood(midi(45), { t: 0.02, gain: 0.04, dur: 0.4, pan, wet: 0.3 });
+        noise({ type: 'bandpass', f: 700, q: 1.5, a: 0.001, d: 0.05, gain: 0.03, pan });
+      } else {
+        noise({ type: 'bandpass', f: 1700, f1: 900, q: 0.8, a: 0.002, d: 0.07, gain: 0.035, pan, wet: 0.2 });
+        wood(midi(67), { gain: 0.02, dur: 0.1, pan, wet: 0.2 });
+      }
+    },
+
     nibble() {
       bubble(rand(750, 950), { dur: 0.05, rise: 1.8, gain: 0.055, wet: 0.2 });
       noise({ type: 'bandpass', f: 1200, q: 1.2, a: 0.002, d: 0.05, gain: 0.025, wet: 0.15 });

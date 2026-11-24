@@ -246,10 +246,15 @@
     G.flex = clamp(G.flex + G.flexV * dt, -L.m * 0.03, L.m * 0.03);
   }
   function entryTarget() {
-    const f = G.reel ? G.reel.fish.shown : 0.5;
+    const f = G.reel ? G.reel.fish.shown : 0.5, b = bobPos();
     const span = Math.min(W * 0.6, 620);
-    const cx = clamp(L.bob.x, span / 2 + 24, W - span / 2 - 24);
-    return { x: cx - span / 2 + f * span, y: L.bob.y + Math.sin(G.t * 3.1) * 2 };
+    const cx = clamp(b.x, span / 2 + 24, W - span / 2 - 24);
+    return { x: cx - span / 2 + f * span, y: b.y + Math.sin(G.t * 3.1) * 2 };
+  }
+  /* Nearer water draws larger: the bobber's size at a height on screen, 1 where casts land on average. */
+  function persp(y) {
+    const wh = H - L.horizon, k0 = 0.55 + (L.bob.y - L.horizon) / wh;
+    return clamp((0.55 + (y - L.horizon) / wh) / k0, 0.8, 1.22);
   }
 
   /* ================= Effects ================= */
@@ -273,11 +278,22 @@
 
   function cast() {
     setPhase('casting');
-    const wh = H - L.horizon;
-    G.cast = {
-      to: { x: clamp(L.bob.x + rand(-0.07, 0.07) * W, W * 0.3, W * 0.9), y: L.bob.y + rand(-0.05, 0.06) * wh },
-      launched: false, lt: 0, k: 0, from: null,
-    };
+    const wh = H - L.horizon, base = (L.bob.y - L.horizon) / wh;
+    let tx, fy;
+    if (G.aim) { tx = G.aim[0] * W; fy = G.aim[1]; G.aim = null; }
+    else {
+      // each cast lands somewhere a little different: further out or nearer in, a little left or right
+      const tri = () => Math.random() + Math.random() - 1;
+      tx = clamp(L.bob.x + tri() * (L.portrait ? 0.24 : 0.2) * W, W * (L.portrait ? 0.34 : 0.28), W * 0.92);
+      fy = clamp(base + tri() * 0.17, 0.17, 0.56);
+    }
+    const to = { x: tx, y: L.horizon + fy * wh };
+    // a longer cast flies a little longer and higher
+    const reach = clamp(Math.hypot(to.x - L.rodTip.x, to.y - L.rodTip.y) / (W * 0.45), 0.5, 1.6);
+    // if it would come down on something floating or standing in the water, it strikes that first
+    const obj = Scenes.obstacles(L, G.t + 0.3 + 0.5 * reach).find(o => ((to.x - o.x) / o.rx) ** 2 + ((to.y - o.y) / o.ry) ** 2 < 1);
+    G.cast = { to, obj, launched: false, lt: 0, k: 0, from: null, dur: 0.46 + 0.17 * reach, arc: H * (0.11 + 0.05 * reach), hit: null };
+    if (obj) G.cast.to = { x: to.x, y: obj.post ? lerp(obj.top, obj.y, 0.35) : obj.top + (to.y - obj.y) * 0.3 };
     Sound.play('cast', save.equip.line);
     setPrompt('');
     ui.prompt.classList.remove('breathe');
@@ -288,17 +304,41 @@
   }
 
   function landBobber() {
-    const to = G.cast.to;
+    const to = G.cast.to, s = persp(to.y), soft = G.cast.hit ? 0.75 : 1;
     G.bob.fx = to.x / W;
     G.bob.fy = (to.y - L.horizon) / (H - L.horizon);
+    G.bob.s = s;
     G.bob.nib = 0;
-    Sound.play('plop', 1, save.equip.bobber);
-    ripple(to.x, to.y, 3, 1.2);
-    for (let i = 0; i < 6; i++) G.drops.push({ x: to.x, y: to.y, vx: rand(-60, 60), vy: -rand(80, 170), t: 0, floor: to.y + 2, r: rand(1, 2) });
+    Sound.play('plop', soft, save.equip.bobber);
+    ripple(to.x, to.y, 3, 1.2 * s * soft);
+    for (let i = 0; i < Math.round(6 * soft); i++) G.drops.push({ x: to.x, y: to.y, vx: rand(-60, 60) * s, vy: -rand(80, 170) * s * soft, t: 0, floor: to.y + 2, r: rand(1, 2) * s });
     setPhase('waiting');
     G.wait = { tick: 0, min: rand(1.0, 1.8), nibCool: rand(1, 2) };
     setPrompt('Waiting for a bite…');
     ui.reelIn.hidden = false;
+  }
+
+  /* The bobber comes down on something in the water: a thud, the thing dips and rocks, and the bobber
+     bounces, slides or drops off it into the water beside it. */
+  const IMPACT = {
+    ice: { hold: 0.05, dur: 0.42, arc: 0.04 }, leaf: { hold: 0.42, dur: 0.34, arc: 0.004 },
+    paper: { hold: 0.12, dur: 0.36, arc: 0.025 }, wood: { hold: 0, dur: 0.34, arc: 0.012 },
+  };
+  function impact() {
+    const C = G.cast, o = C.obj, I = IMPACT[o.kind] || IMPACT.ice, r = bobR() * persp(o.y);
+    const side = Math.sign(C.to.x - o.x) || (Math.random() < 0.5 ? -1 : 1);
+    const to = o.post
+      ? { x: o.x + side * (o.rx + r * 1.4), y: o.y + o.ry * 0.8 }
+      : { x: o.x + side * (o.rx * 1.02 + r * 1.6) + rand(-0.15, 0.15) * o.rx * 0.3, y: o.y + o.ry * rand(0.35, 0.9) };
+    to.x = clamp(to.x, W * 0.06, W * 0.97);
+    to.y = clamp(to.y, L.horizon + (H - L.horizon) * 0.08, H - L.m * 0.14);
+    C.hit = { o, f: o.f, t: 0, hold: I.hold, dur: I.dur, arc: L.m * I.arc, at: { ...C.to }, ox: o.x, otop: o.top, from: null, to };
+    Sound.play('thud', o.kind, (C.to.x / W - 0.5) * 0.8);
+    Scenes.knock(o.f, G.t, o.kind === 'wood' ? 0.8 : 1);
+    ripple(o.x, o.y, 2, Math.min(1.4, o.rx / (L.m * 0.05)) * 0.8);
+    // what flies off it: chips of ice, beads of water off a leaf, a splinter or two of wood
+    const bits = { ice: ['rgba(230,245,255,0.95)', 9, 1.2], leaf: ['rgba(225,245,255,0.85)', 6, 0.9], wood: ['rgba(150,110,70,0.9)', 4, 0.9], paper: ['rgba(255,220,170,0.7)', 3, 0.6] }[o.kind];
+    if (bits) for (let i = 0; i < bits[1]; i++) G.drops.push({ x: C.to.x, y: C.to.y, vx: rand(-90, 90) * bits[2], vy: -rand(60, 170) * bits[2], t: 0, floor: o.y + o.ry, r: rand(0.8, 1.8), col: bits[0] });
   }
 
   function nibble() {
@@ -557,10 +597,15 @@
       case 'casting': {
         const C = G.cast;
         if (!C.launched && G.pt >= 0.3) { C.launched = true; C.from = rodTip(); }
-        if (C.launched) {
+        if (C.launched && !C.hit) {
           C.lt += dt;
-          C.k = clamp(C.lt / 0.62, 0, 1);
-          if (C.k >= 1) landBobber();
+          C.k = clamp(C.lt / C.dur, 0, 1);
+          if (C.k >= 1) { if (C.obj) impact(); else landBobber(); }
+        } else if (C.hit) {
+          const B = C.hit;
+          B.t += dt;
+          if (B.t >= B.hold && !B.from) B.from = hitPos();
+          if (B.t >= B.hold + B.dur) { C.to = B.to; landBobber(); }
         }
         G.spin += dt * 20;
         break;
@@ -629,6 +674,17 @@
     }
   }
 
+  /* Where the bobber is while it rests on, or tumbles off, whatever it struck. */
+  function hitPos() {
+    const B = G.cast.hit;
+    if (!B.from) {
+      const o = Scenes.obstacles(L, G.t).find(q => q.f === B.f) || B.o;
+      return { x: B.at.x + (o.x - B.ox), y: B.at.y + (o.top - B.otop) };
+    }
+    const k = clamp((B.t - B.hold) / B.dur, 0, 1);
+    return { x: lerp(B.from.x, B.to.x, easeOut(k)), y: lerp(B.from.y, B.to.y, k * k) - Math.sin(k * Math.PI) * B.arc };
+  }
+
   function castSwing(t) {
     if (t < 0.22) return -0.34 * easeOut(t / 0.22);
     if (t < 0.36) return lerp(-0.34, 0.12, easeIn((t - 0.22) / 0.14));
@@ -692,7 +748,7 @@
     return out;
   }
   function bobUniform() {
-    if (G.phase === 'waiting' || G.phase === 'escaped') { const p = bobPos(); return [p.x / W, (p.y + bobR() * 0.3) / H, 1, (bobR() * 1.5) / H]; }
+    if (G.phase === 'waiting' || G.phase === 'escaped') { const p = bobPos(), r = bobR() * (G.bob.s || 1); return [p.x / W, (p.y + r * 0.3) / H, 1, (r * 1.5) / H]; }
     if (G.phase === 'reeling') return [G.entry.x / W, G.entry.y / H, 1, (bobR() * 1.2) / H];
     return [0, 0, 0, 0];
   }
@@ -710,7 +766,7 @@
 
   function drawDrops() {
     ctx.fillStyle = 'rgba(235,248,255,0.85)';
-    for (const d of G.drops) { ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, TAU); ctx.fill(); }
+    for (const d of G.drops) { if (d.col) ctx.fillStyle = d.col; ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, TAU); ctx.fill(); if (d.col) ctx.fillStyle = 'rgba(235,248,255,0.85)'; }
   }
 
   /* The fish below, in the 2D fallback (the GPU water draws it itself, under the surface). */
@@ -730,7 +786,7 @@
   }
 
   const bobTop = () => ((Gear.BOB[save.equip.bobber] || {}).top || 2) * bobR();
-  const drawBobber = (x, y, inWater, dip) => Gear.bobberFX(ctx, save.equip.bobber, x, y, bobR(), G.t, { inWater, dip, light: lit, dpr: DPR, refl: (Scenes.palette(save.loc) || {}).refl ?? 0.5 });
+  const drawBobber = (x, y, inWater, dip, s = 1) => Gear.bobberFX(ctx, save.equip.bobber, x, y, bobR() * s, G.t, { inWater, dip, light: lit, dpr: DPR, refl: (Scenes.palette(save.loc) || {}).refl ?? 0.5 });
   const line = (a, b, sag) => Gear.paintLine(ctx, save.equip.line, a, b, sag, L.m, G.t, { light: lit, sway: Math.sin(G.t * 0.7) * L.m * 0.006 * Math.min(1, Math.abs(sag) / (L.m * 0.02) + 0.3) });
 
   function drawBaitGlow(p) {
@@ -759,25 +815,31 @@
       case 'casting': {
         const C = G.cast;
         if (!C.launched) { const d = dangle(tip); line(tip, { x: d.x, y: d.y - bobTop() }, 0); drawBobber(d.x, d.y, false, 0); break; }
+        if (C.hit) {
+          const p = hitPos(), s = persp(p.y);
+          line(tip, { x: p.x, y: p.y - bobTop() * s }, L.m * 0.03);
+          drawBobber(p.x, p.y, false, 0, s);
+          break;
+        }
         const k = C.k, from = C.from, to = C.to;
-        const x = lerp(from.x, to.x, easeOut(k)), y = lerp(from.y, to.y, k) - Math.sin(k * Math.PI) * H * 0.16;
-        line(tip, { x, y: y - bobTop() }, L.m * 0.02 * k);
-        drawBobber(x, y, false, 0);
+        const x = lerp(from.x, to.x, easeOut(k)), y = lerp(from.y, to.y, k) - Math.sin(k * Math.PI) * C.arc, s = lerp(1, persp(C.obj ? C.obj.y : to.y), k);
+        line(tip, { x, y: y - bobTop() * s }, L.m * 0.02 * k);
+        drawBobber(x, y, false, 0, s);
         break;
       }
       case 'waiting': case 'escaped': {
-        const p = bobPos(), r = bobR();
-        const dip = G.bobDip;
-        line(tip, { x: p.x, y: p.y - bobTop() + dip * 0.5 }, L.m * 0.05);
+        const p = bobPos(), s = G.bob.s || 1;
+        const dip = G.bobDip * s;
+        line(tip, { x: p.x, y: p.y - bobTop() * s + dip * 0.5 }, L.m * 0.05);
         if (G.phase === 'waiting') drawBaitGlow(p);
-        drawBobber(p.x, p.y, true, dip);
+        drawBobber(p.x, p.y, true, dip, s);
         break;
       }
       case 'bite': {
-        const p = bobPos(), r = bobR();
+        const p = bobPos(), s = G.bob.s || 1, r = bobR() * s;
         const dip = Math.min(1, G.pt / 0.12) * r * 2.6 + Math.sin(G.t * 30) * r * 0.2;
         line(tip, { x: p.x, y: p.y + dip * 0.4 }, 0);
-        drawBobber(p.x, p.y, true, dip);
+        drawBobber(p.x, p.y, true, dip, s);
         break;
       }
       case 'reeling': {
@@ -1452,12 +1514,17 @@
   window.Tidesong = {
     flourish(name) { return Flourish.trigger(name, L, G.t); },
     hook(id) { if (SPECIES[id]) { G.forced = id; return `Next bite: ${SPECIES[id].name}`; } return 'Unknown species'; },
+    /* aim the next cast: at a point on the water (fx across, fy from the horizon down), or at the first thing floating on it */
+    aim(fx, fy) {
+      if (fx === undefined) { const o = Scenes.obstacles(L, G.t).find(q => q.x > W * 0.3 && q.x < W * 0.92); if (!o) return 'Nothing on this water to aim at'; fx = o.x / W; fy = (o.y - L.horizon) / (H - L.horizon); }
+      G.aim = [fx, fy]; return `Next cast lands at ${fx.toFixed(2)}, ${fy.toFixed(2)}`;
+    },
     hookRarity(r) { const ids = SPECIES_ORDER.filter(id => SPECIES[id].rarity === r); if (ids.length) G.forced = ids[Math.floor(Math.random() * ids.length)]; return G.forced; },
     addXp(n) { save.xp += n; persist(); updateHUD(); },
     addPearls(n) { save.pearls += n; persist(); updateHUD(); },
     unlockAll() { save.xp = Math.max(save.xp, xpToReach(Gear.TOP_LEVEL)); persist(); updateHUD(); },
     reset() { save = fresh(); persist(); location.reload(); },
-    get state() { return { t: G.t, phase: G.phase, save: JSON.parse(JSON.stringify(save)), reel: G.reel && { progress: G.reel.progress, band: G.reel.band.x, width: G.reel.band.w, mods: G.reel.mods, fish: G.reel.fish.shown, inBand: G.reel.inBand }, shadow: { ...FS }, bob: G.phase === 'reeling' ? { ...G.entry } : bobPos(), tip: rodTip() }; },
+    get state() { return { t: G.t, phase: G.phase, save: JSON.parse(JSON.stringify(save)), reel: G.reel && { progress: G.reel.progress, band: G.reel.band.x, width: G.reel.band.w, mods: G.reel.mods, fish: G.reel.fish.shown, inBand: G.reel.inBand }, shadow: { ...FS }, bob: G.phase === 'reeling' ? { ...G.entry } : bobPos(), tip: rodTip(), cast: G.cast && { k: G.cast.k, struck: G.cast.obj ? G.cast.obj.kind : null, hit: G.cast.hit ? G.cast.hit.t : -1 } }; },
   };
   if (location.hash === '#dev') {
     window.Tidesong.unlockAll();

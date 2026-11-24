@@ -52,7 +52,11 @@ Then visit `http://localhost:8000`.
 
 ## How a catch works
 
-1. **Cast.** The float lands on the water.
+1. **Cast.** The float lands somewhere a little different each time, further out or nearer in, a
+   little left or right; a longer cast flies longer and higher. If it comes down on something in
+   the water (a lily pad, an ice floe, a lantern post, a floating lantern), it strikes it with a
+   thud in that thing's own voice, the thing dips and rocks, and the float bounces, slides or drops
+   off into the water beside it.
 2. **Wait.** Bites come on a rolling chance that grows the longer the line sits. A faint shadow
    circles the float and noses in on nibbles before it strikes.
 3. **Fight.** A slider appears with a gold line (the fish) and a green band (your control). Hold to
@@ -441,6 +445,7 @@ In the browser console:
 | --- | --- |
 | `Tidesong.hook('dolphin')` | The next bite is that species (any id from `SPECIES`) |
 | `Tidesong.hookRarity('epic')` | The next bite is a random species of that rarity |
+| `Tidesong.aim()` | The next cast comes down on something floating in this water; `Tidesong.aim(0.6, 0.3)` aims it at a point (across, and down from the horizon) |
 | `Tidesong.addXp(500)` | Grants XP |
 | `Tidesong.addPearls(1000)` | Grants Moonpearls |
 | `Tidesong.flourish('frog')` | Plays a water's rare moment now: `frog`, `dragonfly`, `fishjump`, `owl`, `wisp`, `gull`, `dolphins`, `shootingstar`, `whale`, `crane` or `dragon` (at the matching water) |
