@@ -124,7 +124,7 @@ const Tank = (() => {
 
   /* ================= Moonpearls ================= */
   // seconds between drops, and the value range, for each rarity that drops them
-  const PEARL = { rare: [900, 1, 3], epic: [660, 3, 6], legendary: [480, 12, 20], extreme: [400, 40, 70] }; // Multiplied Drop Rate Times 2x
+  const PEARL = { rare: [450, 1, 3], epic: [330, 3, 6], legendary: [240, 12, 20], extreme: [200, 40, 70] };
   const lyingCap = () => 6 + api.save.netTier * 2;
   const fedRecently = () => Date.now() - (S.fed || 0) < 15 * 60e3;
   function pearlRate(f) {
