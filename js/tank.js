@@ -134,6 +134,8 @@ const Tank = (() => {
   const YIELD = { common: 1, rare: 3, epic: 7, legendary: 24, extreme: 80 };
   const DROP = { common: 1, rare: 2, epic: 3.5, legendary: 8, extreme: 20 };
   const BED_HOURS = 8, MAX_LYING = 60, MATE_BOOST = 1.5, FED_BOOST = 1.25;
+  // how much a fish makes before it lets a pearl go: never less than one whole pearl, so no pearl is worth nothing
+  const nextPearlAt = (r, lo, hi) => Math.max(1, DROP[r] * rand(lo, hi));
   const fedRecently = () => Date.now() - (S.fed || 0) < 15 * 60e3;
   const rarityOf = rec => (SPECIES[rec.id] || {}).rarity;
   const yieldOf = rec => (YIELD[rarityOf(rec)] || 0) * (S.mates[rec.uid] !== undefined ? MATE_BOOST : 1);
@@ -185,6 +187,8 @@ const Tank = (() => {
   }
   let dropKey = 1;
   function addDrop(x, v, r, from, born) {
+    v = Math.floor(v);
+    if (!(v >= 1)) return null;
     const d = { x: Math.round(x * 1000) / 1000, v, r, k: Date.now() % 1e7 + dropKey++, row: 0 };
     if (sc) place(d);
     if (born) d.born = 1;
@@ -201,6 +205,8 @@ const Tank = (() => {
     const s = api.save;
     S = s.tank;
     S.acc = S.acc || {};
+    // pearls worth nothing (left by an older version) are swept away
+    if (S.drops.some(d => !(d.v >= 1))) { S.drops = S.drops.filter(d => d.v >= 1); dirty = true; }
     const secs = S.last ? (now - S.last) / 1000 : 0;
     if (!S.last) S.last = now;
     if (secs >= 5) {
@@ -309,7 +315,7 @@ const Tank = (() => {
       social: rand(3, 9), pearlAt: 0, faceLock: 0, leaving: null, eatDelay: 0, bury: 0, free: false, above: false, alpha: 1,
     };
     f.flip = f.face; f.tz = f.z;
-    if (DROP[sp.rarity]) f.pearlAt = DROP[sp.rarity] * rand(0.6, 1.3);
+    if (DROP[sp.rarity]) f.pearlAt = nextPearlAt(sp.rarity, 0.6, 1.3);
     return f;
   }
   function dims(f) {
@@ -439,8 +445,8 @@ const Tank = (() => {
     if (f.pearlAt && !f.leaving && (S.acc[f.uid] || 0) >= f.pearlAt) {
       const v = Math.floor(S.acc[f.uid]);
       S.acc[f.uid] -= v;
-      f.pearlAt = DROP[f.sp.rarity] * rand(0.7, 1.3);
-      dropPearl(f, v);
+      f.pearlAt = nextPearlAt(f.sp.rarity, 0.7, 1.3);
+      if (v >= 1) dropPearl(f, v);
     }
     if (f.leaving) { f.leaving.t += dt; f.tx = f.x + f.face * f.len; f.ty = sc.surf - f.dh; f.boost = 1.6; return; }
     if (f.free) return;
@@ -941,6 +947,7 @@ const Tank = (() => {
   function dropPearl(f, v) {
     const y = f.y + f.hh * 0.3;
     const d = addDrop(clamp((f.x - sc.ix0) / sc.iw, 0.04, 0.96), v, f.sp.rarity, f.uid);
+    if (!d) return;
     falling.set(d.k, { x0: f.x, y0: y, y, vy: 0, bounce: 0 });
     f.gulp = 1;
     sparkle(f.x, y, RARITIES[f.sp.rarity].color, 4);
@@ -1479,6 +1486,7 @@ const Tank = (() => {
     pearl(x, y, v, r) {
       if (!isOpen) return;
       const d = addDrop(clamp((x - sc.ix0) / sc.iw, 0.04, 0.96), v, r);
+      if (!d) return;
       falling.set(d.k, { x0: x, y0: y, y, vy: -U * 6, bounce: 0 });
       sparkle(x, y, (RARITIES[r] || RARITIES.rare).color, 6);
       play('pearlDrop', 2);
