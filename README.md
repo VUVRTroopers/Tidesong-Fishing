@@ -370,6 +370,13 @@ they never stutter), coasting down when you let go and clicking faster as drag w
   market never says how. A line sings as it flies out on the cast, a bobber announces itself as it
   lands, and a rod's reel turns with its own ratchet. Equip something new and listen. The starter
   kit keeps the plain sounds.
+- **No two plays alike:** every effect is played as a fresh take, shifted a few cents in pitch, a
+  touch louder or softer, its notes a few milliseconds early or late (a melody, like the Moon
+  Palace's singing geodes, keeps its pitch). The sounds heard most (clicks and tabs, opening menus,
+  buying, equipping, coins, a refusal, level-ups, the bite and the catch, pearls and the aquarium's
+  little chimes) also rotate through several variants of their notes, in the same key and never the
+  same one twice running, so buying bait five times in a row sounds like five purchases rather than
+  one played five times.
 
 | Water | Soundscape |
 | --- | --- |
