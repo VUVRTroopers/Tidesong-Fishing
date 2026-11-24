@@ -519,6 +519,16 @@ In `js/tank.js`, `TR` holds each species' temperament, `YIELD` the pearls each r
 `DROP` the usual size of a pearl dropped while you watch, `BED_HOURS` how much the sand holds, and
 `affinity()` how readily two fish bond.
 
+## Gift links
+
+`claim/` is a link for rewarding players: https://vuvrtroopers.github.io/tidesong-fishing/claim/ shows
+a preview card ("Come Back and Claim your 500 FREE Moon-Pearls!", `docs/claim-preview.jpg`) where links
+are shared, and sends whoever opens it to the game with `?gift=playtest500`. The game adds the gift's
+pearls once per save and remembers it, so opening the link again only says it was already claimed.
+Gifts are listed in `GIFTS` in `js/game.js`; give one an `until` date to close it. The game runs in
+the browser with no server, so a gift is once per player's save rather than once in the world: someone
+could claim it again in another browser or after clearing their save.
+
 ## Testing shortcuts
 
 Add `#dev` to the URL to unlock every water, jump to level 26 (so Heirloom gear can be bought) and

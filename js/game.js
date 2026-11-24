@@ -26,7 +26,7 @@
   const SAVE_KEY = 'tidesong.save.v1';
   const fresh = () => ({
     v: 2, xp: 0, loc: 'mistwillow', caught: {}, total: 0, sound: true, intro: false,
-    pearls: 0, net: [], netTier: 0, uid: 1,
+    pearls: 0, net: [], netTier: 0, uid: 1, gifts: [],
     // the aquariums: when they were last looked after, the pearls on each tank's sand, bonds between fish,
     // mates, each fish's unfinished pearl, when each tank was fed, and which tank was last looked at
     tank: { last: 0, sands: {}, bonds: {}, mates: {}, acc: {}, fedAt: {}, at: 0 },
@@ -45,6 +45,7 @@
     const s = Object.assign(base, d);
     for (const k of ['bait', 'owned', 'equip', 'stats', 'records']) s[k] = Object.assign(fresh()[k], d[k] || {});
     if (!Array.isArray(s.net)) s.net = [];
+    if (!Array.isArray(s.gifts)) s.gifts = [];
     s.tank = Object.assign(fresh().tank, d.tank || {});
     if (!s.tank.sands || typeof s.tank.sands !== 'object') s.tank.sands = {};
     if (!s.tank.fedAt || typeof s.tank.fedAt !== 'object') s.tank.fedAt = {};
@@ -1538,6 +1539,30 @@
     reset() { save = fresh(); persist(); location.reload(); },
     get state() { return { t: G.t, phase: G.phase, save: JSON.parse(JSON.stringify(save)), reel: G.reel && { progress: G.reel.progress, band: G.reel.band.x, width: G.reel.band.w, mods: G.reel.mods, fish: G.reel.fish.shown, inBand: G.reel.inBand }, shadow: { ...FS }, bob: G.phase === 'reeling' ? { ...G.entry } : bobPos(), tip: rodTip(), cast: G.cast && { k: G.cast.k, struck: G.cast.obj ? G.cast.obj.kind : null, hit: G.cast.hit ? G.cast.hit.t : -1 } }; },
   };
+  /* ================= Gifts =================
+     A link to the game with ?gift=<id> grants that gift once per save: the claim is written into the
+     save, so opening the link again does nothing. claim/index.html is a page with its own link preview
+     that forwards here. Unknown gifts are ignored; `until` (a date) closes a gift. */
+  const GIFTS = {
+    playtest500: { pearls: 500, note: 'Thank you for playtesting Tidesong! 500 Moonpearls are in your purse.' },
+  };
+  (function claimGift() {
+    const q = new URLSearchParams(location.search), id = q.get('gift');
+    if (!id) return;
+    q.delete('gift');
+    history.replaceState(null, '', location.pathname + (q.toString() ? `?${q}` : '') + location.hash);
+    const gift = GIFTS[id];
+    if (!gift) return;
+    if (!Array.isArray(save.gifts)) save.gifts = [];
+    if (save.gifts.includes(id)) { setTimeout(() => toast('You have already claimed this gift. Thank you again!', '#9fe3b0', 4000), 900); return; }
+    if (gift.until && Date.now() > Date.parse(gift.until)) { setTimeout(() => toast('This gift has ended. Thank you for playing!', '#9fe3b0', 4000), 900); return; }
+    save.gifts.push(id);
+    save.pearls += gift.pearls;
+    persist();
+    updateHUD();
+    setTimeout(() => { toast(`🎁 ${gift.note}`, '#e8c46c', 6500); flashWallet(); }, 900);
+  })();
+
   if (location.hash === '#dev') {
     window.Tidesong.unlockAll();
     const bar = $('#devbar');
