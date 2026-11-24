@@ -270,8 +270,7 @@ The game explains almost none of what follows; players find it by watching and t
     quick run rings a note higher, and the run's total counts up beside your finger.
   - **Seeing them:** pearls float and bob a little above the sand over a breathing shadow, sit in a
     pool of shade and a soft glow in their rarity's colour, stand in a faint moonbeam, send out a ring
-    now and then, and a glint runs along the row. A badge in the corner shows what is waiting, what the
-    tank makes an hour and how full the sand is.
+    now and then, and a glint runs along the row.
   - Pearls waiting light a dot on the tank button, gold when the sand is full.
 
 <details>

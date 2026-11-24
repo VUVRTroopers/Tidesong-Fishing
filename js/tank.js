@@ -1611,23 +1611,11 @@ const Tank = (() => {
     v.querySelector('span').textContent = view === 'list' ? 'Tank' : 'List';
     $('#tank-feed').hidden = view === 'list';
   }
-  /* The pearl bed: what lies on the sand, what the tank makes an hour, and how full the sand is. The first
-     few times pearls are waiting, a hint says how to gather them. */
-  let bedSig = '', pearlHinted = false;
-  function renderBed() {
-    const el = $('#pearl-bed'), rate = tankRate(), cap = bedCap();
-    let on = 0, v = 0;
-    for (const d of S.drops) { v += d.v; if (!falling.has(d.k)) on++; }
-    const show = view === 'tank' && (rate > 0 || v > 0), full = bedFull(), k = cap > 0 ? clamp(bedValue() / cap, 0, 1) : 0;
-    const sig = [show, full, Math.round(v), Math.round(rate), Math.round(k * 100)].join('|');
-    if (sig !== bedSig) {
-      bedSig = sig;
-      el.hidden = !show;
-      el.classList.toggle('full', full);
-      el.querySelector('.pb-ring').style.setProperty('--fill', k.toFixed(3));
-      $('#pearl-bed-text').innerHTML = `${v ? `${fmt(v)} waiting` : 'No pearls yet'}<small>${full ? 'The sand is full: gather them to keep pearls coming' : `${fmt(rate)} an hour · sand ${Math.round(k * 100)}% full`}</small>`;
-      el.setAttribute('aria-label', `${fmt(v)} Moonpearls waiting. Your fish make about ${fmt(rate)} an hour.${full ? ' The sand is full.' : ''}`);
-    }
+  /* The first few times pearls are waiting, a hint says how to gather them. */
+  let pearlHinted = false;
+  function renderPearlHint() {
+    let on = 0;
+    for (const d of S.drops) if (!falling.has(d.k)) on++;
     if (!pearlHinted && !S.swept && on >= 2 && view === 'tank' && $('#tank-hint').hidden) { pearlHinted = true; $('#pearl-hint').hidden = false; }
     if (S.swept && !$('#pearl-hint').hidden) $('#pearl-hint').hidden = true;
   }
@@ -1888,7 +1876,7 @@ const Tank = (() => {
     S.last = Date.now();
     isOpen = true;
     view = o.list ? 'list' : 'tank';
-    sel = null; sellAllArmed = sellArmed = releaseArmed = 0; cardSig = ''; bedSig = ''; pearlHinted = false;
+    sel = null; sellAllArmed = sellArmed = releaseArmed = 0; cardSig = ''; pearlHinted = false;
     $('#pearl-hint').hidden = true;
     api.openModal('#m-tank');
     play('tankOpen');
@@ -1945,7 +1933,7 @@ const Tank = (() => {
       cardT = 0.5;
       renderCard();
       placeCard();
-      renderBed();
+      renderPearlHint();
       const k = clamp((T - lastFeed) / FEED_COOL, 0, 1), fb = $('#tank-feed');
       fb.style.setProperty('--cool', k.toFixed(3));
       fb.classList.toggle('cooling', k < 1);
