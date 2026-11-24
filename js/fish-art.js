@@ -97,10 +97,13 @@ const FishArt = (() => {
     ctx.closePath();
   }
 
+  /* A swimming pose, set only while the aquarium paints its frames (null everywhere else): -1..1 through
+     a stroke. Fins then swing from their roots and the tail flicks with it. */
+  let POSE = null, curBox = null;
   function tail(ctx, x, shape, L, s, sway, fill, o = {}) {
     ctx.save();
     ctx.translate(x, 0);
-    ctx.rotate(sway);
+    ctx.rotate(POSE === null ? sway : sway * 0.3 + POSE * 0.16);
     tailPath(ctx, shape, L, s);
     ctx.fillStyle = fill;
     ctx.fill();
@@ -124,12 +127,25 @@ const FishArt = (() => {
 
   /* Fin from a path builder. fan: [fx, fy, colour, count] draws radiating rays clipped to the fin. */
   function fin(ctx, build, fill, o = {}) {
-    build();
+    let B = build;
+    if (POSE !== null && curBox) {
+      // find the fin's root (where its outline starts, on the body), then swing it from there by its role:
+      // pectoral fins (forward, mid-body) row; fins along the back ripple; fins along the belly sweep
+      let piv = null;
+      ctx.moveTo = function (x, y) { if (!piv) piv = [x, y]; return CanvasRenderingContext2D.prototype.moveTo.call(this, x, y); };
+      try { build(); } finally { delete ctx.moveTo; }
+      if (piv) {
+        const [x0, x1, y0, y1] = curBox, xn = (piv[0] - (x0 + x1) / 2) / ((x1 - x0) / 2), yn = (piv[1] - (y0 + y1) / 2) / ((y1 - y0) / 2);
+        const pect = xn > 0.05 && Math.abs(yn) < 0.5, a = pect ? POSE * 0.34 : yn < 0 ? -POSE * 0.09 : POSE * 0.13, k = 1 + (pect ? 0.08 : 0.04) * POSE;
+        B = () => { ctx.save(); ctx.translate(piv[0], piv[1]); ctx.rotate(a); ctx.scale(k, 1 / Math.sqrt(k)); ctx.translate(-piv[0], -piv[1]); build(); ctx.restore(); };
+      }
+    }
+    B();
     ctx.fillStyle = fill;
     ctx.fill();
     if (o.fan) {
       const [fx, fy, col, n = 36] = o.fan;
-      ctx.save(); build(); ctx.clip();
+      ctx.save(); B(); ctx.clip();
       ctx.strokeStyle = col; ctx.lineWidth = o.rw || 0.9;
       for (let i = 0; i < n; i++) {
         const a = (i / n) * TAU;
@@ -137,7 +153,7 @@ const FishArt = (() => {
       }
       ctx.restore();
     }
-    if (o.edge) { build(); ctx.strokeStyle = o.edge; ctx.lineWidth = o.ew || 1; ctx.stroke(); }
+    if (o.edge) { B(); ctx.strokeStyle = o.edge; ctx.lineWidth = o.ew || 1; ctx.stroke(); }
   }
 
   function eye(ctx, x, y, r, iris = '#e3cf96', o = {}) {
@@ -2681,6 +2697,7 @@ const FishArt = (() => {
   /* Draw a species fitted into a w×h frame centred on (x, y). */
   function drawFitted(ctx, id, t, x, y, w, h, o = {}) {
     const box = BOX[id];
+    curBox = box;
     const bw = box[1] - box[0], bh = box[3] - box[2];
     const s = Math.min(w / bw, h / bh) * (o.fill ?? 0.92);
     ctx.save();
@@ -2716,7 +2733,7 @@ const FishArt = (() => {
   }
 
   /* Draw a species at the current transform, unfitted (used to measure drawings). */
-  function drawRaw(ctx, id, t) { ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ART[id](ctx, t); ctx.restore(); }
+  function drawRaw(ctx, id, t) { curBox = BOX[id]; ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ART[id](ctx, t); ctx.restore(); }
 
-  return { drawFitted, drawShowcase, drawRaw, aura, sparkle, BOX, hexA };
+  return { drawFitted, drawShowcase, drawRaw, aura, sparkle, BOX, hexA, set pose(p) { POSE = p; } };
 })();

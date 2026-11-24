@@ -190,9 +190,11 @@ const Tank = (() => {
   }
 
   /* ================= Sprites =================
-     Each species is painted and lit once per size, in a handful of frames of its tail beat, and the
-     frames are played back and forth as it swims. */
-  const NF = 6;
+     Each species is painted and lit once per size, in eight frames through a swimming stroke: its fins
+     swing from their roots and its tail flicks (FishArt's swim pose). As a fish swims, the frame that
+     matches the moment of its stroke is drawn, bent along its body (drawFish). */
+  const NF = 8;
+  const poseAt = i => Math.sin(2.4 * (-0.65 + 1.3 * i / (NF - 1)));
   const SPR = new Map();
   const queue = [];
   function sprite(id, px) {
@@ -210,7 +212,9 @@ const Tank = (() => {
     while (queue.length && performance.now() - t0 < budget) {
       const s = queue.find(q => q.n === 0) || queue[0];
       const i = s.n, t = -0.65 + 1.3 * i / (NF - 1);
-      const img = FishGL.render(s.id, t, s.w, s.h, { still: true, fit: 1, fill: 0.92 });
+      let img;
+      FishArt.pose = poseAt(i);
+      try { img = FishGL.render(s.id, t, s.w, s.h, { still: true, fit: 1, fill: 0.92 }); } finally { FishArt.pose = null; }
       const c = document.createElement('canvas');
       c.width = s.w; c.height = s.h;
       c.getContext('2d').drawImage(img, 0, 0);
@@ -218,10 +222,11 @@ const Tank = (() => {
       if (s.n >= NF) queue.splice(queue.indexOf(s), 1);
     }
   }
-  function frameOf(s, ph) {
-    const p = Math.floor(ph) % (2 * (NF - 1)), i = p < NF ? p : 2 * (NF - 1) - p;
+  /* The baked frame nearest a point in the stroke (pose -1..1). */
+  function frameOf(s, pose) {
+    const i = clamp(Math.round((Math.asin(clamp(pose, -0.999, 0.999)) / 2.4 + 0.65) / 1.3 * (NF - 1)), 0, NF - 1);
     if (s.frames[i]) return s.frames[i];
-    for (let k = i; k >= 0; k--) if (s.frames[k]) return s.frames[k];
+    for (let d = 1; d < NF; d++) { if (s.frames[i - d]) return s.frames[i - d]; if (s.frames[i + d]) return s.frames[i + d]; }
     return null;
   }
 
@@ -236,7 +241,10 @@ const Tank = (() => {
   const falling = new Map();
   const met = new Map();
   const affC = new Map();
-  const TSCALE = { bowl: 1.22, reed: 1.1, lily: 1.04, reef: 1.0, wreck: 0.94, palace: 0.86 };
+  const TSCALE = { bowl: 1.15, reed: 1.05, lily: 1.0, reef: 0.95, wreck: 0.9, palace: 0.84 };
+  /* How long a fish draws (in tank units) from its real length: in proportion for small fish (a 9 cm
+     fish is about half the length of a 36 cm one), then gently compressed so a dolphin still fits. */
+  const sizeU = cm => Math.max(3.4, 0.85 * (cm <= 40 ? 1.7 * Math.pow(cm, 0.55) : 12.93 + 3.4 * Math.log(cm / 40)));
   const TC = {};
   const trait = id => TC[id] || (TC[id] = traits(id));
   const byUid = uid => fish.find(f => f.uid === uid && !f.leaving);
@@ -245,13 +253,11 @@ const Tank = (() => {
 
   function makeFish(rec) {
     const sp = SPECIES[rec.id], tr = trait(rec.id);
-    const mid = Math.sqrt(sp.cm[0] * sp.cm[1]);
-    const sN = clamp((Math.log(mid) - Math.log(6)) / (Math.log(400) - Math.log(6)), 0, 1);
-    const ind = sp.cm[1] > sp.cm[0] ? clamp((rec.cm - sp.cm[0]) / (sp.cm[1] - sp.cm[0]), 0, 1) : 0.5;
+    const cm = clamp(rec.cm || Math.sqrt(sp.cm[0] * sp.cm[1]), 2, 900);
     const box = FishArt.BOX[rec.id], bw = box[1] - box[0], bh = box[3] - box[2];
     const f = {
       rec, uid: rec.uid, id: rec.id, sp, tr, tier: RARITIES[sp.rarity].tier,
-      lenU: (5.3 + 8.4 * sN) * (0.88 + 0.24 * ind), aspect: bh / bw, wk: bw / Math.max(bw, bh * 0.9),
+      lenU: sizeU(cm), aspect: bh / bw, wk: bw / Math.max(bw, bh * 0.9), effort: 0.3, arch: 0, chew: 0, pvx: 0, pvy: 0,
       x: 0, y: 0, z: rand(0.12, 0.88), tz: 0.5, vx: 0, vy: 0, face: Math.random() < 0.5 ? 1 : -1, flip: 1, tilt: 0,
       state: 'wander', st: 0, dur: 0, tx: 0, ty: 0, boost: 1, poi: null, int: null, react: null, taps: [],
       phase: Math.random() * 10, wave: Math.random() * TAU, puff: 0, glow: 0, flare: 0, gulp: 0, wobble: 0, blush: 0, flash: 0, cocoon: 0, trail: 0,
@@ -270,7 +276,8 @@ const Tank = (() => {
   function clampPos(f) {
     const s = sc.swim, mx = Math.min(f.len * 0.45, (s.x1 - s.x0) * 0.2);
     f.x = clamp(f.x, s.x0 + mx, s.x1 - mx);
-    const top = s.y0 + f.hh * 0.5, bot = floorAt(f.x) - f.hh * (f.bury > 0.5 ? -0.2 : 0.8);
+    // fish keep a little below the surface, except when coming up to it (to feed, or to gulp air)
+    const top = f.state === 'eat' || f.state === 'surface' ? sc.surf + f.hh * 0.95 : s.y0 + f.hh * 0.5, bot = floorAt(f.x) - f.hh * (f.bury > 0.5 ? -0.2 : 0.8);
     f.y = clamp(f.y, top, Math.max(top, bot));
     if (sc.ell) {
       const e = TankEnv.insideEll(sc, f.x, f.y);
@@ -438,7 +445,7 @@ const Tank = (() => {
         if (f.st > f.dur) pickNext(f);
         break;
       }
-      case 'eat': eatTick(f); break;
+      case 'eat': eatTick(f, dt); break;
       case 'chase': if (!drag) pickNext(f); else { f.tx = drag.x - f.face * f.len * 0.4; f.ty = drag.y; if (f.st > 8) pickNext(f); } break;
       case 'nuzzle':
         if (near(f, f.len * 0.35) && !f.nuzzled) { f.nuzzled = true; f.wobble = 1; TankEnv.bubble(sc, f.x + f.face * f.len * 0.45, f.y - f.hh * 0.2, U * 0.4, { z: 0 }); play('boop'); }
@@ -491,7 +498,7 @@ const Tank = (() => {
       if (f.above && f.vy > 0 && f.y > sc.surf + f.hh * 0.3) { f.above = false; f.free = false; splash(f.x, f.len); if (f.state !== 'enter') pickNext(f); }
       else if (!f.above && f.vy > 0 && f.y >= (f.hopY ?? Infinity)) { f.free = false; f.hopY = undefined; puffSand(f.x, floorAt(f.x), 0.6); clampPos(f); }
       f.tilt = clamp(Math.atan2(f.vy, Math.abs(f.vx) + 1) * 0.9, -1, 1);
-      f.phase += dt * 6; f.wave += dt * 8;
+      f.effort = 1; f.wave += dt * TAU * 1.8;
       return;
     }
     let sp = base * f.boost * (f.state === 'idle' || (f.state === 'poi' && f.arrived && f.poi && ['hide', 'perch', 'shade', 'gather'].includes(f.poi.kind)) ? 0.35 : 1);
@@ -526,10 +533,20 @@ const Tank = (() => {
     if (f.faceLock <= 0 && !(f.react && f.react.kind === 'spin')) { if (f.vx > base * 0.14) f.face = 1; else if (f.vx < -base * 0.14) f.face = -1; }
     f.flip += (f.face - f.flip) * Math.min(1, dt * 6.5);
     const tilt = f.tr.V || f.tr.W ? 0 : clamp(Math.atan2(f.vy, Math.abs(f.vx) + base * 0.3) * 0.85, -0.55, 0.55);
+    // a fish pitching up or down arches its body into the climb
+    f.arch += (clamp((tilt - f.tilt) * 1.6, -0.45, 0.45) - f.arch) * Math.min(1, dt * 6);
     f.tilt += (tilt - f.tilt) * Math.min(1, dt * 4);
     f.z += (f.tz - f.z) * Math.min(1, dt * 0.5);
     const sr = clamp(v / base, 0, 3);
-    f.phase += dt * (2 + sr * 4.2); f.wave += dt * (2.6 + sr * 5);
+    // the stroke: harder and quicker the faster it swims, speeds up or turns; small fish beat faster than big ones,
+    // and even a fish holding still keeps sculling gently
+    const accel = Math.hypot(f.vx - f.pvx, f.vy - f.pvy) / Math.max(dt, 1e-3) / (base * 5);
+    f.pvx = f.vx; f.pvy = f.vy;
+    const effort = clamp(0.2 + sr * 0.55 + accel * 0.6 + Math.abs(f.face - f.flip) * 0.3 + (f.boost > 1.6 ? 0.35 : 0), 0.18, 1.6);
+    f.effort += (effort - f.effort) * Math.min(1, dt * 4);
+    const kind = f.tr.V ? 3.4 : f.id === 'puffer' ? 2.6 : f.tr.E ? 0.75 : 1;
+    f.wave += dt * TAU * kind * (0.5 + f.effort * 1.15) * clamp(Math.sqrt(9 / f.lenU), 0.6, 1.5);
+    f.chew = Math.max(0, f.chew - dt * 1.3);
     f.sr = sr;
     // swimming through plants leans them gently aside, the way the fish is going
     if (sr > 0.35 && (f.brushT = (f.brushT || 0) - dt) <= 0) { f.brushT = 0.2; TankEnv.brush(sc, f.x, f.y, f.len * 0.4, 0.06 * Math.min(sr, 1.6), Math.sign(f.vx)); }
@@ -749,15 +766,27 @@ const Tank = (() => {
   /* ================= Feeding ================= */
   const FEED_COOL = 30;
   let lastFeed = -99;
+  // flake food in its usual mix of colours, each with a paler edge
+  const FLAKE = [['#e2563a', '#f6a088'], ['#f0913a', '#ffc98a'], ['#f2c65a', '#fff0b0'], ['#86b34a', '#c8e890'], ['#b97a42', '#e8c090']];
   function feed() {
     if (!isOpen || view !== 'tank') return;
     if (T - lastFeed < FEED_COOL) { play('deny'); return; }
     lastFeed = T; S.fed = Date.now(); dirty = true;
-    const n = Math.min(18, 4 + Math.ceil(fish.length / 3));
+    const n = Math.min(24, 7 + Math.ceil(fish.length / 2.4));
     const cx = sc.ell ? sc.ell.cx + rand(-0.3, 0.3) * sc.ell.rx : lerp(sc.swim.x0, sc.swim.x1, rand(0.3, 0.7));
-    const spread = Math.min((sc.ell ? sc.ell.rx * 0.9 : sc.iw * 0.22), U * 16);
-    for (let i = 0; i < n; i++) parts.push({ kind: 'flake', x: cx + rand(-1, 1) * spread, y: sc.surf + rand(-U * 0.6, U * 0.4), vy: U * rand(1.1, 2.1), ph: rand(0, TAU), rot: rand(0, TAU), col: pick(['#e8a050', '#d86a3a', '#f0c870', '#9ac060']), s: rand(0.5, 0.9), t: 0, delay: i * 0.05 });
-    ripple(cx, sc.surf, 1.4);
+    const spread = Math.min((sc.ell ? sc.ell.rx * 0.75 : sc.iw * 0.22), U * 16);
+    // sprinkled from above: flakes settle on the surface and float a while before tumbling down;
+    // a few pellets plunk straight in and sink for the bottom-dwellers
+    for (let i = 0; i < n; i++) {
+      const pellet = Math.random() < 0.22, c = pick(FLAKE);
+      parts.push({
+        kind: 'flake', pellet, air: true, x: cx + rand(-1, 1) * spread, y: sc.surf - U * rand(2, 7), vy: U * rand(2, 5),
+        ph: rand(0, TAU), rot: rand(0, TAU), spin: rand(0, TAU), spinR: rand(1.6, 3.4) * (Math.random() < 0.5 ? -1 : 1),
+        col: pellet ? '#a8642c' : c[0], edge: pellet ? '#e0a060' : c[1], s: pellet ? rand(0.45, 0.65) : rand(0.75, 1.3),
+        shape: Array.from({ length: 7 }, () => rand(0.5, 1)), float: pellet ? 0 : rand(1.2, 4.5), bites: !pellet && Math.random() < 0.4 ? 2 : 1,
+        t: 0, delay: i * 0.045,
+      });
+    }
     play('flakes');
     for (const f of fish) {
       if (f.leaving || f.free) continue;
@@ -767,27 +796,54 @@ const Tank = (() => {
     }
     renderBar();
   }
-  function eatTick(f) {
-    if (f.eatDelay > 0) { f.eatDelay -= 1 / 60; f.tx = f.x; f.ty = f.y; return; }
-    // bottom-dwellers wait for the food to sink down to them
+  /* Where a fish's mouth is, as drawn. */
+  function mouthOf(f) {
+    const zs = 1 - f.z * 0.2, r = f.dw * 0.46 * zs, sg = f.flip < 0 ? -1 : 1;
+    return [f.x + Math.cos(f.tilt) * r * sg, f.y + Math.sin(f.tilt) * r + f.dh * 0.04 * zs];
+  }
+  /* Feeding: each fish picks a morsel (bottom-dwellers wait for food to sink to them), noses up to it, and
+     snaps it up: the morsel is sucked into its mouth, crumbs drift away, and it chews. A big flake can take
+     two bites. */
+  function eatTick(f, dt) {
+    if (f.eatDelay > 0) { f.eatDelay -= dt; f.tx = f.x; f.ty = f.y; return; }
     const low = f.tr.W || f.tr.zone === 'b', deep = lerp(sc.surf, floorAt(f.x), 0.45);
     let best = null, bd = Infinity, any = false;
     for (const p of parts) {
-      if (p.kind !== 'flake' || p.gone || p.t <= p.delay) continue;
+      if (p.kind !== 'flake' || p.gone || p.suck || p.air || p.t <= p.delay) continue;
       any = true;
+      if (p.claim && p.claim !== f && !p.claim.leaving && p.claim.state === 'eat') continue;
       if (low && !p.rest && p.y < deep) continue;
-      const d = Math.hypot(p.x - f.x, p.y - f.y);
+      const d = Math.hypot(p.x - f.x, p.y - f.y) * (f.tr.zone === 't' && p.float > 0 ? 0.6 : 1);
       if (d < bd) { bd = d; best = p; }
     }
-    if (!any || f.st > f.dur) { pickNext(f); return; }
+    if ((!any && !parts.some(p => p.kind === 'flake' && (p.air || p.suck))) || f.st > f.dur) { pickNext(f); return; }
     if (!best) { f.tx = f.x + Math.sin(T + f.uid) * f.len * 0.2; f.ty = f.y; f.boost = 0.5; return; }
-    const mx = f.x + f.face * f.len * 0.42;
-    f.tx = best.x - Math.sign(best.x - f.x || f.face) * f.len * 0.38; f.ty = best.y; f.boost = 1.25;
-    if (Math.hypot(best.x - mx, best.y - f.y) < Math.max(f.len * 0.22, U * 1.8)) {
-      best.gone = true; f.gulp = 1;
-      if (T - (eatSnd || 0) > 0.12) { eatSnd = T; play('gulp', f.tier); }
-      for (const o of fish) if (o !== f && o.state === 'eat' && Math.hypot(o.x - f.x, o.y - f.y) < (f.len + o.len)) addBond(f, o, 0.5 * aff(f, o), true);
+    if (bd < f.len * 3) best.claim = f;
+    const dir = Math.sign(best.x - f.x) || f.face;
+    f.face = dir; f.faceLock = 0.2;
+    f.tx = best.x - dir * f.dw * 0.42; f.ty = clamp(best.y, sc.surf + f.hh * 0.95, floorAt(f.x) - f.hh * 0.5); f.boost = 1.25;
+    const [mx, my] = mouthOf(f);
+    if (Math.abs(f.flip) > 0.7 && Math.hypot(best.x - mx, best.y - my) < Math.max(f.len * 0.32, f.hh * 1.15, U * 2)) {
+      // the snap: a quick lunge, and the morsel is drawn in
+      best.suck = { f, k: 0, x0: best.x, y0: best.y };
+      f.gulp = 1; f.boost = 2; f.effort = Math.max(f.effort, 1.2);
+      if (best.y < sc.surf + U * 1.2) ripple(best.x, sc.surf, 0.45);
     }
+  }
+  function swallowed(p) {
+    const f = p.suck.f, [mx, my] = mouthOf(f);
+    f.chew = 1;
+    for (let i = 0; i < 5; i++) spawn({ kind: 'crumb', x: mx + rand(-1, 1) * U * 0.5, y: my + rand(-1, 1) * U * 0.4, vx: rand(-1, 1) * U * 1.6 - (f.flip < 0 ? -1 : 1) * U * 0.6, vy: rand(-0.6, 0.8) * U, col: i % 2 ? p.col : p.edge, t: 0, life: rand(0.8, 1.5), s: rand(0.28, 0.55) });
+    if (Math.random() < 0.6) TankEnv.bubble(sc, mx, my - U * 0.3, U * rand(0.15, 0.3), { z: f.z });
+    if (T - eatSnd > 0.1) { eatSnd = T; play('gulp', f.tier); }
+    if (p.bites > 1) {
+      // a big flake: one bite, and the rest is knocked a little away, smaller
+      p.bites -= 1; p.s *= 0.62; p.suck = null; p.claim = f;
+      p.x = p.suck0x + (f.flip < 0 ? -1 : 1) * U * 0.9; p.y = p.suck0y + U * 0.3; p.vy = 0;
+      return false;
+    }
+    for (const o of fish) if (o !== f && o.state === 'eat' && Math.hypot(o.x - f.x, o.y - f.y) < (f.len + o.len)) addBond(f, o, 0.5 * aff(f, o), true);
+    return true;
   }
   let eatSnd = 0;
 
@@ -845,13 +901,32 @@ const Tank = (() => {
       switch (p.kind) {
         case 'flake':
           if (p.t < p.delay) break;
-          if (!p.rest) {
-            p.y += p.vy * dt; p.x += Math.sin(p.t * 2 + p.ph) * U * 0.6 * dt; p.rot += dt * 1.2;
-            const fl = floorAt(p.x) - U * 0.3;
-            if (p.y >= fl) { p.rest = 1; p.y = fl; p.rt = 0; }
+          if (p.suck) {
+            // being sucked into a mouth
+            const S2 = p.suck, f = S2.f;
+            if (!f || f.leaving || f.state !== 'eat') { p.suck = null; break; }
+            S2.k += dt / 0.15;
+            const [mx, my] = mouthOf(f), e = S2.k * S2.k;
+            p.x = lerp(S2.x0, mx, e); p.y = lerp(S2.y0, my, e); p.spin += dt * 9;
+            if (S2.k >= 1) { p.suck0x = S2.x0; p.suck0y = S2.y0; if (swallowed(p)) dead = true; }
+          } else if (p.air) {
+            p.vy += U * 40 * dt; p.y += p.vy * dt; p.spin += dt * p.spinR;
+            if (p.y >= sc.surf) { p.air = false; p.y = sc.surf + U * 0.12; p.vy = p.pellet ? U * 2.5 : 0; if (Math.random() < 0.4) ripple(p.x, sc.surf, 0.3); }
+          } else if (p.float > 0) {
+            // afloat on the surface, drifting and bobbing
+            p.float -= dt; p.x += Math.sin(p.t * 0.9 + p.ph) * U * 0.35 * dt; p.y = sc.surf + U * 0.12 + Math.sin(p.t * 2.2 + p.ph) * U * 0.06; p.spin = Math.PI / 2 + Math.sin(p.t + p.ph) * 0.2;
+          } else if (!p.rest) {
+            // sinking: a flake tumbles and sways as it drifts down; a pellet drops straighter
+            const vT = p.pellet ? U * 3.2 : U * (0.8 + 0.5 * Math.abs(Math.sin(p.spin)));
+            p.vy += (vT - p.vy) * Math.min(1, dt * 2);
+            p.y += p.vy * dt; p.x += Math.sin(p.t * 1.6 + p.ph) * U * (p.pellet ? 0.15 : 0.95) * dt;
+            p.spin += dt * p.spinR; p.rot += dt * p.spinR * 0.25;
+            const fl = floorAt(p.x) - U * 0.25;
+            if (p.y >= fl) { p.rest = 1; p.y = fl; p.rt = 0; p.spin = Math.PI / 2; }
           } else if ((p.rt += dt) > 25) dead = true;
           if (p.gone) dead = true;
           break;
+        case 'crumb': p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= Math.exp(-dt * 2); p.vy += U * 0.8 * dt; dead = p.t > p.life; break;
         case 'heart': p.y -= U * 2.4 * dt; p.x += Math.sin(p.t * 3 + p.ph) * U * 0.7 * dt; dead = p.t > 2; break;
         case 'spark': dead = p.t > p.life; break;
         case 'text': p.y -= U * 2.6 * dt; dead = p.t > 1.4; break;
@@ -884,31 +959,45 @@ const Tank = (() => {
   }
   function drawFish(c, f) {
     if (!f.dw) return;
-    const s = sprite(f.id, f.dw * DPR), img = frameOf(s, f.phase);
+    const s = sprite(f.id, f.dw * DPR), img = frameOf(s, Math.sin(f.wave - 0.7));
     if (!img) return;
     const zs = 1 - f.z * 0.2;
     let w = f.dw * zs * (1 + f.puff * 0.28), h = f.dh * zs * (1 + f.puff * 0.55) * (1 + f.flare * 0.12 * (0.75 + 0.25 * Math.sin(T * 18)));
-    const g = f.gulp > 0 ? 1 + Math.sin((1 - f.gulp) * Math.PI) * 0.07 : 1;
+    const g = f.gulp > 0 ? 1 + Math.sin((1 - f.gulp) * Math.PI) * 0.1 : 1;
     w *= g; h *= g;
     let flip = f.flip;
     if (f.react && f.react.kind === 'spin') flip = Math.cos(f.react.t / f.react.dur * TAU * 2) * f.face;
     if (Math.abs(flip) < 0.1) flip = flip < 0 ? -0.1 : 0.1;
     let rot = f.tilt + Math.sin(T * 24) * 0.12 * f.wobble;
     if (f.react && f.react.kind === 'curl') rot += Math.sin(f.react.t * 7) * 0.5 * (1 - f.react.t / f.react.dur);
-    if (f.tr.W && f.sr > 0.2) rot += Math.sin(f.wave * 1.6) * 0.05;
-    if (f.tr.V) rot += Math.sin(T * 1.1 + f.uid) * 0.06;
+    if (f.tr.V) rot += Math.sin(T * 1.1 + f.uid) * 0.06 + Math.sin(f.wave * 0.5) * 0.03;
+    if (f.id === 'penguin' || f.id === 'puffer') rot += Math.sin(f.wave) * 0.04 * f.effort;
+    // after a mouthful: a quick little shake of the head as it chews
+    if (f.chew > 0) { rot += Math.sin(T * 26) * 0.04 * f.chew; h *= 1 + Math.sin(T * 26) * 0.025 * f.chew; }
     c.save();
     c.globalAlpha = f.alpha;
     c.translate(f.x, f.y);
     c.scale(flip, 1);
     c.rotate(rot);
-    const n = f.tr.V || f.tr.W || f.id === 'penguin' || f.id === 'puffer' || w < 18 ? 1 : f.tr.E ? 8 : 5;
-    if (n === 1) c.drawImage(img, -w / 2, -h / 2, w, h);
+    const bends = !(f.tr.V || f.id === 'penguin' || f.id === 'puffer' || f.id === 'seahorse') && w >= 14;
+    if (!bends) c.drawImage(img, -w / 2, -h / 2, w, h);
     else {
-      const amp = h * (f.tr.E ? 0.08 : 0.028) * (0.45 + Math.min(1.5, f.sr || 0) * 0.5), sw = img.width / n;
+      // the body as a strip of slices along a wave that runs from head to tail: the head stays steady, the
+      // tail sweeps widest; eels ripple along their whole length; a climbing fish arches into the climb
+      const E = f.tr.E, thun = f.id === 'dolphin' || f.id === 'swordfish' || f.id === 'barracuda';
+      const n = E ? 10 : 7, sw = img.width / n, ew = f.effort;
+      const A = w * (E ? 0.045 + 0.05 * ew : thun ? 0.03 + 0.055 * ew : 0.024 + 0.05 * ew) * (f.tr.W ? 0.7 : 1);
+      const kw = E ? TAU * 1.2 : thun ? TAU * 0.35 : TAU * 0.55, ex = E ? 0.5 : thun ? 2.4 : 1.7;
+      const yAt = u => Math.sin(f.wave - u * kw) * A * (E ? 0.25 + 0.75 * Math.pow(1 - u, ex) : Math.pow(1 - u, ex)) + f.arch * w * 0.14 * ((u - 0.5) * (u - 0.5) - 0.083);
       for (let i = 0; i < n; i++) {
-        const k = i / n, off = Math.sin(f.wave - k * 3.6) * amp * Math.pow(1 - k, 1.5), last = i === n - 1;
-        c.drawImage(img, i * sw, 0, sw + (last ? 0 : 1), img.height, -w / 2 + k * w, -h / 2 + off, w / n + (last ? 0 : 0.7), h);
+        const u0 = i / n, u1 = (i + 1) / n, y0 = yAt(u0), y1 = yAt(u1), dw = w / n;
+        c.save();
+        c.translate(-w / 2 + (u0 + u1) / 2 * w, (y0 + y1) / 2);
+        c.rotate(Math.atan2(y1 - y0, dw));
+        // the tail fin turns edge-on and back as it sweeps, narrowing at each end of the stroke
+        const sx = i === 0 && !E ? 1 - 0.16 * Math.abs(Math.cos(f.wave)) * Math.min(1, ew) : 1;
+        c.drawImage(img, i * sw, 0, sw, img.height, dw / 2 - dw * sx - 0.9, -h / 2, dw * sx + 1.8, h);
+        c.restore();
       }
     }
     if (f.flash > 0) { c.globalCompositeOperation = 'lighter'; c.globalAlpha = f.flash * 0.3; c.drawImage(img, -w / 2, -h / 2, w, h); c.globalCompositeOperation = 'source-over'; c.globalAlpha = f.alpha; }
@@ -990,7 +1079,27 @@ const Tank = (() => {
     const c = ctx;
     for (const p of parts) {
       switch (p.kind) {
-        case 'flake': if (p.t < p.delay) break; c.save(); c.translate(p.x, p.y); c.rotate(p.rot); c.fillStyle = p.col; c.globalAlpha = p.rest ? Math.min(1, (25 - p.rt) / 3) : 1; c.fillRect(-U * 0.65 * p.s, -U * 0.4 * p.s, U * 1.3 * p.s, U * 0.8 * p.s); c.restore(); break;
+        case 'flake': {
+          if (p.t < p.delay) break;
+          const r = U * 0.74 * p.s * (p.suck ? 1 - p.suck.k * 0.65 : 1), a = p.rest ? clamp((25 - p.rt) / 3, 0, 1) : 1;
+          c.save(); c.translate(p.x, p.y); c.globalAlpha = a;
+          if (p.pellet) {
+            c.beginPath(); c.arc(0, 0, r * 0.8, 0, TAU);
+            const g = c.createRadialGradient(-r * 0.3, -r * 0.3, 0, 0, 0, r * 0.85); g.addColorStop(0, p.edge); g.addColorStop(1, p.col); c.fillStyle = g; c.fill();
+          } else {
+            // a thin, ragged flake that tumbles: seen face-on it is broad, edge-on a sliver
+            c.rotate(p.rot); c.scale(1, 0.28 + 0.72 * Math.abs(Math.sin(p.spin)));
+            c.beginPath();
+            for (let i = 0; i < 7; i++) { const ang = i / 7 * TAU, rr = r * p.shape[i]; if (i) c.lineTo(Math.cos(ang) * rr, Math.sin(ang) * rr); else c.moveTo(rr, 0); }
+            c.closePath();
+            c.globalAlpha = a * 0.92; c.fillStyle = p.col; c.fill();
+            c.strokeStyle = p.edge; c.lineWidth = Math.max(0.6, r * 0.16); c.stroke();
+            c.fillStyle = 'rgba(70,25,8,0.3)'; c.beginPath(); c.arc(r * 0.18, -r * 0.12, r * 0.18, 0, TAU); c.arc(-r * 0.3, r * 0.2, r * 0.12, 0, TAU); c.fill();
+          }
+          c.restore();
+          break;
+        }
+        case 'crumb': { const k = p.t / p.life; c.globalAlpha = 1 - k; c.fillStyle = p.col; c.fillRect(p.x - U * p.s * 0.5, p.y - U * p.s * 0.5, U * p.s, U * p.s); c.globalAlpha = 1; break; }
         case 'heart': { const a = Math.min(1, p.t * 4) * (1 - Math.max(0, p.t - 1.3) / 0.7), s = U * 1.1 * p.s * (0.7 + Math.min(0.3, p.t)); c.save(); c.globalAlpha = a; c.shadowColor = 'rgba(255,120,170,0.8)'; c.shadowBlur = U * 1.2; heartPath(c, p.x, p.y, s); c.fillStyle = '#ff8ab4'; c.fill(); c.restore(); break; }
         case 'spark': { const k = p.t / p.life; c.save(); c.globalCompositeOperation = 'lighter'; c.globalAlpha = Math.sin(k * Math.PI); star(c, p.x, p.y, U * 0.9 * p.s, p.col); c.restore(); break; }
         case 'ember': { const k = p.t / p.life; c.save(); c.globalCompositeOperation = 'lighter'; c.fillStyle = `rgba(255,${150 + Math.round(80 * (1 - k))},80,${1 - k})`; c.beginPath(); c.arc(p.x, p.y, U * 0.35 * (1 - k * 0.5), 0, TAU); c.fill(); c.restore(); break; }

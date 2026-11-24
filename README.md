@@ -196,8 +196,18 @@ careers, with three models of human play (casual, steady and focused):
 Fish you keep live in an aquarium, opened from the bowl button under the place name. Tap a fish to
 follow it with a card showing its weight, length, temperament and friendships, and to star, sell or
 release it. **List** shows every fish, most valuable first; **Sell all unstarred** clears out the
-rest; and **Feed** (once every 30 seconds) sprinkles flakes that every fish comes for, though
-bottom-dwellers wait for them to sink.
+rest; and **Feed** (once every 30 seconds) sprinkles food: ragged flakes in the usual mix of colours
+that float a while, then tumble down, and a few pellets that sink straight to the bottom-dwellers.
+Each fish noses up to a morsel and snaps it up: it is sucked into its mouth, crumbs drift away and
+the fish chews. A big flake can take two bites.
+
+Fish swim with their whole bodies. Each species is painted in eight frames through a stroke, its
+fins swinging from their roots and its tail flicking, and as it swims the body bends along a wave
+that runs from a steady head to a sweeping tail (eels ripple along their whole length). The stroke
+quickens and deepens as a fish speeds up, turns or lunges, small fish beat faster than big ones, a
+fish holding still keeps sculling, and one climbing or diving arches into it. Fish are sized by
+their own length: a 9 cm fish is about half the length of a 36 cm one, and the very largest are
+gently scaled down so they still fit.
 
 | Tank | Fish | Price | What is in it |
 | --- | --- | --- | --- |
