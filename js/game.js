@@ -121,7 +121,7 @@
   };
   const STEP = 1 / 120;
   const FSQ = 0.6; // how much the fish below is foreshortened, seen from the shore
-  const FS = { x: 0, y: 0, a: 0, alpha: 0, depth: 0.85, phase: 0, swing: 0.3, orbit: 0, rad: 0, ph: '', bolt: 0 }; // the fish below
+  let FS = null; // the fish on the line (one of the shadows below; see SHOAL)
   let lit = Gear.STUDIO; // the lake's light for gear and the leaping fish
 
   /* ================= Interface refs ================= */
@@ -137,7 +137,7 @@
   ui.ringFill.style.strokeDasharray = RING_C.toFixed(2);
   ui.ringNotch.setAttribute('transform', `rotate(${REEL_ESCAPE * 360} 60 60)`);
   const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-  const CAST_TEXT = coarse ? 'Tap anywhere to cast' : 'Click anywhere or press Space to cast';
+  const CAST_TEXT = coarse ? 'Tap the water where you’d like to cast' : 'Click where you’d like to cast, or press Space';
   ui.reelHint.textContent = coarse
     ? 'Hold anywhere to push the green band right. Let go and it drifts left. Keep the gold line inside it.'
     : 'Hold the mouse button or Space to push the green band right. Let go and it drifts left. Keep the gold line inside it.';
@@ -173,9 +173,12 @@
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     pointers.add(e.pointerId);
     try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
-    press();
+    press({ x: e.clientX, y: e.clientY });
     e.preventDefault();
   });
+  // with a mouse, a faint ring on the water shows where a click would cast
+  canvas.addEventListener('pointermove', e => { G.hover = e.pointerType === 'mouse' ? { x: e.clientX, y: e.clientY, t: G.t } : null; });
+  canvas.addEventListener('pointerleave', () => { G.hover = null; });
   const release = e => pointers.delete(e.pointerId);
   canvas.addEventListener('pointerup', release);
   canvas.addEventListener('pointercancel', release);
@@ -200,9 +203,9 @@
   });
   window.addEventListener('keyup', e => { if (HOLD_KEYS.has(e.key)) keyHold = false; });
 
-  function press() {
+  function press(at) {
     if (modalOpen()) return;
-    if (G.phase === 'idle') cast();
+    if (G.phase === 'idle') cast(at);
   }
 
   /* ================= Geometry ================= */
@@ -290,11 +293,20 @@
     document.body.classList.toggle('is-reeling', p === 'reeling');
   }
 
-  function cast() {
+  /* Where a cast aimed at a point on screen comes down: that spot, or the nearest water the line reaches
+     (so a tap on the sky or the dock casts as far, or as near, as it can toward it). */
+  const REACH = { x0: 0.1, x1: 0.96, y0: 0.06, y1: 0.72 };
+  function aimPoint(x, y) {
+    const wh = H - L.horizon;
+    return { x: clamp(x, W * (L.portrait ? REACH.x0 : REACH.x0 + 0.02), W * REACH.x1), y: L.horizon + clamp((y - L.horizon) / wh, REACH.y0, REACH.y1) * wh };
+  }
+
+  function cast(at) {
     setPhase('casting');
     const wh = H - L.horizon, base = (L.bob.y - L.horizon) / wh;
     let tx, fy;
     if (G.aim) { tx = G.aim[0] * W; fy = G.aim[1]; G.aim = null; }
+    else if (at) { const q = aimPoint(at.x, at.y); tx = q.x; fy = (q.y - L.horizon) / wh; }
     else {
       // each cast lands somewhere a little different: further out or nearer in, a little left or right
       const tri = () => Math.random() + Math.random() - 1;
@@ -306,7 +318,7 @@
     const reach = clamp(Math.hypot(to.x - L.rodTip.x, to.y - L.rodTip.y) / (W * 0.45), 0.5, 1.6);
     // if it would come down on something floating or standing in the water, it strikes that first
     const obj = Scenes.obstacles(L, G.t + 0.3 + 0.5 * reach).find(o => ((to.x - o.x) / o.rx) ** 2 + ((to.y - o.y) / o.ry) ** 2 < 1);
-    G.cast = { to, obj, launched: false, lt: 0, k: 0, from: null, dur: 0.46 + 0.17 * reach, arc: H * (0.11 + 0.05 * reach), hit: null };
+    G.cast = { to, obj, launched: false, lt: 0, k: 0, from: null, dur: 0.46 + 0.17 * reach, arc: H * (0.11 + 0.05 * reach), hit: null, mark: { ...to } };
     if (obj) G.cast.to = { x: to.x, y: obj.post ? lerp(obj.top, obj.y, 0.35) : obj.top + (to.y - obj.y) * 0.3 };
     Sound.play('cast', save.equip.line);
     setPrompt('');
@@ -327,7 +339,8 @@
     ripple(to.x, to.y, 3, 1.2 * s * soft);
     for (let i = 0; i < Math.round(6 * soft); i++) G.drops.push({ x: to.x, y: to.y, vx: rand(-60, 60) * s, vy: -rand(80, 170) * s * soft, t: 0, floor: to.y + 2, r: rand(1, 2) * s });
     setPhase('waiting');
-    G.wait = { tick: 0, min: rand(1.0, 1.8), nibCool: rand(1, 2) };
+    G.wait = { tick: 0, min: rand(1.0, 1.8), nibCool: rand(1, 2), taker: null, next: null, comeAt: 0, eager: false, spooked: 0 };
+    stirShoal(to);
     setPrompt('Waiting for a bite…');
     ui.reelIn.hidden = false;
   }
@@ -356,29 +369,46 @@
     if (bits) for (let i = 0; i < bits[1]; i++) G.drops.push({ x: C.to.x, y: C.to.y, vx: rand(-90, 90) * bits[2], vy: -rand(60, 170) * bits[2], t: 0, floor: o.y + o.ry, r: rand(0.8, 1.8), col: bits[0] });
   }
 
+  /* A nibble: one of the fish circling noses in (usually the one that will bite, now and then a looker). */
   function nibble() {
+    const around = SHOAL.filter(S => S.mode === 'circle' && !S.gone);
+    if (!around.length) return false;
+    const T = G.wait && G.wait.taker, others = around.filter(S => S !== T);
+    const S = T && T.mode === 'circle' && (!others.length || Math.random() < 0.65) ? T : others[Math.floor(Math.random() * others.length)];
+    S.nib = 0.36;
     G.bob.nib = 0.36;
     Sound.play('nibble');
     const p = bobPos(); ripple(p.x, p.y, 1, 0.7);
+    return true;
   }
 
   function bite() {
-    const loc = locById(save.loc);
-    const bait = activeBait();
+    const bait = activeBait(), Wt = G.wait || {};
+    // the fish rolled when the bobber landed, unless the bait was changed since (or a test asked for one)
+    let next = Wt.next;
+    if (!next || G.forced || next.bait !== bait) next = rollNext();
     if (bait) {
       save.bait[bait] -= 1;
       if (save.bait[bait] <= 0) { save.bait[bait] = 0; save.equip.bait = null; G.baitRanOut = bait; }
       persist();
       updateHUD();
     }
-    let id, rarity;
-    if (G.forced) {
-      id = G.forced; rarity = SPECIES[id].rarity; G.forced = null;
-    } else {
-      rarity = weightedPick(baitedWeights(loc, bait));
-      id = weightedPick(loc.fish[rarity]);
+    G.hooked = { id: next.id, rarity: next.rarity, bait, fish: next.fish };
+    // the fish that came to the bobber takes it; the rest scatter at the commotion
+    let T = Wt.taker && SHOAL.includes(Wt.taker) && !Wt.taker.gone ? Wt.taker : null;
+    if (!T) {
+      const m = mouthAt();
+      T = addShadow({ x: m.x, y: m.y, k: sizeK(next.fish.cm), depth: 0.6 });
+      T.rad = shadowLen(T) * 0.5; T.orbit = rand(0, TAU);
     }
-    G.hooked = { id, rarity, bait };
+    FS = T;
+    Object.assign(T, { mode: 'hooked', taker: false, gone: false, kT: sizeK(next.fish.cm) });
+    const b = bobPos();
+    for (const S of SHOAL) {
+      if (S === T || S.gone) continue;
+      if (LOOKING.has(S.mode) || S.mode === 'leave' || plane(S.x, S.y, b.x, b.y) < 0.3) { if (Math.random() < 0.6) flee(S, b); else leave(S); }
+    }
+    G.lastBite = { pt: G.pt, eager: !!Wt.eager, spooked: Wt.spooked || 0, rarity: next.rarity };
     setPhase('bite');
     ui.reelIn.hidden = true;
     splash(bobPos(), 1);
@@ -474,7 +504,7 @@
     Sound.stopReel();
     const { id, rarity } = G.hooked;
     const R = RARITIES[rarity];
-    const fish = rollFish(id);
+    const fish = G.hooked.fish || rollFish(id);
     const xp = Math.round(R.xp * (0.85 + 0.5 * fish.size));
     const prev = save.caught[id];
     const first = !prev;
@@ -511,6 +541,7 @@
   function escapeFish() {
     Sound.stopReel();
     Badges.note('escape');
+    if (FS) FS.bolt = FS.a + rand(-0.5, 0.5);
     Sound.play('escape');
     const p = { ...G.entry };
     splash(p, 1);
@@ -522,6 +553,7 @@
   }
 
   function startRetrieve() {
+    if (G.phase === 'waiting') for (const S of SHOAL) if (LOOKING.has(S.mode) || S.taker) leave(S);
     G.retrieve = { from: bobPos() };
     setPhase('retrieving');
     ui.reelIn.hidden = true;
@@ -530,7 +562,8 @@
 
   function toIdle() {
     setPhase('idle');
-    G.hooked = null; G.reel = null; G.land = null; G.cast = null;
+    if (FS) { FS.mode = 'sink'; FS.gone = true; FS = null; }
+    G.hooked = null; G.reel = null; G.land = null; G.cast = null; G.wait = null;
     ui.reel.hidden = true;
     ui.reelIn.hidden = true;
     setPrompt(CAST_TEXT);
@@ -543,56 +576,267 @@
   }
 
   /* ================= The fish below =================
-     A dark shape under the surface, the same for every fish so it gives nothing away. It lurks and circles
-     the float while you wait, noses in on a nibble, strikes on the bite, swims with the fight and bolts if it
-     escapes. Headings are on the water plane; seen from the shore its depth axis is squashed (FSQ). */
-  const shadowLen = () => L.m * 0.16 * (0.55 + 0.6 * clamp((FS.y - L.horizon) / (H - L.horizon), 0, 1));
+     Dark shapes under the surface. A few fish are always about: they rise into view, cruise and sink away
+     again, and each is the size of a fish rolled with this water's usual odds (and your bait), so a big
+     shadow is a big fish. When the bobber lands they notice. Dropped right on top of a fish, it scares that
+     fish (and maybe a neighbour) away; dropped near fish, it draws them in to circle and look.
+     Which fish will bite is still rolled with the usual odds the moment the bobber lands, so where you cast
+     never changes what you catch. That fish is played by a looker of its size if one came, or by one rising
+     from the deep to join them. A cast that draws lookers brings the bite a little sooner; one that scares
+     fish off makes it a little later (the timings are tuned so a cast anywhere waits as long as it always
+     did). Headings are on the water plane; seen from the shore its depth axis is squashed (FSQ). */
+  const SHOAL = [];
+  const sizeK = cm => clamp(Math.pow(cm / 45, 0.4), 0.6, 1.9); // a shadow's size: 1 for a fish of about 45 cm
+  const wfrac = y => clamp((y - L.horizon) / (H - L.horizon), 0, 1);
+  const depthScale = y => 0.55 + 0.6 * wfrac(y);
+  const shadowLen = (S = FS) => L.m * 0.16 * depthScale(S.y) * S.k;
+  // distance on the water plane, in fractions of the screen's short side as seen at that distance
+  const plane = (ax, ay, bx, by) => Math.hypot(ax - bx, (ay - by) / FSQ) / (L.m * depthScale((ay + by) / 2));
   const MOUTH = () => L.m * 0.018; // the mouth sits a little under (so lower on screen than) where the line enters
   function shadowHead() { const len = shadowLen() * 0.45; return { x: FS.x + Math.cos(FS.a) * len, y: FS.y + Math.sin(FS.a) * len * FSQ }; }
-  function updateFishShadow(dt) {
-    const F = FS, p = G.phase, r = bobR();
-    if (p !== F.ph) {
-      if (p === 'escaped') F.bolt = F.a + rand(-0.5, 0.5);
-      F.ph = p;
+  const SWIM = { x0: 0.04, x1: 0.98, y0: 0.08, y1: 0.74 }; // where fish swim: fractions of the width, and of the water from the horizon down
+  const swimmable = (x, y) => x > W * SWIM.x0 && x < W * SWIM.x1 && wfrac(y) > SWIM.y0 && wfrac(y) < SWIM.y1;
+  const randomSpot = () => ({ x: W * rand(SWIM.x0 + 0.04, SWIM.x1 - 0.04), y: L.horizon + (H - L.horizon) * rand(SWIM.y0 + 0.04, SWIM.y1 - 0.06) });
+  const shoalSize = () => (L.portrait ? 3 : 4);
+  const mouthAt = () => { const b = bobPos(); return { x: b.x, y: b.y + bobR() * 0.3 + MOUTH() }; };
+  const CALM = new Set(['idle', 'casting', 'waiting', 'retrieving']);
+  const LOOKING = new Set(['notice', 'approach', 'circle']);
+
+  /* Some fish that might be down there: only its size is ever shown. */
+  function phantomCm() {
+    const loc = locById(save.loc), r = weightedPick(baitedWeights(loc, activeBait()));
+    return rollFish(weightedPick(loc.fish[r])).cm;
+  }
+  /* The fish that will bite this cast, rolled exactly as a bite always has been. */
+  function rollNext() {
+    const loc = locById(save.loc), bait = activeBait();
+    let id, rarity;
+    if (G.forced) { id = G.forced; rarity = SPECIES[id].rarity; G.forced = null; }
+    else { rarity = weightedPick(baitedWeights(loc, bait)); id = weightedPick(loc.fish[rarity]); }
+    return { id, rarity, bait, fish: rollFish(id) };
+  }
+
+  function addShadow(o = {}) {
+    const S = Object.assign({
+      x: 0, y: 0, a: rand(0, TAU), alpha: 0, depth: 1, phase: rand(0, TAU), swing: 0.3, beat: 1.2,
+      k: 1, kT: 1, mode: 'roam', t: 0, life: rand(14, 32), gx: 0, gy: 0, spd: rand(0.028, 0.05),
+      look: rand(0.19, 0.26), orbit: 0, rad: 0, dir: 1, ring: 0.075, circ: 0.36, nib: 0, cool: 0, bore: 6, bolt: 0,
+      taker: false, gone: false,
+    }, o);
+    if (o.k === undefined) S.k = S.kT = sizeK(phantomCm());
+    SHOAL.push(S);
+    return S;
+  }
+  /* Meander: somewhere not far from where the fish is now. */
+  function roamGoal(S) {
+    for (let i = 0; i < 8; i++) {
+      const a = rand(0, TAU), d = rand(0.1, 0.35) * L.m * depthScale(S.y);
+      const x = S.x + Math.cos(a) * d, y = S.y + Math.sin(a) * d * FSQ;
+      if (swimmable(x, y)) { S.gx = x; S.gy = y; return; }
     }
-    let tx = F.x, ty = F.y, ta = F.a, alphaT = 0, depthT = 0.85, swingT = 0.3, beat = 1.2, follow = 4, fade = 2;
-    const len = shadowLen();
-    if (p === 'waiting' || p === 'bite') {
-      const c = bobPos(), nib = p === 'bite' ? 1 : G.bob.nib > 0 ? 1 : 0;
-      if (p === 'bite' || G.pt > 1.4) alphaT = p === 'bite' ? 0.62 : nib ? 0.42 : 0.3;
-      if (F.alpha < 0.01 && alphaT > 0) { F.orbit = rand(0, TAU); F.rad = L.m * 0.13; }
-      const radT = nib ? len * 0.5 : L.m * (0.075 + 0.015 * Math.sin(G.t * 0.4));
-      F.rad += (radT - F.rad) * (1 - Math.exp(-dt * (nib ? 7 : 0.6)));
-      F.orbit += dt * (nib ? 0.08 : 0.36);
-      tx = c.x + Math.cos(F.orbit) * F.rad; ty = c.y + r * 0.3 + MOUTH() + Math.sin(F.orbit) * F.rad * FSQ;
-      ta = F.orbit + (nib ? Math.PI : Math.PI / 2);
-      depthT = p === 'bite' ? 0.22 : nib ? 0.45 : 0.85;
-      swingT = p === 'bite' ? 0.9 : nib ? 0.6 : 0.3; beat = p === 'bite' ? 6 : nib ? 3 : 1.2;
-      if (F.alpha < 0.01) { F.x = tx; F.y = ty; F.a = ta; }
-    } else if (p === 'reeling' && G.reel) {
+    const p = randomSpot(); S.gx = p.x; S.gy = p.y;
+  }
+  /* A fish rises into view somewhere in open water (away from a bobber that's fishing). */
+  function spawnRoamer(fadeIn = true) {
+    let p = randomSpot();
+    if (G.phase === 'waiting') { const b = bobPos(); for (let i = 0; i < 6 && plane(p.x, p.y, b.x, b.y) < 0.3; i++) p = randomSpot(); }
+    const S = addShadow({ x: p.x, y: p.y });
+    roamGoal(S);
+    if (!fadeIn) { S.alpha = S.look * rand(0.4, 1); S.depth = 0.85; S.life = rand(4, 30); }
+    return S;
+  }
+  function resetShoal() {
+    SHOAL.length = 0; FS = null; G.spawnT = rand(0.5, 1.5);
+    for (let i = 0; i < shoalSize(); i++) spawnRoamer(false);
+  }
+  /* Turn toward a point on the water and swim on (speed in fractions of the short side a second, on the
+     water plane); returns how far is left to go. */
+  function swim(S, gx, gy, spd, dt, turn) {
+    const ds = depthScale(S.y), dx = gx - S.x, dy = (gy - S.y) / FSQ;
+    const da = ((Math.atan2(dy, dx) - S.a) % TAU + TAU * 1.5) % TAU - Math.PI;
+    S.a += clamp(da, -turn * dt, turn * dt);
+    const v = spd * L.m * ds;
+    S.x += Math.cos(S.a) * v * dt; S.y += Math.sin(S.a) * v * dt * FSQ;
+    S.beat = clamp(1 + spd * 22, 1, 9);
+    return Math.hypot(dx, dy) / (L.m * ds);
+  }
+  /* The fish turns to look at the bobber, then swims over to it. */
+  function notice(S, delay, dur) {
+    Object.assign(S, { mode: 'notice', t: 0, wait: delay, dur, dir: Math.random() < 0.5 ? 1 : -1, ring: rand(0.1, 0.135), circ: rand(0.2, 0.3), bore: rand(3, 8) });
+  }
+  function approach(S) {
+    const m = mouthAt();
+    S.mode = 'approach'; S.t = 0;
+    S.spd = clamp(plane(S.x, S.y, m.x, m.y) / S.dur, 0.06, 0.45);
+  }
+  function makeTaker(S, next) {
+    const Wt = G.wait;
+    S.taker = true; S.kT = sizeK(next.fish.cm); S.ring = 0.075; S.circ = 0.36; S.look = 0.3;
+    if (Wt) Wt.taker = S;
+  }
+  /* Off it goes: away from a point, fast, and down out of sight. */
+  function flee(S, p) {
+    const a = Math.atan2((S.y - p.y) / FSQ, S.x - p.x) + rand(-0.5, 0.5), d = L.m * 0.5;
+    Object.assign(S, { mode: 'flee', t: 0, gone: true, taker: false, gx: S.x + Math.cos(a) * d, gy: S.y + Math.sin(a) * d * FSQ });
+  }
+  /* It loses interest and wanders off. */
+  function leave(S) {
+    const b = bobPos(), a = Math.atan2((S.y - b.y) / FSQ, S.x - b.x) + rand(-0.6, 0.6), d = L.m * depthScale(S.y) * rand(0.25, 0.4);
+    Object.assign(S, { mode: 'leave', t: 0, taker: false, spd: rand(0.06, 0.09), gx: clamp(S.x + Math.cos(a) * d, W * SWIM.x0, W * SWIM.x1), gy: clamp(S.y + Math.sin(a) * d * FSQ, L.horizon + (H - L.horizon) * SWIM.y0, L.horizon + (H - L.horizon) * SWIM.y1) });
+  }
+  const lookers = () => SHOAL.filter(S => LOOKING.has(S.mode) && !S.taker).length;
+
+  /* The bobber lands: fish right under it bolt, fish near it come to look, and the fish that will bite is
+     rolled and cast (a looker its size, or one still to come up from the deep). */
+  function stirShoal(p) {
+    const Wt = G.wait;
+    let spooked = 0;
+    const curious = [];
+    for (const S of SHOAL) {
+      if (S === FS || S.gone) continue;
+      const d = plane(S.x, S.y, p.x, p.y);
+      if (d < 0.045 + 0.035 * S.k) { flee(S, p); spooked++; }
+      else if (d < 0.34 && Math.random() < 0.8) curious.push([S, d]);
+    }
+    if (spooked) for (let i = curious.length - 1; i >= 0; i--) if (curious[i][1] < 0.16 && Math.random() < 0.5) { flee(curious[i][0], p); curious.splice(i, 1); }
+    for (const [S, d] of curious) notice(S, rand(0.2, 0.6), 0.7 + 1.6 * d);
+    const next = Wt.next = rollNext(), kN = sizeK(next.fish.cm);
+    let best = null, bd = 9;
+    for (const [S, d] of curious) if (Math.abs(Math.log(S.k / kN)) < 0.28 && d < bd) { best = S; bd = d; }
+    Wt.eager = curious.length > 0 && !spooked;
+    Wt.spooked = spooked;
+    Wt.min = Wt.eager ? rand(0.8, 1.4) : rand(1.0, 1.8);
+    if (best) makeTaker(best, next);
+    else Wt.comeAt = (Wt.eager ? rand(0.2, 0.5) : rand(0.35, 0.7)) + (spooked ? rand(1.9, 2.3) : 0);
+  }
+  /* No looker was the right fish: it comes up from the deep a little way off and swims to the bobber. */
+  function newcomer() {
+    const Wt = G.wait, b = mouthAt();
+    let x = b.x, y = b.y;
+    for (let i = 0; i < 10; i++) {
+      const a = rand(0, TAU), d = rand(0.15, 0.22) * L.m * depthScale(b.y);
+      x = b.x + Math.cos(a) * d; y = b.y + Math.sin(a) * d * FSQ;
+      if (swimmable(x, y)) break;
+    }
+    const k = sizeK(Wt.next.fish.cm);
+    const S = addShadow({ x, y, k, kT: k, depth: 1, a: Math.atan2((b.y - y) / FSQ, b.x - x) });
+    S.dur = Wt.eager ? rand(0.7, 1.1) : rand(0.85, 1.25);
+    makeTaker(S, Wt.next);
+    approach(S);
+  }
+
+  /* Each frame: keep a few fish about, and move each one. */
+  function updateShoal(dt) {
+    if (!L) return;
+    if (CALM.has(G.phase)) {
+      const about = SHOAL.filter(S => S !== FS && !S.gone).length;
+      G.spawnT -= dt;
+      if (about < shoalSize() && G.spawnT <= 0) { spawnRoamer(); G.spawnT = rand(1.5, 5); }
+    }
+    for (const S of SHOAL) stepShadow(S, dt);
+    for (let i = SHOAL.length - 1; i >= 0; i--) {
+      const S = SHOAL[i];
+      if (S.gone && S.alpha < 0.008 && S !== FS) SHOAL.splice(i, 1);
+    }
+  }
+  function stepShadow(S, dt) {
+    S.t += dt;
+    if (S.nib > 0) S.nib = Math.max(0, S.nib - dt);
+    if (S.cool > 0) S.cool -= dt;
+    S.k += (S.kT - S.k) * (1 - Math.exp(-dt * 1.2));
+    let alphaT = S.look, depthT = 0.85, swingT = 0.3, fade = 0.9, chase = null;
+    switch (S.mode) {
+      case 'roam': {
+        S.life -= dt;
+        if (swim(S, S.gx, S.gy, S.spd, dt, 1.1) < 0.05 || S.t > 14) { S.t = 0; roamGoal(S); }
+        if (S.life <= 0) { S.mode = 'sink'; S.gone = true; }
+        // a fish passing near a bobber that has sat a while may come and look
+        if (G.phase === 'waiting' && S.cool <= 0 && lookers() < 3 && Math.random() < dt * 0.07) {
+          const m = mouthAt(), d = plane(S.x, S.y, m.x, m.y);
+          if (d < 0.45) { notice(S, rand(0.3, 0.8), 1.2 + 2 * d); S.cool = 5; }
+        }
+        break;
+      }
+      case 'notice': {
+        const m = mouthAt();
+        swim(S, m.x, m.y, 0.012, dt, 3);
+        alphaT = S.look * 1.12;
+        if (S.t >= S.wait) approach(S);
+        break;
+      }
+      case 'approach': {
+        const m = mouthAt(), d = swim(S, m.x, m.y, S.spd, dt, 3.4);
+        alphaT = S.taker ? 0.3 : S.look * 1.15; depthT = 0.72; fade = S.taker ? 1.8 : 1.2;
+        if (d < S.ring * 1.6 / depthScale(m.y) || S.t > 4) {
+          S.mode = 'circle'; S.t = 0;
+          S.orbit = Math.atan2((S.y - m.y) / FSQ, S.x - m.x);
+          S.rad = Math.hypot(S.x - m.x, (S.y - m.y) / FSQ);
+        }
+        break;
+      }
+      case 'circle': {
+        chase = circling(S, dt, S.nib > 0);
+        alphaT = S.nib > 0 ? 0.42 : S.taker ? 0.3 : S.look * 1.15;
+        depthT = S.nib > 0 ? 0.45 : 0.8; swingT = S.nib > 0 ? 0.6 : 0.3; S.beat = S.nib > 0 ? 3 : 1.2;
+        if (!S.taker && S.t > S.bore) leave(S);
+        break;
+      }
+      case 'leave':
+        if (swim(S, S.gx, S.gy, S.spd, dt, 2.2) < 0.04 || S.t > 4) { S.mode = 'roam'; S.t = 0; S.cool = rand(6, 12); S.spd = rand(0.028, 0.05); roamGoal(S); }
+        break;
+      case 'flee':
+        swim(S, S.gx, S.gy, 0.55, dt, 7);
+        alphaT = 0; depthT = 1; swingT = 0.9; fade = 1.8;
+        break;
+      case 'sink':
+        swim(S, S.gx, S.gy, S.spd, dt, 1.1);
+        alphaT = 0; depthT = 1; fade = 0.6;
+        break;
+      case 'hooked': {
+        const H2 = hookedTarget(S, dt);
+        chase = H2; alphaT = H2.alpha; depthT = H2.depth; swingT = H2.swing; S.beat = H2.beat; fade = H2.fade;
+        break;
+      }
+    }
+    if (chase) {
+      const k = 1 - Math.exp(-dt * chase.follow);
+      S.x += (chase.tx - S.x) * k; S.y += (chase.ty - S.y) * k;
+      const da = ((chase.ta - S.a) % TAU + TAU * 1.5) % TAU - Math.PI;
+      S.a += da * (1 - Math.exp(-dt * (chase.turn || 4)));
+    }
+    S.alpha += (alphaT - S.alpha) * (1 - Math.exp(-dt * fade));
+    S.depth += (depthT - S.depth) * (1 - Math.exp(-dt * 3));
+    S.swing += (swingT - S.swing) * (1 - Math.exp(-dt * 4));
+    S.phase = (S.phase + dt * S.beat * TAU * 0.5) % (TAU * 100);
+  }
+  /* Circling the bobber: lookers keep a wider ring; the fish that bites circles close, and noses in on a
+     nibble or the bite. */
+  function circling(S, dt, close) {
+    const m = mouthAt(), len = shadowLen(S);
+    const radT = close ? len * 0.5 : S.ring * L.m * (1 + 0.2 * Math.sin(G.t * 0.4 + S.phase * 0.01));
+    S.rad += (radT - S.rad) * (1 - Math.exp(-dt * (close ? 7 : 0.8)));
+    S.orbit += dt * (close ? 0.08 : S.circ) * S.dir;
+    return { tx: m.x + Math.cos(S.orbit) * S.rad, ty: m.y + Math.sin(S.orbit) * S.rad * FSQ, ta: S.orbit + (close ? Math.PI : (Math.PI / 2) * S.dir), follow: 4 };
+  }
+  /* The fish on the line: it strikes, swims with the fight, and bolts if it escapes. */
+  function hookedTarget(S, dt) {
+    const p = G.phase, len = shadowLen(S);
+    if (p === 'bite') return Object.assign(circling(S, dt, true), { alpha: 0.62, depth: 0.22, swing: 0.9, beat: 6, fade: 2 });
+    if (p === 'reeling' && G.reel) {
       const v = G.reel.fish.v;
-      ta = (G.facing > 0 ? 0 : Math.PI) + Math.sin(G.t * 1.3) * 0.25 + clamp(v, -1, 1) * 0.15 * G.facing;
-      tx = G.entry.x - Math.cos(F.a) * len * 0.45; ty = G.entry.y + MOUTH() - Math.sin(F.a) * len * 0.45 * FSQ;
-      alphaT = 0.68; depthT = 0.3; swingT = 0.35 + 0.5 * Math.min(1, Math.abs(v)); beat = 3 + 9 * Math.min(1, Math.abs(v)); follow = 12;
-    } else if (p === 'escaped' && G.pt < 1.2) {
-      ta = F.bolt;
+      const ta = (G.facing > 0 ? 0 : Math.PI) + Math.sin(G.t * 1.3) * 0.25 + clamp(v, -1, 1) * 0.15 * G.facing;
+      return { tx: G.entry.x - Math.cos(S.a) * len * 0.45, ty: G.entry.y + MOUTH() - Math.sin(S.a) * len * 0.45 * FSQ, ta, follow: 12, turn: 5,
+        alpha: 0.68, depth: 0.3, swing: 0.35 + 0.5 * Math.min(1, Math.abs(v)), beat: 3 + 9 * Math.min(1, Math.abs(v)), fade: 2 };
+    }
+    if (p === 'escaped' && G.pt < 1.2) {
       const sp = L.m * 0.55 * dt;
-      tx = F.x + Math.cos(F.a) * sp; ty = F.y + Math.sin(F.a) * sp * FSQ; follow = 60;
-      alphaT = 0; depthT = 1; swingT = 0.9; beat = 7; fade = 1.8;
-    } else if (p === 'landing') fade = 9;
-    const k = 1 - Math.exp(-dt * follow);
-    F.x += (tx - F.x) * k; F.y += (ty - F.y) * k;
-    const da = ((ta - F.a) % TAU + TAU * 1.5) % TAU - Math.PI;
-    F.a += da * (1 - Math.exp(-dt * (p === 'reeling' ? 5 : 4)));
-    F.alpha += (alphaT - F.alpha) * (1 - Math.exp(-dt * fade));
-    F.depth += (depthT - F.depth) * (1 - Math.exp(-dt * 3));
-    F.swing += (swingT - F.swing) * (1 - Math.exp(-dt * 4));
-    F.phase = (F.phase + dt * beat * TAU * 0.5) % (TAU * 100);
+      return { tx: S.x + Math.cos(S.a) * sp, ty: S.y + Math.sin(S.a) * sp * FSQ, ta: S.bolt, follow: 60, alpha: 0, depth: 1, swing: 0.9, beat: 7, fade: 1.8 };
+    }
+    return { tx: S.x, ty: S.y, ta: S.a, follow: 4, alpha: 0, depth: 0.85, swing: 0.3, beat: 1.2, fade: p === 'landing' ? 9 : 2 };
   }
   function fishUniforms() {
-    const F = FS;
-    if (F.alpha < 0.005) return { fishB: [0, 0, 0, 0] };
-    return { fish: [F.x / W, F.y / H, shadowLen() / H, F.a], fishB: [F.alpha, F.phase, F.depth, F.swing] };
+    const vis = SHOAL.filter(S => S.alpha > 0.005).sort((a, b) => (b === FS) - (a === FS) || b.alpha - a.alpha).slice(0, WaterGL.MAX_FISH || 6);
+    return { fish: vis.map(S => [S.x / W, S.y / H, shadowLen(S) / H, S.a]), fishB: vis.map(S => [S.alpha, S.phase, S.depth, S.swing]) };
   }
 
   /* ================= Update ================= */
@@ -606,7 +850,7 @@
     if (!modalOpen() || G.phase === 'landing') updatePhase(dt);
     animateRod(dt);
     physics(dt);
-    updateFishShadow(dt);
+    updateShoal(dt);
     Flourish.update(dt, L, G.t);
   }
 
@@ -633,16 +877,19 @@
         if (G.bob.nib > 0) G.bob.nib = Math.max(0, G.bob.nib - dt);
         G.rippleT -= dt;
         if (G.rippleT <= 0) { const p = bobPos(); ripple(p.x, p.y, 1, 0.55); G.rippleT = rand(1.4, 2.4); }
+        // the fish that will bite comes up from the deep if none of the lookers was it
+        if ((!Wt.taker || Wt.taker.gone || !SHOAL.includes(Wt.taker)) && G.pt >= Wt.comeAt && Wt.next) { Wt.taker = null; newcomer(); }
         Wt.tick += dt;
         while (Wt.tick >= 0.1 && G.phase === 'waiting') {
           Wt.tick -= 0.1;
-          // rolling chance of a bite that grows the longer the line sits; bait brings bites sooner
-          if (G.pt > Wt.min) {
-            const chance = (0.008 + 0.006 * (G.pt - Wt.min)) * loc.bite * (bait ? BAITS[bait].bite : 1);
+          // rolling chance of a bite that grows the longer the line sits, once that fish is circling; bait
+          // brings bites sooner, and so does a cast that drew fish over to look
+          if (G.pt > Wt.min && Wt.taker && Wt.taker.mode === 'circle') {
+            const chance = (0.008 + 0.006 * (G.pt - Wt.min)) * loc.bite * (bait ? BAITS[bait].bite : 1) * (Wt.eager ? 1.15 : 1);
             if (Math.random() < chance) { bite(); break; }
           }
           Wt.nibCool -= 0.1;
-          if (G.pt > 0.8 && Wt.nibCool <= 0 && Math.random() < 0.035) { nibble(); Wt.nibCool = rand(1.2, 2.6); }
+          if (G.pt > 0.8 && Wt.nibCool <= 0 && Math.random() < 0.035 && nibble()) Wt.nibCool = rand(1.2, 2.6);
         }
         break;
       }
@@ -741,10 +988,11 @@
       Scenes.drawSurface(ctx, L, G.t);
     } else {
       Scenes.drawBack(ctx, L, G.t);
-      drawShadow();
+      for (const S of SHOAL) drawShadow(S);
       drawRipples();
     }
     Flourish.draw(ctx, 'water', L, G.t);
+    drawAim();
     drawLine(gpu);
     drawDrops();
     if (G.phase === 'landing') drawLeap();
@@ -787,11 +1035,10 @@
     for (const d of G.drops) { if (d.col) ctx.fillStyle = d.col; ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, TAU); ctx.fill(); if (d.col) ctx.fillStyle = 'rgba(235,248,255,0.85)'; }
   }
 
-  /* The fish below, in the 2D fallback (the GPU water draws it itself, under the surface). */
-  function drawShadow() {
-    const F = FS;
+  /* A fish below, in the 2D fallback (the GPU water draws them itself, under the surface). */
+  function drawShadow(F) {
     if (F.alpha < 0.01) return;
-    const len = shadowLen();
+    const len = shadowLen(F);
     ctx.save();
     ctx.translate(F.x, F.y); ctx.scale(1, FSQ); ctx.rotate(F.a);
     const wag = Math.sin(F.phase) * F.swing * len * 0.08;
@@ -800,6 +1047,28 @@
       ctx.beginPath(); ctx.ellipse(len * 0.04, 0, len * 0.37 * k, len * 0.13 * k, 0, 0, TAU); ctx.fill();
       ctx.beginPath(); ctx.moveTo(-len * 0.28, 0); ctx.lineTo(-len * 0.52, -len * 0.14 * k + wag); ctx.lineTo(-len * 0.46, wag * 0.5); ctx.lineTo(-len * 0.52, len * 0.14 * k + wag); ctx.closePath(); ctx.fill();
     }
+    ctx.restore();
+  }
+
+  /* Where a cast will land: with a mouse, a faint ring on the water under the pointer while you choose;
+     once cast, a ring the bobber falls into. */
+  function drawAim() {
+    let p = null, k = 0, a = 0;
+    if (G.phase === 'idle' && G.hover && !modalOpen()) { p = aimPoint(G.hover.x, G.hover.y); a = 0.62; }
+    else if (G.phase === 'casting' && G.cast && G.cast.mark && !G.cast.hit) { p = G.cast.mark; k = G.cast.launched ? G.cast.k : 0; a = 0.7 * (1 - k * k); }
+    if (!p || a < 0.02) return;
+    const r = bobR() * persp(p.y) * (2.5 - 1.1 * k), ry = r * 0.32;
+    ctx.save();
+    ctx.lineWidth = 1.8;
+    ctx.setLineDash([r * 0.5, r * 0.32]);
+    ctx.lineDashOffset = -G.t * r * 0.5;
+    ctx.strokeStyle = `rgba(4,18,28,${a * 0.4})`;
+    ctx.beginPath(); ctx.ellipse(p.x, p.y + 1, r, ry, 0, 0, TAU); ctx.stroke();
+    ctx.strokeStyle = `rgba(255,255,255,${a})`;
+    ctx.beginPath(); ctx.ellipse(p.x, p.y, r, ry, 0, 0, TAU); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = `rgba(255,255,255,${a * 0.8})`;
+    ctx.beginPath(); ctx.ellipse(p.x, p.y, 1.6, 1.1, 0, 0, TAU); ctx.fill();
     ctx.restore();
   }
 
@@ -864,7 +1133,7 @@
         const e = G.entry, r = bobR();
         const quiver = Math.sin(G.t * 47) * 0.6;
         // under the surface the line runs on, faint and bent by the water, down to the fish
-        const hd = shadowHead();
+        const hd = FS ? shadowHead() : e;
         ctx.strokeStyle = 'rgba(220,236,240,0.22)'; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(e.x + quiver, e.y);
         ctx.quadraticCurveTo((e.x + hd.x) / 2 + Math.sin(G.t * 5) * 2, (e.y + hd.y) / 2, hd.x, hd.y); ctx.stroke();
@@ -1315,6 +1584,7 @@
       save.loc = id;
       persist();
       syncScene(true);
+      resetShoal();
       Flourish.setLocation(id, G.t);
       if (Sound.ready) Sound.startAmbient(id);
       toIdle();
@@ -1481,6 +1751,7 @@
 
   /* ================= Sizing + loop ================= */
   function resize() {
+    const was = L && { W, H, hor: L.horizon };
     W = window.innerWidth; H = window.innerHeight;
     const dpr = window.devicePixelRatio || 1;
     DPR = Math.max(1, Math.min(dpr, 2, Math.sqrt(4.2e6 / Math.max(1, W * H))));
@@ -1494,6 +1765,12 @@
       WaterGL.resize(W * glScale, H * glScale);
     }
     syncScene(true);
+    // the fish below keep their places on the water
+    if (!was) resetShoal();
+    else {
+      const mapX = x => (x / was.W) * W, mapY = y => L.horizon + ((y - was.hor) / Math.max(1, was.H - was.hor)) * (H - L.horizon);
+      for (const S of SHOAL) { S.x = mapX(S.x); S.y = mapY(S.y); S.gx = mapX(S.gx); S.gy = mapY(S.gy); }
+    }
   }
   window.addEventListener('resize', resize);
 
@@ -1562,7 +1839,7 @@
     unlockAll() { save.xp = Math.max(save.xp, xpToReach(Gear.TOP_LEVEL)); persist(); updateHUD(); },
     reset() { save = fresh(); persist(); location.reload(); },
     badges(ids) { Badges.grant(ids); return `${Object.keys(save.ach.got).length} badges earned`; },
-    get state() { return { t: G.t, phase: G.phase, save: JSON.parse(JSON.stringify(save)), reel: G.reel && { progress: G.reel.progress, band: G.reel.band.x, width: G.reel.band.w, mods: G.reel.mods, fish: G.reel.fish.shown, inBand: G.reel.inBand }, shadow: { ...FS }, bob: G.phase === 'reeling' ? { ...G.entry } : bobPos(), tip: rodTip(), cast: G.cast && { k: G.cast.k, struck: G.cast.obj ? G.cast.obj.kind : null, hit: G.cast.hit ? G.cast.hit.t : -1 } }; },
+    get state() { return { t: G.t, phase: G.phase, save: JSON.parse(JSON.stringify(save)), reel: G.reel && { progress: G.reel.progress, band: G.reel.band.x, width: G.reel.band.w, mods: G.reel.mods, fish: G.reel.fish.shown, inBand: G.reel.inBand }, shadow: FS && { ...FS }, shoal: SHOAL.map(S => ({ x: S.x, y: S.y, k: +S.k.toFixed(3), mode: S.mode, alpha: +S.alpha.toFixed(3), taker: S.taker })), wait: G.wait && { eager: G.wait.eager, spooked: G.wait.spooked, taker: !!G.wait.taker, next: G.wait.next && { id: G.wait.next.id, cm: G.wait.next.fish.cm } }, lastBite: G.lastBite, bob: G.phase === 'reeling' ? { ...G.entry } : bobPos(), tip: rodTip(), cast: G.cast && { k: G.cast.k, struck: G.cast.obj ? G.cast.obj.kind : null, hit: G.cast.hit ? G.cast.hit.t : -1 } }; },
   };
   /* ================= Gifts =================
      A link to the game with ?gift=<id> grants that gift once per save: the claim is written into the

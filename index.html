@@ -986,7 +986,7 @@
 
 <div id="app">
   <canvas id="water" aria-hidden="true"></canvas>
-  <canvas id="scene" aria-label="Fishing scene. Tap or click to cast; hold to reel."></canvas>
+  <canvas id="scene" aria-label="Fishing scene. Tap or click the water to cast there; hold to reel."></canvas>
 
   <header class="hud" id="hud">
     <div class="hud-left">
@@ -1066,7 +1066,7 @@
       <button class="bait-chip glass" id="btn-bait" type="button" aria-label="Choose bait"><i class="bait-dot" id="bait-dot"></i><span id="bait-label">No bait</span></button>
       <button class="ghost-btn glass" id="btn-reelin" type="button" hidden>Reel in</button>
     </div>
-    <div class="prompt glass breathe" id="prompt" aria-live="polite">Tap anywhere to cast</div>
+    <div class="prompt glass breathe" id="prompt" aria-live="polite">Tap the water where you’d like to cast</div>
   </div>
 
   <div class="veil" id="veil"></div>
@@ -1189,7 +1189,7 @@
         <span style="color:#bfe0c9">Common</span><span style="color:#86c9f7">Rare</span><span style="color:#c8a2ff">Epic</span><span style="color:#ffd46e">Legendary</span><span style="color:#ff6f86">Extreme</span>
       </div>
       <ol class="steps">
-        <li><span><b>Cast.</b> Tap or click anywhere on the water.</span></li>
+        <li><span><b>Cast.</b> Tap or click the water where you’d like your bobber to land. Shadows below are fish: big shadows, big fish. Land near them, but not right on top of one.</span></li>
         <li><span><b>Wait.</b> Watch the bobber. When it plunges under, a fish has bitten.</span></li>
         <li><span><b>Reel.</b> Hold anywhere to push the green band right; let go and it drifts left. Keep the gold line inside the band to fill the ring. If the ring drains past the red mark, the fish escapes.
           <span class="demo" aria-hidden="true"><span class="band"></span><span class="marker"></span></span></span></li>

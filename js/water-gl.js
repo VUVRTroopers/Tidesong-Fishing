@@ -19,6 +19,9 @@ const WaterGL = (() => {
   let lastScene = null;
   const MAX_RIP = 10;
   const ripData = new Float32Array(MAX_RIP * 4);
+  // the fish shadows under the surface: the one on the line and the others swimming about
+  const MAX_FISH = 6;
+  const fishData = new Float32Array(MAX_FISH * 4), fishBData = new Float32Array(MAX_FISH * 4);
 
   const VS = `attribute vec2 aPos; varying vec2 vUv; varying vec2 vFb;
 void main() { vFb = aPos * 0.5 + 0.5; vUv = vec2(vFb.x, 1.0 - vFb.y); gl_Position = vec4(aPos, 0.0, 1.0); }`;
@@ -38,8 +41,8 @@ uniform float uRefl, uGlint, uSway, uHaze;
 uniform vec3 uHazeCol;
 uniform vec4 uRip[${MAX_RIP}];
 uniform vec4 uBob;
-uniform vec4 uFish;   // x, y (uv), length (in screen heights), heading (radians, on the water plane; depth axis squashed by 0.6)
-uniform vec4 uFishB;  // opacity, tail phase, depth (0 shallow, 1 deep), tail swing
+uniform vec4 uFish[${MAX_FISH}];   // per fish: x, y (uv), length (in screen heights), heading (radians, on the water plane; depth axis squashed by 0.6)
+uniform vec4 uFishB[${MAX_FISH}];  // per fish: opacity, tail phase, depth (0 shallow, 1 deep), tail swing
 uniform float uAurora; // strength of the aurora (Frostveil), 0 elsewhere
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
@@ -118,15 +121,15 @@ vec3 skyAt(vec2 uv) {
 }
 
 // A fish seen from above, in its own frame: head toward +x, length 1, centred on the origin.
-float fishShape(vec2 q, float soft) {
-  float bend = sin(uFishB.y) * uFishB.w * pow(max(0.0, 0.18 - q.x), 2.0) * 0.32;
+float fishShape(vec2 q, float soft, float ph, float swing) {
+  float bend = sin(ph) * swing * pow(max(0.0, 0.18 - q.x), 2.0) * 0.32;
   q.y -= bend;
   float body = length(vec2((q.x - 0.04) / 0.37, q.y / (0.115 + 0.035 * smoothstep(-0.3, 0.3, q.x))));
   float m = smoothstep(1.0 + soft, 1.0 - soft, body);
   float tk = clamp((-0.29 - q.x) / 0.21, 0.0, 1.0);
   float hw = 0.022 + tk * 0.12 - smoothstep(0.75, 1.0, tk) * 0.07 * smoothstep(0.03, 0.0, abs(q.y));
   float tail = smoothstep(hw + soft * 0.12, hw - soft * 0.12, abs(q.y)) * smoothstep(-0.25, -0.31, q.x) * smoothstep(-0.53, -0.47, q.x);
-  vec2 f = vec2(q.x - 0.13, abs(q.y) - 0.12 - 0.02 * sin(uFishB.y * 1.3));
+  vec2 f = vec2(q.x - 0.13, abs(q.y) - 0.12 - 0.02 * sin(ph * 1.3));
   float fin = smoothstep(1.0 + soft, 1.0 - soft, length(vec2(f.x / 0.075, f.y / 0.035) * mat2(0.8, 0.6, -0.6, 0.8)));
   return max(max(m, tail), fin * 0.8);
 }
@@ -178,18 +181,20 @@ void main() {
     }
 
     float fm = 0.0, spine = 0.0;
-    if (uFishB.x > 0.002) {
-      vec2 fq = uv + n * (0.0025 + 0.007 * d) - uFish.xy;
-      fq = vec2(fq.x * uAspect, fq.y / 0.6) / uFish.z;
-      if (dot(fq, fq) < 1.6) {
-        float cs = cos(uFish.w), sn = sin(uFish.w);
-        fq = vec2(fq.x * cs + fq.y * sn, -fq.x * sn + fq.y * cs);
-        float soft = 0.18 + uFishB.z * 0.55;
-        fm = fishShape(fq, soft) * uFishB.x;
-        fm = max(fm, smoothstep(1.4, 0.0, length(fq * vec2(1.0, 2.6))) * uFishB.x * 0.28 * uFishB.z);
-        // the fish's back catches a little light through the water
-        spine = exp(-pow(fq.y / 0.035, 2.0)) * smoothstep(-0.3, -0.05, fq.x) * smoothstep(0.4, 0.15, fq.x) * uFishB.x * (1.0 - uFishB.z);
-      }
+    for (int i = 0; i < ${MAX_FISH}; i++) {
+      vec4 F = uFish[i], B = uFishB[i];
+      if (B.x <= 0.002) continue;
+      vec2 fq = uv + n * (0.0025 + 0.007 * d) - F.xy;
+      fq = vec2(fq.x * uAspect, fq.y / 0.6) / F.z;
+      if (dot(fq, fq) >= 1.6) continue;
+      float cs = cos(F.w), sn = sin(F.w);
+      fq = vec2(fq.x * cs + fq.y * sn, -fq.x * sn + fq.y * cs);
+      float soft = 0.18 + B.z * 0.55;
+      float m = fishShape(fq, soft, B.y, B.w) * B.x;
+      m = max(m, smoothstep(1.4, 0.0, length(fq * vec2(1.0, 2.6))) * B.x * 0.28 * B.z);
+      fm = max(fm, m);
+      // the fish's back catches a little light through the water
+      spine = max(spine, exp(-pow(fq.y / 0.035, 2.0)) * smoothstep(-0.3, -0.05, fq.x) * smoothstep(0.4, 0.15, fq.x) * B.x * (1.0 - B.z));
     }
 
     vec2 ruv = vec2(uv.x + n.x * (0.0012 + 0.010 * d), 2.0 * uHor - uv.y + n.y * (0.0016 + 0.028 * d));
@@ -199,7 +204,6 @@ void main() {
     vec3 water = mix(uW0, uW1, smoothstep(0.0, 0.3, d));
     water = mix(water, uW2, smoothstep(0.25, 1.0, d));
     float fres = clamp(uRefl * mix(1.75, 0.38, pow(d, 0.55)), 0.0, 0.95);
-    float darkWater = 1.0 - smoothstep(0.04, 0.22, dot(water, vec3(0.299, 0.587, 0.114)));
     water = mix(water, water * vec3(0.30, 0.38, 0.42), fm * 0.9);
     col = mix(water, refl, fres * (1.0 - fm * 0.55));
 
@@ -214,9 +218,11 @@ void main() {
     float g2 = pow(clamp(dot(n, vec2(-0.55, 0.83)) * 0.5 + 0.5, 0.0, 1.0), 42.0);
     col += uLightCol * g2 * 0.32 * uGlint * (1.0 - d * 0.5);
     col += vec3(0.9, 0.97, 1.0) * ringLight * 0.16;
-    col *= 1.0 - fm * 0.34;
-    // on dark water the fish shows as a faint sheen on its back rather than a shadow
-    col += mix(uLightCol, uW0, 0.5) * (spine * 0.1 + fm * 0.05 * darkWater) * (0.4 + 0.6 * darkWater);
+    // where the water is dark (night, or deep shade) a fish shows as a faint moonlit sheen on its back
+    // rather than a shadow, so the fish below can still be seen
+    float dk = 1.0 - smoothstep(0.08, 0.42, dot(col, vec3(0.299, 0.587, 0.114)));
+    col *= 1.0 - fm * 0.34 * (1.0 - dk * 0.75);
+    col += mix(uLightCol, vec3(0.78, 0.88, 1.0), 0.45) * (spine * (0.04 + 0.25 * dk) + fm * 0.6 * dk);
     // a faint wash of aurora light across the water, strongest toward the horizon
     col += AU_LIGHT * auAmb(uv.x) * 0.035 * (1.0 - d);
     col *= 1.0 - d * 0.12;
@@ -401,7 +407,7 @@ void main() {
   }
 
   /* o: { t, dyn (canvas), ripples: [[x,y,age,maxR] uv units], bob: [x,y,visible,radius],
-          fish: [x, y, length, heading], fishB: [opacity, tail phase, depth, tail swing] } */
+          fish: up to MAX_FISH of [x, y, length, heading], fishB: the same fish's [opacity, tail phase, depth, tail swing] } */
   function render(o) {
     if (!ok || !meta || !fb) return;
     const m = meta, t = o.t % 1000;
@@ -409,6 +415,9 @@ void main() {
     ripData.fill(0);
     const rips = o.ripples || [];
     for (let i = 0; i < Math.min(MAX_RIP, rips.length); i++) ripData.set(rips[i], i * 4);
+    fishData.fill(0); fishBData.fill(0);
+    const fishes = o.fish || [], fishBs = o.fishB || [];
+    for (let i = 0; i < Math.min(MAX_FISH, fishes.length); i++) { fishData.set(fishes[i], i * 4); fishBData.set(fishBs[i], i * 4); }
 
     pass(P.scene, fb.scene, pr => {
       bind(pr, 0, tex.bg, 'uBg'); bind(pr, 1, tex.dyn, 'uDyn'); bind(pr, 2, tex.mask, 'uMask');
@@ -431,8 +440,8 @@ void main() {
       gl.uniform3fv(pr.u('uHazeCol'), m.hazeCol);
       gl.uniform4fv(pr.u('uRip[0]'), ripData);
       gl.uniform4fv(pr.u('uBob'), o.bob || [0, 0, 0, 0]);
-      gl.uniform4fv(pr.u('uFish'), o.fish || [0, 0, 0.1, 0]);
-      gl.uniform4fv(pr.u('uFishB'), o.fishB || [0, 0, 0, 0]);
+      gl.uniform4fv(pr.u('uFish[0]'), fishData);
+      gl.uniform4fv(pr.u('uFishB[0]'), fishBData);
       gl.uniform1f(pr.u('uAurora'), m.aurora || 0);
     });
     pass(P.bright, fb.bright, pr => {
@@ -462,5 +471,5 @@ void main() {
     });
   }
 
-  return { init, resize, setScene, render, get ok() { return ok; } };
+  return { init, resize, setScene, render, MAX_FISH, get ok() { return ok; } };
 })();

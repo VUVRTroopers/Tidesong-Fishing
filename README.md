@@ -50,27 +50,35 @@ Then visit `http://localhost:8000`.
 
 | Action | Desktop | Phone |
 | --- | --- | --- |
-| Cast | Click anywhere, or press Space | Tap anywhere |
+| Cast | Click the water where you'd like the bobber to land, or press Space for a cast wherever it goes | Tap the water where you'd like it to land |
 | Push the green band right | Hold the mouse button or Space | Hold anywhere |
 | Let the band drift left | Release | Lift your finger |
 
 ## How a catch works
 
-1. **Cast.** The float lands somewhere a little different each time, further out or nearer in, a
-   little left or right; a longer cast flies longer and higher. If it comes down on something in
-   the water (a lily pad, an ice floe, a lantern post, a floating lantern), it strikes it with a
-   thud in that thing's own voice, the thing dips and rocks, and the float bounces, slides or drops
-   off into the water beside it.
-2. **Wait.** Bites come on a rolling chance that grows the longer the line sits. A faint shadow
-   circles the float and noses in on nibbles before it strikes.
+1. **Cast.** Tap or click where you'd like the float to land. A tap beyond the line's reach (on the
+   sky, the dock, or water too near or too far) casts as far or as near as it can toward that spot.
+   With a mouse, a faint ring on the water shows where a click would land; once cast, the float falls
+   into a ring at that spot. Space casts wherever the cast happens to go: somewhere a little different
+   each time. A longer cast flies longer and higher. If the float comes down on something in the water
+   (a lily pad, an ice floe, a lantern post, a floating lantern), it strikes it with a thud in that
+   thing's own voice. The thing dips and rocks, and the float bounces, slides or drops off into the
+   water beside it.
+2. **Wait.** Shadows of fish drift under the surface: a few at a time, rising into view, cruising and
+   sinking away again. Each is the size of a real fish, so a big shadow is a big fish. When the float
+   lands, fish nearby turn to look and circle it, while one right under it bolts. The fish that bites
+   circles closest and noses in on nibbles before it strikes; it might be one of the lookers, or one
+   that rises from the deep to join them. Bites come on a rolling chance that grows the longer the line
+   sits, once that fish has arrived.
 3. **Fight.** A slider appears with a gold line (the fish) and a green band (your control). Hold to
    push the band right and release to let it drift left. While the gold line is inside the band, the
    ring fills. When it is outside, the ring drains. Fill the ring to land the fish. If it drops
    below the red mark, the fish gets away.
 4. **Keep, sell or release.** Every catch has a weight, a length and a price.
 
-A bite never announces its rarity: the cue, the shadow and the slider look the same for every fish.
-You learn what you have hooked from how hard it fights. Rarer fish move faster, change direction
+A bite never announces its rarity: the cue and the slider look the same for every fish, and a shadow
+shows only how big a fish is (a big carp and a small legend can look alike). You learn what you have
+hooked from how hard it fights. Rarer fish move faster, change direction
 more often, dart across the slider and thrash in place.
 
 | Rarity | XP | Base price | How it fights |
@@ -82,6 +90,28 @@ more often, dart across the slider and thrash in place.
 | Extreme | 1,200 | 5,000 | Relentless |
 
 The first catch of each species earns a discovery bonus.
+
+### Shadows and where you cast
+
+Where you cast never changes what you catch. The fish that will bite is rolled with the water's
+usual odds (and your bait) the moment the float lands, exactly as a bite always was, with its weight
+and length too. The shadows only play it out:
+
+- **Sizes are real.** Every passing shadow is the size of a fish rolled with the same odds, so the
+  shadows show what lives in that water: mostly small and middling fish, now and then a big one. A
+  shadow's length follows the fish's length, from a small fish's sliver to a dolphin's broad shape.
+- **The fish that bites is shown faithfully.** If a looker is about the size of the fish that will
+  bite, that looker is the one that takes the float. Otherwise a fish of the right size comes up from
+  the deep to join them. Casting beside a big shadow can hook a big fish, but only when the roll says
+  so. A big shadow that circles and swims off was a fish that didn't bite.
+- **Placement changes how soon, not what.** Landing near fish (but not on one) draws lookers, and the
+  bite comes sooner, about 15% sooner on average. Landing right on top of a fish scares it and its
+  neighbours off, and the bite comes about 10% later. A cast with no fish nearby waits as long as a
+  cast always did (measured over hundreds of casts at Mistwillow Pond: 5.3 s against 5.2 s before). Over a whole catch (cast, wait, fight and reveal), good aim saves only a few percent
+  of the time, so the economy is unchanged.
+
+The shadows live in `js/game.js` under "The fish below" (`SHOAL`, `stirShoal()`, `newcomer()`), and
+WebGL draws up to six at once (`MAX_FISH` in `js/water-gl.js`).
 
 ## The five waters
 
