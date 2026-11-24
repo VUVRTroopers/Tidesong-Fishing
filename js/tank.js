@@ -122,100 +122,130 @@ const Tank = (() => {
     return out.sort((x, y) => y.v - x.v);
   }
 
+  /* ================= Aquariums =================
+     Every tank bought is kept; each fish lives in one (its record's `t`). `here` is the tank on screen
+     and `drops` the pearls on its sand. */
+  let here = 0, drops = [];
+  const tankOf = rec => clamp(rec.t | 0, 0, api.save.netTier);
+  const fishIn = t => api.save.net.filter(r => tankOf(r) === t);
+  const sandOf = t => (S.sands[t] || (S.sands[t] = []));
+  const tanks = () => TANKS.slice(0, api.save.netTier + 1).map((T, i) => i);
+  /* Where a new catch goes: the tank on screen (or last looked at) if it has room, else the newest
+     tank with room, else (when every tank is full) the newest. */
+  function homeFor() {
+    const n = api.save.netTier, at = clamp((isOpen ? here : S.at) | 0, 0, n), room = t => fishIn(t).length < TANKS[t].cap;
+    if (room(at)) return at;
+    for (let t = n; t >= 0; t--) if (room(t)) return t;
+    return n;
+  }
+
   /* ================= Moonpearls =================
-     Every kept fish slowly makes Moonpearls: YIELD pearls an hour by rarity. Tuned in a simulation of
-     whole careers (fishing, keeping or selling, buying gear and tanks, checking in a few times a day):
-     a tank of good fish speeds a player's gear ladder by about a fifth, and fishing always pays far
-     better than waiting. Rarer fish earn more for their slot; commoner fish earn back their price
-     sooner, so selling a trophy for an upgrade and keeping it for its pearls are both good choices.
+     Every kept fish slowly makes Moonpearls: YIELD pearls an hour by rarity. Tuned with the tank sizes
+     and prices (data.js) in a simulation of whole careers (fishing, keeping or selling, buying gear and
+     tanks, checking in a few times a day): a player who keeps good fish moves up the gear ladder about
+     a fifth faster than one who sells everything, and fishing always pays far better than waiting.
+     Rarer fish earn more for their slot; commoner fish earn back their price sooner, so selling a
+     trophy for an upgrade and keeping it for its pearls are both good choices.
      While you watch, a fish drops a pearl of about DROP pearls now and then; while you are away its
-     pearls pile up and appear as a few big ones when you come back. The sand holds BED_HOURS of the
-     tank's making; when it is full the fish stop until you gather what is there. */
-  const YIELD = { common: 1, rare: 3, epic: 7, legendary: 24, extreme: 80 };
+     pearls pile up and appear as a few big ones when you come back. Each tank's sand holds BED_HOURS
+     of what that tank makes; when it is full its fish stop until you gather what is there. Mates make
+     more, but only while they share a tank. */
+  const YIELD = { common: 1, rare: 2.5, epic: 5.5, legendary: 20, extreme: 65 };
   const DROP = { common: 1, rare: 2, epic: 3.5, legendary: 8, extreme: 20 };
   const BED_HOURS = 8, MAX_LYING = 60, MATE_BOOST = 1.5, FED_BOOST = 1.25;
   // how much a fish makes before it lets a pearl go: never less than one whole pearl, so no pearl is worth nothing
   const nextPearlAt = (r, lo, hi) => Math.max(1, DROP[r] * rand(lo, hi));
-  const fedRecently = () => Date.now() - (S.fed || 0) < 15 * 60e3;
+  const fedRecently = (t = here) => Date.now() - (S.fedAt[t] || 0) < 15 * 60e3;
   const rarityOf = rec => (SPECIES[rec.id] || {}).rarity;
-  const yieldOf = rec => (YIELD[rarityOf(rec)] || 0) * (S.mates[rec.uid] !== undefined ? MATE_BOOST : 1);
-  const tankRate = () => api.save.net.reduce((a, r) => a + yieldOf(r), 0);
-  const bedCap = () => tankRate() * BED_HOURS;
-  // what lies on the sand, plus what the fish have made and not yet let go
-  function bedValue() {
+  function mateRec(rec) { const m = S.mates[rec.uid]; return m === undefined ? null : fishRec(m) || null; }
+  const together = rec => { const m = mateRec(rec); return !!m && tankOf(m) === tankOf(rec); };
+  const yieldOf = rec => (YIELD[rarityOf(rec)] || 0) * (together(rec) ? MATE_BOOST : 1);
+  const tankRate = (t = here) => fishIn(t).reduce((a, r) => a + yieldOf(r), 0);
+  const bedCap = (t = here) => tankRate(t) * BED_HOURS;
+  // what lies on a tank's sand, plus what its fish have made and not yet let go
+  function bedValue(t = here) {
     let v = 0;
-    for (const d of S.drops) v += d.v;
-    for (const k in S.acc) v += S.acc[k];
+    for (const d of sandOf(t)) v += d.v;
+    for (const r of fishIn(t)) v += S.acc[r.uid] || 0;
     return v;
   }
-  const bedFull = () => { const c = bedCap(); return c > 0 && bedValue() >= c - 0.01; };
-  /* The fish make pearls for `hours`, up to what the sand can hold. */
-  function accrue(hours, boost = 1) {
-    const rate = tankRate() * boost;
-    if (hours <= 0 || rate <= 0) return;
-    const room = bedCap() - bedValue();
-    if (room <= 0) return;
-    const k = Math.min(1, room / (rate * hours));
-    for (const rec of api.save.net) {
-      const y = yieldOf(rec) * boost;
-      if (y > 0) S.acc[rec.uid] = (S.acc[rec.uid] || 0) + y * hours * k;
+  const bedFull = (t = here) => { const c = bedCap(t); return c > 0 && bedValue(t) >= c - 0.01; };
+  /* Every tank's fish make pearls for `hours`, up to what that tank's sand can hold; `live` counts a
+     recent feeding. */
+  function accrue(hours, live = false) {
+    if (hours <= 0) return;
+    for (const t of tanks()) {
+      const boost = live && fedRecently(t) ? FED_BOOST : 1, rate = tankRate(t) * boost;
+      if (rate <= 0) continue;
+      const room = bedCap(t) - bedValue(t);
+      if (room <= 0) continue;
+      const k = Math.min(1, room / (rate * hours));
+      for (const rec of fishIn(t)) {
+        const y = yieldOf(rec) * boost;
+        if (y > 0) S.acc[rec.uid] = (S.acc[rec.uid] || 0) + y * hours * k;
+      }
     }
   }
-  /* What the fish made while you were away appears on the sand: one pearl from each fish, or two when
-     it made a lot, merged further if the sand gets crowded. */
-  function materialize() {
+  /* What a tank's fish made while you were away appears on its sand: one pearl from each fish, or two
+     when it made a lot, merged further if the sand gets crowded. */
+  function materialize(t = here) {
     let made = 0;
-    for (const rec of api.save.net) {
+    for (const rec of fishIn(t)) {
       const a = S.acc[rec.uid] || 0, v = Math.floor(a), r = rarityOf(rec);
       if (v < 1 || !r) continue;
       S.acc[rec.uid] = a - v;
       const parts2 = v >= DROP[r] * 3 ? [Math.round(v * 0.55), v - Math.round(v * 0.55)] : [v];
-      for (const pv of parts2) { addDrop(rand(0.06, 0.94), pv, r, rec.uid, true); made++; }
+      for (const pv of parts2) { if (addDrop(rand(0.06, 0.94), pv, r, rec.uid, true, t)) made++; }
     }
-    while (S.drops.length > MAX_LYING) {
+    const sand = sandOf(t);
+    while (sand.length > MAX_LYING) {
       // fold the smallest pearl into its nearest neighbour
       let i = 0;
-      S.drops.forEach((d, j) => { if (d.v < S.drops[i].v) i = j; });
-      const d = S.drops.splice(i, 1)[0];
+      sand.forEach((d, j) => { if (d.v < sand[i].v) i = j; });
+      const d = sand.splice(i, 1)[0];
       let n = 0, nd = Infinity;
-      S.drops.forEach((q, j) => { const dd = Math.abs(q.x - d.x) + (q.row !== d.row ? 0.05 : 0); if (dd < nd) { nd = dd; n = j; } });
-      S.drops[n].v += d.v;
-      if (RARITIES[d.r] && RARITIES[S.drops[n].r] && RARITIES[d.r].tier > RARITIES[S.drops[n].r].tier) S.drops[n].r = d.r;
+      sand.forEach((q, j) => { const dd = Math.abs(q.x - d.x) + (q.row !== d.row ? 0.05 : 0); if (dd < nd) { nd = dd; n = j; } });
+      sand[n].v += d.v;
+      if (RARITIES[d.r] && RARITIES[sand[n].r] && RARITIES[d.r].tier > RARITIES[sand[n].r].tier) sand[n].r = d.r;
     }
     if (made) dirty = true;
     return made;
   }
   let dropKey = 1;
-  function addDrop(x, v, r, from, born) {
+  function addDrop(x, v, r, from, born, t = here) {
     v = Math.floor(v);
     if (!(v >= 1)) return null;
-    const d = { x: Math.round(x * 1000) / 1000, v, r, k: Date.now() % 1e7 + dropKey++, row: 0 };
-    if (sc) place(d);
+    const d = { x: Math.round(x * 1000) / 1000, v, r, k: Date.now() % 1e7 + dropKey++ };
+    if (t === here && sc && isOpen) place(d, drops);
     if (born) d.born = 1;
-    S.drops.push(d);
+    sandOf(t).push(d);
     if (from) { const rec = fishRec(from); if (rec) rec.pearls = (rec.pearls || 0) + v; }
     dirty = true;
     return d;
   }
 
   /* ================= Time away =================
-     While the tank is closed its fish keep living: they make pearls (up to what the sand will hold), and
-     fish that get on spend the hours together. What they made shows on the sand when you open the tank. */
+     While the tanks are closed their fish keep living: they make pearls (up to what each tank's sand will
+     hold), and fish that get on spend the hours together, each with the few it likes best in its own
+     tank. Friends in different tanks keep their bond, but it only grows while they share a tank. What a
+     tank's fish made shows on its sand when you look at it. */
   function settle(now = Date.now(), show = false) {
     const s = api.save;
     S = s.tank;
-    S.acc = S.acc || {};
+    S.acc = S.acc || {}; S.sands = S.sands || {}; S.fedAt = S.fedAt || {};
     // pearls worth nothing (left by an older version) are swept away
-    if (S.drops.some(d => !(d.v >= 1))) { S.drops = S.drops.filter(d => d.v >= 1); dirty = true; }
+    for (const t of Object.keys(S.sands)) if (S.sands[t].some(d => !(d.v >= 1))) { S.sands[t] = S.sands[t].filter(d => d.v >= 1); dirty = true; }
+    drops = sandOf(here);
     const secs = S.last ? (now - S.last) / 1000 : 0;
     if (!S.last) S.last = now;
     if (secs >= 5) {
       S.last = now;
-      const fish = s.net;
       accrue(secs / 3600);
-      // bonds: each fish spends its time with the few it gets on with best
+      // bonds: each fish spends its time with the few in its tank it gets on with best
       const h = Math.min(secs / 3600, 24);
-      if (fish.length > 1 && h > 0.002) {
+      if (h > 0.002) for (const t of tanks()) {
+        const fish = fishIn(t);
+        if (fish.length < 2) continue;
         const done = new Set();
         for (const a of fish) {
           const best = fish.filter(b => b !== a).map(b => ({ b, k: affinity(a, b) })).sort((x, y) => y.k - x.k).slice(0, 3);
@@ -229,7 +259,7 @@ const Tank = (() => {
       }
     }
     prune();
-    if (show) materialize();
+    if (show) materialize(here);
   }
   function prune() {
     const s = api.save, live = new Set(s.net.map(f => f.uid));
@@ -238,6 +268,7 @@ const Tank = (() => {
     // a fish that leaves takes its unfinished pearl with it
     for (const k of Object.keys(S.acc || {})) if (!live.has(+k)) delete S.acc[k];
     if (S.news) S.news = S.news.filter(([a, b]) => live.has(a) && live.has(b));
+    if (S.meet) S.meet = S.meet.filter(([a, b]) => live.has(a) && live.has(b));
   }
 
   /* ================= Sprites =================
@@ -449,6 +480,8 @@ const Tank = (() => {
       if (v >= 1) dropPearl(f, v);
     }
     if (f.leaving) { f.leaving.t += dt; f.tx = f.x + f.face * f.len; f.ty = sc.surf - f.dh; f.boost = 1.6; return; }
+    if ((f.missT = (f.missT ?? rand(4, 10)) - dt) <= 0) { f.missT = rand(4, 10); f.lonely = !!missing(f.rec); }
+    if (f.lonely && isFree(f) && Math.random() < dt / 26) pine(f);
     if (f.free) return;
     switch (f.state) {
       case 'enter': if (f.st > 1.6) pickNext(f); break;
@@ -823,7 +856,7 @@ const Tank = (() => {
   function feed() {
     if (!isOpen || view !== 'tank') return;
     if (T - lastFeed < FEED_COOL) { play('deny'); return; }
-    lastFeed = T; S.fed = Date.now(); dirty = true;
+    lastFeed = T; S.fedAt[here] = Date.now(); dirty = true;
     const n = Math.min(24, 7 + Math.ceil(fish.length / 2.4));
     const cx = sc.ell ? sc.ell.cx + rand(-0.3, 0.3) * sc.ell.rx : lerp(sc.swim.x0, sc.swim.x1, rand(0.3, 0.7));
     const spread = Math.min((sc.ell ? sc.ell.rx * 0.75 : sc.iw * 0.22), U * 16);
@@ -933,7 +966,7 @@ const Tank = (() => {
   /* Find a pearl a clear spot near where it fell, nearest first, front row first. */
   function place(d) {
     const [X0, X1] = bedX(), r = pearlR(d), x0 = clamp(sc.ix0 + d.x * sc.iw, X0, X1), step = Math.max(2, U * 0.5);
-    const others = S.drops.filter(q => q !== d).map(restPos);
+    const others = drops.filter(q => q !== d).map(restPos);
     for (let k = 0; k < 200; k++) {
       const x = x0 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * step;
       if (x < X0 || x > X1) continue;
@@ -969,9 +1002,9 @@ const Tank = (() => {
      rings a note higher and the run's total counts up beside your finger. */
   const run = { n: 0, t: -9, sum: 0, label: null };
   function collect(d, at) {
-    const i = S.drops.indexOf(d);
+    const i = drops.indexOf(d);
     if (i < 0) return;
-    S.drops.splice(i, 1);
+    drops.splice(i, 1);
     const p = pearlPos(d), s = api.save;
     falling.delete(d.k); lifted.delete(d.k); pops.delete(d.k);
     s.pearls += d.v;
@@ -996,7 +1029,7 @@ const Tank = (() => {
   /* A sweep: every pearl the finger's path passes over (generously) is gathered. */
   function sweep(x0, y0, x1, y1) {
     const R = Math.max(U * 3.4, 26), vx = x1 - x0, vy = y1 - y0, l2 = vx * vx + vy * vy || 1;
-    for (const d of S.drops.slice()) {
+    for (const d of drops.slice()) {
       if (falling.has(d.k) || lifted.has(d.k)) continue;
       const p = pearlPos(d), q = clamp(((p.x - x0) * vx + (p.y - y0) * vy) / l2, 0, 1);
       if (Math.hypot(p.x - x0 - vx * q, p.y - y0 - vy * q) < R + p.r) { collect(d, [x1, y1]); seenGather(); }
@@ -1006,7 +1039,7 @@ const Tank = (() => {
   let hold = null;
   function stepHold(dt) {
     for (const [k, L] of lifted) {
-      const d = S.drops.find(q => q.k === k);
+      const d = drops.find(q => q.k === k);
       if (!d) { lifted.delete(k); continue; }
       const tx = hold ? hold.x : L.x, ty = hold ? hold.y : L.y;
       L.v = Math.min(L.v + U * 60 * dt, U * 70);
@@ -1019,7 +1052,7 @@ const Tank = (() => {
     if (!hold) return;
     hold.t += dt;
     hold.r = U * (4 + Math.min(1, hold.t / 1.1) * 20);
-    for (const d of S.drops) {
+    for (const d of drops) {
       if (lifted.has(d.k) || falling.has(d.k)) continue;
       const p = pearlPos(d);
       if (Math.hypot(p.x - hold.x, p.y - hold.y) < hold.r) { lifted.set(d.k, { x: p.x, y: p.y, v: U * 4 }); sparkle(p.x, p.y, '#eaf2ff', 2, 0.6); }
@@ -1090,7 +1123,7 @@ const Tank = (() => {
     }
     // a falling pearl sinks, drifting over to its spot, lands with a little bounce and a puff of sand
     for (const [k, F] of falling) {
-      const d = S.drops.find(q => q.k === k);
+      const d = drops.find(q => q.k === k);
       if (!d) { falling.delete(k); continue; }
       const R = restPos(d);
       if (F.land !== undefined) {
@@ -1105,7 +1138,7 @@ const Tank = (() => {
     for (const [k, P] of pops) {
       const was = P.t;
       P.t += dt;
-      if (was < 0 && P.t >= 0) { const d = S.drops.find(q => q.k === k); if (d) { const R = restPos(d); sparkle(R.x, R.y, (RARITIES[d.r] || RARITIES.rare).color, 3); if (P.ring) play('pearlLand'); } }
+      if (was < 0 && P.t >= 0) { const d = drops.find(q => q.k === k); if (d) { const R = restPos(d); sparkle(R.x, R.y, (RARITIES[d.r] || RARITIES.rare).color, 3); if (P.ring) play('pearlLand'); } }
       if (P.t > 0.45) pops.delete(k);
     }
     for (let i = lifts.length - 1; i >= 0; i--) if ((lifts[i].t -= dt) <= 0) lifts.splice(i, 1);
@@ -1273,9 +1306,9 @@ const Tank = (() => {
     return poolImg;
   }
   function drawPearls() {
-    if (!S.drops.length) return;
+    if (!drops.length) return;
     const full = bedFull(), c = ctx;
-    for (const d of S.drops) {
+    for (const d of drops) {
       const P = pearlPos(d);
       if (P.s <= 0) continue;
       const r = P.r * P.s, sp = pearlSprite(d.r, P.r), resting = !falling.has(d.k) && !lifted.has(d.k), col = (RARITIES[d.r] || RARITIES.rare).color;
@@ -1434,7 +1467,7 @@ const Tank = (() => {
   function update(dt) {
     T += dt;
     TankEnv.step(sc, dt, T, envApi);
-    accrue(dt / 3600, fedRecently() ? FED_BOOST : 1);
+    accrue(dt / 3600, true);
     stepHold(dt);
     socialT -= dt;
     if (socialT <= 0) { socialT = 0.12; socialTick(0.12); }
@@ -1549,7 +1582,7 @@ const Tank = (() => {
   function tapAt(x, y) {
     // a pearl on the sand (generously, for fingers)
     let best = null, bd = Infinity;
-    for (const d of S.drops) { const p = pearlPos(d), dd = Math.hypot(p.x - x, p.y - y); if (dd < Math.max(U * 3, 22) + p.r && dd < bd) { bd = dd; best = d; } }
+    for (const d of drops) { const p = pearlPos(d), dd = Math.hypot(p.x - x, p.y - y); if (dd < Math.max(U * 3, 22) + p.r && dd < bd) { bd = dd; best = d; } }
     if (best) { collect(best); return; }
     const hit = f => {
       if (f.leaving || f.alpha < 0.5) return false;
@@ -1590,13 +1623,16 @@ const Tank = (() => {
 
   /* ================= Interface ================= */
   const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.9l-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z"/></svg>';
-  const tankDef = () => TANKS[api.save.netTier];
+  const tankDef = () => TANKS[here];
+  const multi = () => api.save.netTier > 0;
+  const an = name => (/^[aeiou]/i.test(name) ? 'an' : 'a');
+  const MOVE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h13l-3.5-3.5M20 15H7l3.5 3.5"/></svg>';
   function since(at) {
     const m = (Date.now() - (at || Date.now())) / 60e3;
     if (m < 60) return 'Arrived a little while ago';
-    if (m < 60 * 24) { const h = Math.round(m / 60); return `In your tank for ${h} hour${h === 1 ? '' : 's'}`; }
+    if (m < 60 * 24) { const h = Math.round(m / 60); return `In your care for ${h} hour${h === 1 ? '' : 's'}`; }
     const d = Math.round(m / 1440);
-    return `In your tank for ${d} day${d === 1 ? '' : 's'}`;
+    return `In your care for ${d} day${d === 1 ? '' : 's'}`;
   }
   function renderHead() {
     const T0 = tankDef();
@@ -1604,16 +1640,61 @@ const Tank = (() => {
     $('#tank-sub').textContent = T0.blurb;
     $('#tank-pearls').innerHTML = pearlsHTML(api.save.pearls);
   }
+  /* The tank tabs: one per tank you own, with how full it is and a pearl when pearls wait on its sand
+     (gold when its sand is full), and "All fish" for the list of every fish. Only shown with two or
+     more tanks. */
+  let tabSig = '';
+  function renderTabs() {
+    const el = $('#tank-tabs'), s = api.save;
+    if (!multi()) { el.hidden = true; tabSig = ''; return; }
+    const P = pending(), all = view === 'list' && listAll;
+    const sig = [here, all, s.net.length, P.tanks.map(T => `${T.fish}.${T.pearls > 0}.${T.full}`).join(',')].join('|');
+    if (sig === tabSig) return;
+    tabSig = sig;
+    let h = `<button type="button" class="filter tank-tab${all ? ' on' : ''}" data-tab="all" aria-pressed="${all}">All fish <small>${s.net.length}/${tanksRoom(s.netTier)}</small></button>`;
+    for (const T of P.tanks) {
+      const on = !all && T.t === here, name = TANKS[T.t].name;
+      const say = `${name}: ${T.fish} of ${T.cap} fish${T.full ? ', its sand is full of pearls' : T.pearls ? ', pearls waiting' : ''}`;
+      h += `<button type="button" class="filter tank-tab${on ? ' on' : ''}${T.fish >= T.cap ? ' full-tank' : ''}" data-tab="${T.t}" aria-pressed="${on}" aria-label="${esc(say)}">${T.pearls ? `<i class="tt-dot${T.full ? ' full' : ''}" aria-hidden="true"></i>` : ''}${esc(name)} <small>${T.fish}/${T.cap}</small></button>`;
+    }
+    el.innerHTML = h;
+    el.hidden = false;
+    const on = el.querySelector('.on');
+    if (on) { const l = on.offsetLeft - el.offsetLeft, r = l + on.offsetWidth; if (l < el.scrollLeft || r > el.scrollLeft + el.clientWidth) el.scrollTo({ left: l - 24, behavior: 'smooth' }); }
+  }
+  function onTabs(e) {
+    const b = e.target.closest('[data-tab]');
+    if (!b) return;
+    closeMove();
+    play('click');
+    if (b.dataset.tab === 'all') {
+      if (view === 'list' && listAll) return;
+      listAll = true;
+      if (view !== 'list') { view = 'list'; sel = null; UIFX.swap($('#m-tank .card'), $('#tank-stage'), renderUI, 1); }
+      else renderUI();
+      return;
+    }
+    const t = +b.dataset.tab;
+    listAll = false;
+    if (t !== here) switchTank(t);
+    renderUI();
+  }
   function renderBar() {
-    const s = api.save, cap = TANKS[s.netTier].cap, n = s.net.length;
-    $('#tank-count').innerHTML = `<b>${n}</b> of ${cap} fish`;
-    $('#tank-capbar').style.width = Math.min(100, n / cap * 100) + '%';
-    $('#tank-cap').classList.toggle('full', n >= cap);
-    const loose = s.net.filter(f => !f.fav), total = loose.reduce((a, f) => a + f.value, 0), armed = Date.now() - sellAllArmed < 3200;
+    const s = api.save, all = view === 'list' && listAll, room = tanksRoom(s.netTier), cap = TANKS[here].cap, n = fishIn(here).length;
+    if (!multi()) $('#tank-count').innerHTML = `<b>${n}</b> of ${cap} fish`;
+    else if (all) $('#tank-count').innerHTML = `<b>${s.net.length}</b> of ${room} fish in ${s.netTier + 1} tanks`;
+    else $('#tank-count').innerHTML = `<b>${n}</b> of ${cap} here <span class="wide-only">· ${s.net.length} of ${room} in all</span>`;
+    const k = all ? s.net.length / room : n / cap;
+    $('#tank-capbar').style.width = Math.min(100, k * 100) + '%';
+    $('#tank-cap').classList.toggle('full', k >= 1);
+    const loose = (all ? s.net : fishIn(here)).filter(f => !f.fav), total = loose.reduce((a, f) => a + f.value, 0), armed = Date.now() - sellAllArmed < 3200;
     const b = $('#tank-sellall');
     b.disabled = !loose.length;
     b.classList.toggle('armed', armed);
-    b.innerHTML = armed ? `Tap again to sell ${loose.length} fish` : `<span>Sell <span class="wide-only">all </span>unstarred ·</span>${pearlsHTML(total)}`;
+    b.innerHTML = armed ? `Tap again to sell ${loose.length} fish${all && multi() ? ' from every tank' : ''}`
+      : !multi() ? `<span>Sell <span class="wide-only">all </span>unstarred ·</span>${pearlsHTML(total)}`
+      : all ? `<span>Sell <span class="wide-only">every </span>unstarred ·</span>${pearlsHTML(total)}`
+      : `<span>Sell unstarred <span class="wide-only">here </span>·</span>${pearlsHTML(total)}`;
     const v = $('#tank-view');
     v.setAttribute('aria-pressed', view === 'list' ? 'true' : 'false');
     v.querySelector('span').textContent = view === 'list' ? 'Tank' : 'List';
@@ -1623,9 +1704,16 @@ const Tank = (() => {
   let pearlHinted = false;
   function renderPearlHint() {
     let on = 0;
-    for (const d of S.drops) if (!falling.has(d.k)) on++;
+    for (const d of drops) if (!falling.has(d.k)) on++;
     if (!pearlHinted && !S.swept && on >= 2 && view === 'tank' && $('#tank-hint').hidden) { pearlHinted = true; $('#pearl-hint').hidden = false; }
     if (S.swept && !$('#pearl-hint').hidden) $('#pearl-hint').hidden = true;
+  }
+  /* A fish whose mate, or best friend, lives in another tank misses them. */
+  function missing(rec) {
+    const m = mateRec(rec);
+    if (m) return tankOf(m) !== tankOf(rec) ? { rec: m, mate: true } : null;
+    const b = bondsOf(rec.uid).find(q => q.v >= 80 && fishRec(q.uid));
+    return b && tankOf(fishRec(b.uid)) !== tankOf(rec) ? { rec: fishRec(b.uid), mate: false } : null;
   }
   let cardSig = '';
   function renderCard(force) {
@@ -1638,10 +1726,13 @@ const Tank = (() => {
     const bonds = bondsOf(f.uid).filter(b => fishRec(b.uid)).slice(0, 3);
     const armedS = Date.now() - sellArmed < 3200, armedR = Date.now() - releaseArmed < 3200;
     const bondHTML = bonds.map(b => {
-      const o = fishRec(b.uid), name = SPECIES[o.id].name, label = b.v > 100 ? 'Mates' : BOND.slice(1).find(([v]) => b.v >= v)[1];
-      return `<li><button type="button" class="fc-bond${b.v > 100 ? ' mates' : ''}" data-tk="goto" data-uid="${b.uid}">${b.v > 100 ? '<span aria-hidden="true">💕</span>' : '<i aria-hidden="true"></i>'}${label} with ${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${esc(name)}</button></li>`;
+      const o = fishRec(b.uid), name = SPECIES[o.id].name, label = b.v > 100 ? 'Mates' : BOND.slice(1).find(([v]) => b.v >= v)[1], away = tankOf(o) !== here;
+      return `<li><button type="button" class="fc-bond${b.v > 100 ? ' mates' : ''}" data-tk="goto" data-uid="${b.uid}">${b.v > 100 ? '<span aria-hidden="true">💕</span>' : '<i aria-hidden="true"></i>'}${label} with ${an(name)} ${esc(name)}${away ? ` <small>· ${esc(TANKS[tankOf(o)].name)}</small>` : ''}</button></li>`;
     }).join('');
-    const sig = [f.uid, rec.fav, armedS, armedR, bonds.map(b => b.uid + ':' + Math.floor(b.v / 10)).join(','), rec.pearls || 0].join('|');
+    const miss = missing(rec);
+    const missHTML = !miss ? '' : miss.mate ? `Misses its mate in the ${esc(TANKS[tankOf(miss.rec)].name)}. Mates make more pearls when they share a tank.`
+      : `Misses its best friend, ${an(SPECIES[miss.rec.id].name)} ${esc(SPECIES[miss.rec.id].name)}, in the ${esc(TANKS[tankOf(miss.rec)].name)}.`;
+    const sig = [f.uid, rec.fav, armedS, armedR, bonds.map(b => b.uid + ':' + Math.floor(b.v / 10)).join(','), rec.pearls || 0, missHTML, multi()].join('|');
     if (!force && sig === cardSig) return;
     cardSig = sig;
     el.style.setProperty('--rc', R.color);
@@ -1653,10 +1744,12 @@ const Tank = (() => {
       <p class="fc-meta"><i class="dot"></i>${R.name} · ${rec.kg.toFixed(2)} kg · ${Math.round(rec.cm)} cm</p>
       <p class="fc-mood">${temperament(f.id)}</p>
       ${bondHTML ? `<ul class="fc-bonds">${bondHTML}</ul>` : ''}
+      ${missHTML ? `<p class="fc-miss">${missHTML}</p>` : ''}
       <p class="fc-since">${since(rec.at)}${rec.pearls ? ` · has left you ${pearlsHTML(rec.pearls)}` : ''}</p>
       <div class="fc-act">
         <button type="button" class="star-btn${rec.fav ? ' on' : ''}" data-tk="fav" aria-pressed="${rec.fav ? 'true' : 'false'}" aria-label="${rec.fav ? 'Unstar' : 'Star'} ${esc(sp.name)}">${STAR}</button>
         <button type="button" class="sell-btn${armedS ? ' armed' : ''}" data-tk="sell">${armedS ? 'Tap again to sell' : `Sell · ${pearlsHTML(rec.value)}`}</button>
+        ${multi() ? `<button type="button" class="secondary-btn move-btn" data-tk="move">${MOVE}Move</button>` : ''}
         <button type="button" class="text-btn${armedR ? ' armed' : ''}" data-tk="release">${armedR ? 'Tap again to release' : 'Release'}</button>
       </div>`;
     el.hidden = false;
@@ -1671,34 +1764,44 @@ const Tank = (() => {
     if (!top && under && sel.y > H - ch - 24) el.classList.add('top');
     else if (top && (!under || sel.y < ch + 24)) el.classList.remove('top');
   }
-  function renderList() {
-    const box = $('#tank-list');
-    if (view !== 'list') { box.hidden = true; return; }
-    const s = api.save, list = s.net.slice().sort((a, b) => b.value - a.value);
-    let html = '';
-    if (!list.length) html = '<p class="empty">Your tank is empty. Fish you keep come to live here.</p>';
-    else {
-      html = '<ul class="fishlist">';
-      for (const f of list) {
-        const sp = SPECIES[f.id], R = RARITIES[sp.rarity], rec = s.caught[f.id] || {}, tags = [];
-        if (rec.best && f.kg >= rec.best) tags.push('Heaviest');
-        if (rec.len && f.cm >= rec.len) tags.push('Longest');
-        const mate = S.mates[f.uid] !== undefined;
-        html += `
+  /* The list: this tank's fish, or every fish tank by tank. */
+  function rowHTML(f) {
+    const s = api.save, sp = SPECIES[f.id], R = RARITIES[sp.rarity], rec = s.caught[f.id] || {}, tags = [];
+    if (rec.best && f.kg >= rec.best) tags.push('Heaviest');
+    if (rec.len && f.cm >= rec.len) tags.push('Longest');
+    const mate = S.mates[f.uid] !== undefined, miss = mate && missing(f);
+    return `
           <li class="fishrow" style="--rc:${R.color}">
             <canvas class="fr-art" data-fish="${f.id}" aria-hidden="true"></canvas>
             <div class="fr-main">
-              <button type="button" class="fr-name fr-link" data-tk="show" data-uid="${f.uid}">${esc(sp.name)}${mate ? '<span class="fr-heart" aria-label="has a mate">💕</span>' : ''}${tags.map(t => `<em class="tag">${t}</em>`).join('')}</button>
+              <button type="button" class="fr-name fr-link" data-tk="show" data-uid="${f.uid}">${esc(sp.name)}${mate ? `<span class="fr-heart" aria-label="${miss ? 'misses its mate' : 'has a mate'}">${miss ? '💔' : '💕'}</span>` : ''}${tags.map(t => `<em class="tag">${t}</em>`).join('')}</button>
               <span class="fr-meta"><i class="dot"></i>${R.name} · ${f.kg.toFixed(2)} kg · ${Math.round(f.cm)} cm</span>
             </div>
             <span class="fr-val">${pearlsHTML(f.value)}</span>
             <div class="fr-act">
               <button type="button" class="star-btn${f.fav ? ' on' : ''}" data-tk="fav" data-uid="${f.uid}" aria-pressed="${f.fav ? 'true' : 'false'}" aria-label="${f.fav ? 'Unstar' : 'Star'} ${esc(sp.name)}">${STAR}</button>
+              ${multi() ? `<button type="button" class="secondary-btn fr-move" data-tk="move" data-uid="${f.uid}" aria-label="Move ${esc(sp.name)} to another tank">${MOVE}</button>` : ''}
               <button type="button" class="sell-btn" data-tk="sell" data-uid="${f.uid}">Sell</button>
             </div>
           </li>`;
+  }
+  function renderList() {
+    const box = $('#tank-list');
+    if (view !== 'list') { box.hidden = true; return; }
+    const s = api.save, byValue = (a, b) => b.value - a.value;
+    let html = '';
+    if (listAll && multi()) {
+      if (!s.net.length) html = '<p class="empty">Your tanks are empty. Fish you keep come to live here.</p>';
+      for (const t of tanks().slice().reverse()) {
+        const list = fishIn(t).sort(byValue);
+        html += `<section class="tl-group"><div class="tl-head"><h4>${esc(TANKS[t].name)}<small>${list.length} of ${TANKS[t].cap}</small></h4><button type="button" class="text-btn" data-tk="visit" data-t="${t}">Visit</button></div>`;
+        html += list.length ? `<ul class="fishlist">${list.map(rowHTML).join('')}</ul>` : '<p class="empty">No fish here yet. Move some in from your other tanks.</p>';
+        html += '</section>';
       }
-      html += '</ul>';
+    } else {
+      const list = fishIn(here).sort(byValue);
+      html = list.length ? `<ul class="fishlist">${list.map(rowHTML).join('')}</ul>`
+        : `<p class="empty">${multi() ? `No fish in the ${esc(TANKS[here].name)} yet. Move some in from your other tanks, or keep a new catch.` : 'Your tank is empty. Fish you keep come to live here.'}</p>`;
     }
     box.innerHTML = html;
     box.hidden = false;
@@ -1717,15 +1820,155 @@ const Tank = (() => {
     });
   }
   function renderUI() {
-    renderHead(); renderBar(); renderList(); renderCard(true);
+    renderHead(); renderTabs(); renderBar(); renderList(); renderCard(true);
+    // a new, empty tank says how to fill it
+    $('#empty-tank').hidden = !(view === 'tank' && multi() && !fishIn(here).length && api.save.net.length);
     $('#tank-stage').classList.toggle('listing', view === 'list');
   }
   function toggleView() {
     view = view === 'list' ? 'tank' : 'list';
+    closeMove();
     play('click');
-    if (view === 'list') sel = null;
+    if (view === 'list') sel = null; else listAll = false;
     UIFX.swap($('#m-tank .card'), $('#tank-stage'), renderUI, view === 'list' ? 1 : -1);
   }
+
+  /* ================= Moving fish between tanks =================
+     A fish's Move button opens a small panel of your other tanks. A tank with room takes it at once; a
+     full one opens to show its fish, and picking one swaps the two. A fish that leaves swims up and out;
+     one that arrives drops in from above. Bonds go with them. */
+  let moving = null, listAll = false;
+  function openMove(uid) { moving = { uid, open: null }; play('click'); renderMove(); }
+  function closeMove() { if (!moving) return; moving = null; renderMove(); }
+  function renderMove() {
+    const el = $('#move-menu');
+    const rec = moving && fishRec(moving.uid);
+    if (!rec) { moving = null; el.hidden = true; el.innerHTML = ''; return; }
+    const from = tankOf(rec), name = SPECIES[rec.id].name, m = mateRec(rec);
+    let h = `<div class="mm-box"><div class="mm-head"><h3>Move your ${esc(name)}</h3><button type="button" class="fc-close" data-mm="close" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
+    if (m) h += `<p class="mm-note">${tankOf(m) === from ? 'Its mate lives here too.' : `Its mate lives in the ${esc(TANKS[tankOf(m)].name)}.`} Mates make more pearls when they share a tank.</p>`;
+    for (const t of tanks().slice().reverse()) {
+      const n = fishIn(t).length, cap = TANKS[t].cap, full = n >= cap, isHere = t === from, withMate = m && tankOf(m) === t && !isHere;
+      const label = `${esc(TANKS[t].name)}${withMate ? ' <span aria-label="its mate is here">💕</span>' : ''}`;
+      if (isHere) h += `<button type="button" class="mm-tank here" data-mm="none" aria-disabled="true"><span>${label}</span><small>Lives here</small></button>`;
+      else if (!full) h += `<button type="button" class="mm-tank" data-mm="to" data-t="${t}"><span>${label}</span><small>${n} of ${cap}</small></button>`;
+      else {
+        h += `<button type="button" class="mm-tank full" data-mm="swap" data-t="${t}" aria-expanded="${moving.open === t}"><span>${label}</span><small>Full · swap</small></button>`;
+        if (moving.open === t) {
+          h += `<div class="mm-swap"><p>Swap places with…</p>${fishIn(t).sort((a, b) => b.value - a.value).map(o => {
+            const sp = SPECIES[o.id];
+            return `<button type="button" class="mm-fish" data-mm="with" data-uid="${o.uid}" style="--rc:${RARITIES[sp.rarity].color}"><i class="dot"></i>${esc(sp.name)}${o.fav ? ' <span aria-label="starred">★</span>' : ''}<small>${pearlsHTML(o.value)}</small></button>`;
+          }).join('')}</div>`;
+        }
+      }
+    }
+    el.innerHTML = h + '</div>';
+    el.hidden = false;
+    const first = el.querySelector('[data-mm="to"], [data-mm="swap"], [data-mm="with"]');
+    if (first && !moving.focused) { moving.focused = true; first.focus({ preventScroll: true }); }
+  }
+  function onMoveMenu(e) {
+    if (e.target === e.currentTarget) { closeMove(); return; }
+    const b = e.target.closest('[data-mm]');
+    if (!b || !moving) return;
+    const uid = moving.uid;
+    switch (b.dataset.mm) {
+      case 'close': closeMove(); break;
+      case 'to': moving = null; moveFish(uid, +b.dataset.t); renderMove(); break;
+      case 'swap': moving.open = moving.open === +b.dataset.t ? null : +b.dataset.t; play('click'); renderMove(); { const x = $('#move-menu [data-mm="with"]'); if (x) x.focus({ preventScroll: true }); } break;
+      case 'with': moving = null; swapFish(uid, +b.dataset.uid); renderMove(); break;
+    }
+  }
+  /* Send a fish to tank `to`. Returns false if that tank is full. */
+  function relocate(rec, to) {
+    const from = tankOf(rec);
+    if (from === to) return false;
+    rec.t = to; rec.seen = false;
+    const f = fish.find(x => x.uid === rec.uid && !x.leaving);
+    if (f) {
+      if (f.int) endInt(f.int);
+      f.react = null; f.leaving = { kind: 'move', t: 0 };
+      sparkle(f.x, f.y, '#dff6ff', 4);
+      for (let k = 0; k < 4; k++) TankEnv.bubble(sc, f.x + rand(-1, 1) * f.len * 0.4, f.y, U * rand(0.2, 0.45), { z: f.z });
+      if (sel === f) sel = null;
+    }
+    // back with its mate: they greet each other when you next look in on them
+    const m = mateRec(rec);
+    if (m && tankOf(m) === to) S.meet = (S.meet || []).filter(([a]) => a !== rec.uid).concat([[rec.uid, m.uid]]).slice(-8);
+    return true;
+  }
+  function afterMove(msg) {
+    dirty = true; affC.clear(); sellArmed = releaseArmed = 0;
+    play('boop');
+    api.toast(msg, '#9fe3b0', 2800);
+    api.persist(); api.refresh();
+    layout();
+    renderUI();
+  }
+  function moveFish(uid, to) {
+    const rec = fishRec(uid);
+    if (!rec || to < 0 || to > api.save.netTier || fishIn(to).length >= TANKS[to].cap || !relocate(rec, to)) return false;
+    const name = SPECIES[rec.id].name, m = mateRec(rec);
+    afterMove(`Your ${name} moves to the ${TANKS[to].name}${m ? (tankOf(m) === to ? ', back with its mate 💕' : '. It will miss its mate') : ''}.`);
+    return true;
+  }
+  function swapFish(a, b) {
+    const A = fishRec(a), B = fishRec(b);
+    if (!A || !B) return false;
+    const ta = tankOf(A), tb = tankOf(B);
+    if (ta === tb) return false;
+    relocate(A, tb); relocate(B, ta);
+    afterMove(`Your ${SPECIES[A.id].name} and ${SPECIES[B.id].name} swap tanks.`);
+    return true;
+  }
+
+  /* ================= Switching tanks ================= */
+  function popBorn() {
+    let i = 0;
+    for (const d of drops) if (d.born) { delete d.born; pops.set(d.k, { t: -0.55 - i * 0.07, ring: i++ % 3 === 0 }); }
+  }
+  // which tank to show on opening: the one asked for, else the last one looked at, unless another's sand is full
+  function pickTank(t) {
+    const n = api.save.netTier;
+    if (Number.isInteger(t)) return clamp(t, 0, n);
+    const at = clamp(S.at | 0, 0, n);
+    if (bedFull(at)) return at;
+    for (let i = n; i >= 0; i--) if (bedFull(i)) return i;
+    if (!fishIn(at).length) for (let i = n; i >= 0; i--) if (fishIn(i).length) return i;
+    return at;
+  }
+  function switchTank(t) {
+    t = clamp(t | 0, 0, api.save.netTier);
+    if (t === here) return;
+    for (const I of ints.slice()) endInt(I);
+    parts = []; falling.clear(); lifted.clear(); pops.clear(); lifts = []; hold = null;
+    fish = []; sel = null; down = null; drag = null; pearlHinted = false;
+    $('#pearl-hint').hidden = true;
+    here = S.at = t; drops = sandOf(t); dirty = true;
+    materialize(t);
+    sc = null;
+    layout();
+    popBorn();
+    play('tankOpen');
+    greet();
+  }
+  /* Fish who became mates while you were away, or who were brought back together, greet each other once
+     you are looking at their tank. */
+  function greet() {
+    const both = ([a, b]) => byUid(a) && byUid(b);
+    const news = (S.news || []).filter(both), meet = (S.meet || []).filter(both);
+    S.news = (S.news || []).filter(p => !both(p));
+    S.meet = (S.meet || []).filter(p => !both(p));
+    news.concat(meet).forEach(([a, b], i) => setTimeout(() => { const A = byUid(a), B = byUid(b); if (isOpen && A && B) celebrate(A, B); }, 2300 + i * 1800));
+  }
+  /* A fish that misses someone in another tank now and then drifts to the side glass and looks out. */
+  function pine(f) {
+    const left = f.x < (sc.swim.x0 + sc.swim.x1) / 2, x = left ? sc.swim.x0 + f.len * 0.7 : sc.swim.x1 - f.len * 0.7;
+    go(f, 'look', rand(2.8, 4.2), x, clamp(f.y, sc.swim.y0, floorAt(x) - f.hh), 0.5);
+    f.face = left ? -1 : 1; f.faceLock = 3.5;
+    setTimeout(() => { if (isOpen && !f.leaving) TankEnv.bubble(sc, f.x + f.face * f.len * 0.45, f.y - f.hh * 0.3, U * 0.28, { z: f.z }); }, 1600);
+  }
+
   function sellFish(uids, how = 'sell') {
     const s = api.save;
     let total = 0, n = 0;
@@ -1759,8 +2002,8 @@ const Tank = (() => {
     renderUI();
   }
   function sellAll() {
-    const s = api.save;
-    if (Date.now() - sellAllArmed < 3200) { sellAllArmed = 0; sellFish(s.net.filter(f => !f.fav).map(f => f.uid)); return; }
+    const s = api.save, scope = view === 'list' && listAll ? s.net : fishIn(here);
+    if (Date.now() - sellAllArmed < 3200) { sellAllArmed = 0; sellFish(scope.filter(f => !f.fav).map(f => f.uid)); return; }
     sellAllArmed = Date.now();
     play('click');
     renderBar();
@@ -1779,19 +2022,35 @@ const Tank = (() => {
       case 'release':
         if (Date.now() - releaseArmed > 3200) { releaseArmed = Date.now(); play('click'); renderCard(true); setTimeout(() => isOpen && renderCard(true), 3300); break; }
         sellFish([rec.uid], 'release'); break;
-      case 'goto': { const g = byUid(+b.dataset.uid); if (g) select(g, g.x, g.y); break; }
+      case 'move': openMove(rec.uid); break;
+      case 'goto': {
+        const uid = +b.dataset.uid, o = fishRec(uid);
+        if (!o) break;
+        if (tankOf(o) !== here) { switchTank(tankOf(o)); renderUI(); }
+        const g = byUid(uid);
+        if (g) select(g, g.x, g.y);
+        break;
+      }
     }
   }
   function onList(e) {
     const b = e.target.closest('[data-tk]');
     if (!b) return;
+    if (b.dataset.tk === 'visit') {
+      const t = +b.dataset.t;
+      listAll = false; view = 'tank';
+      UIFX.swap($('#m-tank .card'), $('#tank-stage'), () => { switchTank(t); renderUI(); }, -1);
+      return;
+    }
     const uid = +b.dataset.uid, rec = fishRec(uid);
     if (!rec) return;
     if (b.dataset.tk === 'fav') { rec.fav = !rec.fav; play('equip'); api.persist(); UIFX.morph($('#m-tank .card'), renderUI); }
     else if (b.dataset.tk === 'sell') sellFish([uid]);
+    else if (b.dataset.tk === 'move') openMove(uid);
     else if (b.dataset.tk === 'show') {
-      view = 'tank';
-      UIFX.swap($('#m-tank .card'), $('#tank-stage'), () => { renderUI(); const f = byUid(uid); if (f) { sel = f; reactTo(f, f.x, f.y); renderCard(true); } }, -1);
+      const t = tankOf(rec);
+      view = 'tank'; listAll = false;
+      UIFX.swap($('#m-tank .card'), $('#tank-stage'), () => { switchTank(t); renderUI(); const f = byUid(uid); if (f) { sel = f; reactTo(f, f.x, f.y); renderCard(true); } }, -1);
     }
   }
 
@@ -1836,14 +2095,14 @@ const Tank = (() => {
     else { sc.clip = new Path2D(); sc.clip.rect(sc.ix0, sc.iy0, sc.iw, sc.ih); }
     if (SPR.size > 90) { SPR.clear(); queue.length = 0; }
     pearlSprites.clear();
-    for (const d of S.drops) if (d.row === undefined || !old) place(d);
+    for (const d of drops) if (d.row === undefined || !old) place(d);
     syncFish(old);
   }
   function syncFish(old) {
     const keep = new Map(fish.filter(f => !f.leaving).map(f => [f.uid, f]));
     const next = [];
     let entering = 0;
-    for (const rec of api.save.net) {
+    for (const rec of fishIn(here)) {
       let f = keep.get(rec.uid);
       if (f) {
         f.rec = rec;
@@ -1877,32 +2136,38 @@ const Tank = (() => {
     for (const f of fish) sprite(f.id, f.dw * DPR);
     bake(160);
   }
+  /* o: { tank (which tank to show), list (open on the list), all (the list of every fish), check } */
   function open(o = {}) {
     if (!api || isOpen) return;
     if (o.check && !api.canUse()) return;
-    settle(Date.now(), true);
+    settle(Date.now());
+    const t = pickTank(o.tank);
+    if (t !== here) { fish = []; sc = null; }
+    here = S.at = t; drops = sandOf(t);
+    materialize(t);
     S.last = Date.now();
     isOpen = true;
     view = o.list ? 'list' : 'tank';
-    sel = null; sellAllArmed = sellArmed = releaseArmed = 0; cardSig = ''; pearlHinted = false;
+    listAll = !!o.all && multi();
+    sel = null; sellAllArmed = sellArmed = releaseArmed = 0; cardSig = ''; tabSig = ''; pearlHinted = false; moving = null;
     $('#pearl-hint').hidden = true;
     api.openModal('#m-tank');
     play('tankOpen');
     layout();
-    let i = 0;
-    for (const d of S.drops) if (d.born) { delete d.born; pops.set(d.k, { t: -0.55 - i * 0.07, ring: i++ % 3 === 0 }); }
+    popBorn();
     renderUI();
+    renderMove();
     $('#tank-hint').hidden = !!S.hinted || view === 'list';
     if (!S.hinted) { S.hinted = true; dirty = true; }
-    const news = (S.news || []).slice();
-    S.news = [];
-    news.forEach(([a, b], i) => setTimeout(() => { const A = byUid(a), B = byUid(b); if (isOpen && A && B) celebrate(A, B); }, 1400 + i * 1800));
+    greet();
     api.refresh();
   }
   function onClosed() {
     if (!isOpen) return;
     isOpen = false;
-    sel = null; down = null; drag = null;
+    sel = null; down = null; drag = null; moving = null;
+    $('#move-menu').hidden = true;
+    S.at = here;
     S.last = Date.now();
     for (const I of ints.slice()) endInt(I);
     parts = []; falling.clear(); lifted.clear(); pops.clear(); lifts = []; hold = null;
@@ -1942,6 +2207,7 @@ const Tank = (() => {
       renderCard();
       placeCard();
       renderPearlHint();
+      renderTabs();
       const k = clamp((T - lastFeed) / FEED_COOL, 0, 1), fb = $('#tank-feed');
       fb.style.setProperty('--cool', k.toFixed(3));
       fb.classList.toggle('cooling', k < 1);
@@ -1949,13 +2215,21 @@ const Tank = (() => {
     if (dirty && (saveT -= dt) <= 0) { saveT = 5; dirty = false; api.persist(); }
   }
   function onResize() { if (isOpen) { clearTimeout(rT); rT = setTimeout(() => { layout(); renderCard(true); }, 140); } }
-  // what is waiting in the tank: pearls on the sand or ready to appear, whether the sand is full, new friends
+  /* What is waiting in the aquariums, in all and tank by tank: pearls on the sand or ready to appear,
+     whether a tank's sand is full, and new friends. */
   function pending() {
-    if (!S) return { pearls: 0, value: 0, full: false, hearts: 0 };
-    let n = S.drops.length, v = 0;
-    for (const d of S.drops) v += d.v;
-    for (const k in S.acc || {}) { const a = Math.floor(S.acc[k]); if (a >= 1) { n++; v += a; } }
-    return { pearls: n, value: v, full: bedFull(), hearts: S.news ? S.news.length : 0 };
+    const out = { pearls: 0, value: 0, full: false, hearts: S && S.news ? S.news.length : 0, tanks: [] };
+    if (!S || !api) return out;
+    S.sands = S.sands || {}; S.acc = S.acc || {}; S.fedAt = S.fedAt || {};
+    for (const t of tanks()) {
+      let n = sandOf(t).length, v = 0;
+      for (const d of sandOf(t)) v += d.v;
+      for (const r of fishIn(t)) { const a = Math.floor(S.acc[r.uid] || 0); if (a >= 1) { n++; v += a; } }
+      const full = bedFull(t);
+      out.tanks.push({ t, pearls: n, value: v, full, fish: fishIn(t).length, cap: TANKS[t].cap });
+      out.pearls += n; out.value += v; out.full = out.full || full;
+    }
+    return out;
   }
 
   /* ================= Market previews ================= */
@@ -2001,14 +2275,20 @@ const Tank = (() => {
     $('#tank-sellall').addEventListener('click', sellAll);
     $('#fish-card').addEventListener('click', onCard);
     $('#tank-list').addEventListener('click', onList);
+    $('#tank-tabs').addEventListener('click', onTabs);
+    $('#move-menu').addEventListener('click', onMoveMenu);
+    $('#empty-move').addEventListener('click', () => { listAll = true; view = 'list'; play('click'); UIFX.swap($('#m-tank .card'), $('#tank-stage'), renderUI, 1); });
+    // Escape closes the move panel before it closes the aquarium
+    window.addEventListener('keydown', e => { if (moving && e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); closeMove(); } }, true);
     window.addEventListener('resize', onResize);
     settle();
+    here = clamp(S.at | 0, 0, api.save.netTier); drops = sandOf(here);
   }
 
   return {
-    init, open, onClosed, frame, settle, pending, preview,
+    init, open, onClosed, frame, settle, pending, preview, homeFor,
     get isOpen() { return isOpen; },
     /* for tests and the console */
-    _debug: { get fish() { return fish; }, get sc() { return sc; }, get parts() { return parts; }, reactTo, startInteraction, select, feed, tapAt, collect, settle, pearlPos, sweep, accrue, bedValue, bedCap, tankRate, pending, YIELD, pearlSprite, get falling() { return falling.size; }, get lifted() { return lifted.size; } },
+    _debug: { get fish() { return fish; }, get sc() { return sc; }, get parts() { return parts; }, reactTo, startInteraction, select, feed, tapAt, collect, settle, pearlPos, sweep, accrue, bedValue, bedCap, tankRate, pending, YIELD, pearlSprite, moveFish, swapFish, switchTank, fishIn, get here() { return here; }, get falling() { return falling.size; }, get lifted() { return lifted.size; } },
   };
 })();

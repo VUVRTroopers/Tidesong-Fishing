@@ -198,23 +198,22 @@ const Shop = (() => {
   }
 
   function renderTanks() {
-    const s = api.save, cur = s.netTier, here = TANKS[cur];
-    let html = `<p class="tab-note">Fish you keep live in your aquarium. Each tank holds more fish than the last, and each is more elaborate, with more for your fish to explore. Your fish move house with you. Tanks are bought in order.</p>
-      <div class="tank-visit"><span>Your fish live in the <b>${esc(here.name)}</b>: ${s.net.length} of ${here.cap}.</span><button type="button" class="secondary-btn" data-action="visit">Visit your tank</button></div>
+    const s = api.save, cur = s.netTier, room = tanksRoom(cur), inTank = i => s.net.filter(f => (f.t | 0) === i).length;
+    let html = `<p class="tab-note">Fish you keep live in your aquariums. Every tank you buy is yours to keep: each one adds its room to the tanks you already have, and is more elaborate than the last. Move fish between tanks whenever you like. Tanks are bought in order.</p>
+      <div class="tank-visit"><span>${cur ? `Your <b>${cur + 1} tanks</b> hold` : `Your <b>${esc(TANKS[0].name)}</b> holds`} ${s.net.length} of ${room} fish.</span><button type="button" class="secondary-btn" data-action="visit">Visit your ${cur ? 'tanks' : 'tank'}</button></div>
       <div class="items tank-grid">`;
     TANKS.forEach((T, i) => {
-      const state = i < cur ? 'past' : i === cur ? 'current' : i === cur + 1 ? 'next' : 'later';
+      const state = i <= cur ? 'current' : i === cur + 1 ? 'next' : 'later';
       const afford = s.pearls >= T.price;
       let foot;
-      if (state === 'current') foot = '<span class="on-pill">Your tank</span>';
-      else if (state === 'past') foot = '<span class="muted">Outgrown</span>';
-      else if (state === 'next') foot = `<button type="button" class="buy-btn" data-action="buy-tank" ${afford ? '' : 'disabled'}>Move in · ${pearls(T.price)}</button>${afford ? '' : `<span class="need">Need ${pearls(T.price - s.pearls)} more</span>`}`;
+      if (state === 'current') foot = `<span class="on-pill">Yours · ${inTank(i)} of ${T.cap}</span><button type="button" class="secondary-btn" data-action="visit" data-t="${i}">Visit</button>`;
+      else if (state === 'next') foot = `<button type="button" class="buy-btn" data-action="buy-tank" ${afford ? '' : 'disabled'}>Buy · ${pearls(T.price)}</button>${afford ? '' : `<span class="need">Need ${pearls(T.price - s.pearls)} more</span>`}`;
       else foot = `<span class="muted">${pearls(T.price)} · after the ${esc(TANKS[i - 1].name)}</span>`;
       html += `
         <article class="item tank-item ${state}${state === 'current' ? ' on' : ''}">
           <canvas class="item-art tank-art" data-tank="${T.id}" aria-hidden="true"></canvas>
           <div class="item-body">
-            <h4>${esc(T.name)} <span class="have">${T.cap} fish</span></h4>
+            <h4>${esc(T.name)} <span class="have">${i <= cur ? '' : '+'}${T.cap} fish</span></h4>
             <p>${esc(T.blurb)}</p>
           </div>
           <div class="item-foot">${foot}</div>
@@ -317,12 +316,13 @@ const Shop = (() => {
         const next = TANKS[s.netTier + 1];
         if (!next || !spend(next.price)) return;
         s.netTier += 1;
+        s.tank.at = s.netTier;
         api.play('buy');
-        api.toast(`Your fish have moved into the ${next.name}: room for ${next.cap}`, '#9fe3b0', 3200);
+        api.toast(`The ${next.name} is yours: room for ${next.cap} more fish, ${tanksRoom(s.netTier)} in all. Move fish in from your other tanks whenever you like.`, '#9fe3b0', 4200);
         break;
       }
       case 'visit':
-        api.openTank();
+        api.openTank(b.dataset.t !== undefined ? +b.dataset.t : undefined);
         return;
     }
     api.persist();

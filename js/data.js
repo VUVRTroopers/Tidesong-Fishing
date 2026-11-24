@@ -326,19 +326,47 @@ function rarityOdds(loc, baitId) {
   return out;
 }
 
-/* Aquariums, bought in order. Kept fish live and swim here; each tank holds more fish and is more
-   elaborate than the last (js/tank.js draws and runs them). */
+/* Aquariums, bought in order and all kept: each new tank adds its room to the ones you have, and fish can
+   move between them. Sizes, prices and the pearl yields in js/tank.js were tuned together so that a
+   player who keeps good fish moves up the gear ladder about a fifth faster than one who sells
+   everything, while fishing stays the main income. Every tank you own holds at least as many fish in
+   all as the one tank you had before tanks were kept (8, 12, 16, 24, 32, 48), so no save loses a fish. */
 const TANKS = [
   { id: 'bowl',   name: 'Glass Bowl',     cap: 8,  price: 0,
     blurb: 'A round glass bowl on the windowsill, with coloured pebbles and a sprig of green.' },
-  { id: 'reed',   name: 'Reed Tank',      cap: 12, price: 200,
+  { id: 'reed',   name: 'Reed Tank',      cap: 10, price: 250,
     blurb: 'A proper little tank: reeds, a mossy log, and an air stone that keeps the water fizzing.' },
-  { id: 'lily',   name: 'Lily Garden',    cap: 16, price: 500,
+  { id: 'lily',   name: 'Lily Garden',    cap: 12, price: 750,
     blurb: 'An oak-framed water garden with lily pads overhead, a driftwood arch and soft green moss balls.' },
-  { id: 'reef',   name: 'Coral Reef',     cap: 24, price: 1200,
+  { id: 'reef',   name: 'Coral Reef',     cap: 14, price: 2000,
     blurb: 'A brass-trimmed reef of corals and swaying anemone, with a giant clam and a chest that remembers treasure.' },
-  { id: 'wreck',  name: 'Shipwreck Cove', cap: 32, price: 3000,
+  { id: 'wreck',  name: 'Shipwreck Cove', cap: 16, price: 5000,
     blurb: 'A sunken ship in a kelp forest, sunbeams slanting down through blue water. A diver\'s helmet still breathes bubbles.' },
-  { id: 'palace', name: 'Moon Palace',    cap: 48, price: 7500,
+  { id: 'palace', name: 'Moon Palace',    cap: 20, price: 12000,
     blurb: 'A moonlit underwater palace: a moon gate, a stone dragon blowing rings of bubbles, lantern plants that glow at a touch.' },
 ];
+
+/* Room in all the tanks owned when the newest is tier n. */
+const tanksRoom = n => TANKS.slice(0, n + 1).reduce((a, t) => a + t.cap, 0);
+
+/* Give every kept fish a home tank (its `t`). A fish already at home stays unless its tank is over its
+   size. The rest settle, most valuable first: beside their mate if there is room, mates together
+   otherwise, in the newest tank with room. No fish is ever dropped: if every tank is full, it goes to
+   the newest. */
+function homeFish(s) {
+  const n = s.netTier, room = TANKS.slice(0, n + 1).map(t => t.cap), used = room.map(() => 0);
+  const mates = (s.tank && s.tank.mates) || {}, byUid = new Map(s.net.map(f => [f.uid, f])), placed = new Set();
+  const ok = f => Number.isInteger(f.t) && f.t >= 0 && f.t <= n;
+  const put = (f, t) => { f.t = t; used[t] += 1; placed.add(f.uid); };
+  const free = need => { for (let i = n; i >= 0; i--) if (room[i] - used[i] >= need) return i; return -1; };
+  for (const f of s.net) if (ok(f) && used[f.t] < room[f.t]) { used[f.t] += 1; placed.add(f.uid); }
+  const rest = s.net.filter(f => !placed.has(f.uid)).sort((a, b) => (b.value || 0) - (a.value || 0));
+  for (const f of rest) {
+    if (placed.has(f.uid)) continue;
+    const m = byUid.get(mates[f.uid]);
+    if (m && placed.has(m.uid) && used[m.t] < room[m.t]) { put(f, m.t); continue; }
+    if (m && !placed.has(m.uid)) { const t = free(2); if (t >= 0) { put(f, t); put(m, t); continue; } }
+    const t = free(1);
+    put(f, t >= 0 ? t : n);
+  }
+}

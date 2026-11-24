@@ -13,8 +13,9 @@ wait for a bite, then hold to keep the gold fish marker inside your green band u
   devices without WebGL.
 - **A market of 88 pieces of gear** in seven themes on one tier ladder. Every tier offers several
   styles at the same price and boost, up to Heirloom pieces that take a whole career to save for.
-- **A living aquarium** for the fish you keep: six tanks from a glass bowl to a moonlit palace, where
-  fish explore, meet, make friends and sometimes mates, and every one of them slowly makes pearls.
+- **A living aquarium** for the fish you keep: six tanks from a glass bowl to a moonlit palace, all
+  kept as you buy them, where fish explore, meet, make friends and sometimes mates, and every one of
+  them slowly makes pearls.
 - **Progress saves automatically** in the browser.
 
 ## Contents
@@ -145,9 +146,10 @@ the catch screen or later from your aquarium, and spend them on:
   - **Rods** widen the green band.
   - **Bobbers** make the ring fill faster while the fish is in the band.
   - **Lines** slow the ring's drain when it slips out.
-- **Aquariums:** six tanks, bought in order, from 8 fish up to 48. Each is more elaborate than the
-  last (see [The aquarium](#the-aquarium)). A full tank means selling or releasing a fish before you
-  can keep another.
+- **Aquariums:** six tanks, bought in order. Every tank you buy is kept and adds its room to the
+  others, from 8 fish with the first up to 80 with all six, and each is more elaborate than the last
+  (see [The aquarium](#the-aquarium)). When every tank is full, keeping a new fish means selling or
+  releasing one first.
 
 Star a fish to protect it from "Sell all unstarred". Legendary and Extreme catches are starred
 automatically.
@@ -186,12 +188,17 @@ careers, with three models of human play (casual, steady and focused):
   Tier V kit and two thirds of the time with Heirloom I. Only a full Heirloom III kit makes it close
   to certain, and a casual player still finds it a challenge even then.
 
-The aquarium's pearls were tuned the same way, over thirty days of real time for players who fish
-for 30 minutes, an hour or two hours a day and look in two to four times a day:
+The aquariums' pearls, sizes and prices were tuned the same way, over thirty days of real time for
+players who fish for 30 minutes, an hour or two hours a day and look in two to four times a day:
 
-- Fishing always pays far better than waiting. Late in the game a full tank of trophies makes about
-  1,500 pearls an hour against 9,000 to 21,000 an hour from fishing, and a full eight-hour sand is
-  worth about three quarters of an hour of a steady player's fishing.
+- Fishing always pays far better than waiting. Late in the game all six tanks full of trophies make
+  about 1,500 to 2,000 pearls an hour against 9,000 to 21,000 an hour from fishing, and a night's
+  pearls are worth about an hour of a steady player's fishing.
+- Keeping every tank changed how many fish a player can farm, so it was rebalanced as a whole: the
+  later tanks are smaller than when only one was kept (6 tanks holding 80 fish in all, not one of
+  48), each makes about a fifth fewer pearls per fish, and tanks cost as much as the gear tier of the
+  same rank. Every milestone landed within a day of where it was before tanks were kept (within half
+  a day for steady and focused players).
 - A player who keeps their best fish and sells some when an upgrade is in reach gets through the gear
   ladder about a fifth faster than one who sells everything (a steady player reaches Heirloom II on
   day 16 instead of day 21). After the first few days the tank brings a steady player about a quarter
@@ -208,10 +215,10 @@ for 30 minutes, an hour or two hours a day and look in two to four times a day:
 
 ## The aquarium
 
-Fish you keep live in an aquarium, opened from the bowl button under the place name. Tap a fish to
-follow it with a card showing its weight, length, temperament and friendships, and to star, sell or
-release it. **List** shows every fish, most valuable first; **Sell all unstarred** clears out the
-rest; and **Feed** (once every 30 seconds) sprinkles food: ragged flakes in the usual mix of colours
+Fish you keep live in your aquariums, opened from the bowl button under the place name. Tap a fish to
+follow it with a card showing its weight, length, temperament and friendships, and to star, sell,
+move or release it. **List** shows the tank's fish, most valuable first; **Sell unstarred** clears
+out the rest; and **Feed** (once every 30 seconds) sprinkles food: ragged flakes in the usual mix of colours
 that float a while, then tumble down, and a few pellets that sink straight to the bottom-dwellers.
 Each fish noses up to a morsel and snaps it up: it is sucked into its mouth, crumbs drift away and
 the fish chews. A big flake can take two bites.
@@ -224,14 +231,34 @@ fish holding still keeps sculling, and one climbing or diving arches into it. Fi
 their own length: a 9 cm fish is about half the length of a 36 cm one, and the very largest are
 gently scaled down so they still fit.
 
+**Every tank you buy is kept.** Each new tank adds its room to the ones you have, and fish move freely
+between them:
+
+- **Tabs** above the tank switch between your tanks. Each shows how full it is, and a pearl when
+  pearls wait on its sand (gold when its sand is full). The aquarium opens on the tank you last looked
+  at, unless another tank's sand is full.
+- **Move** (on a fish's card, or beside it in the list) opens a small panel of your other tanks. A
+  tank with room takes the fish at once. A full one opens to show its fish, and picking one swaps the
+  two. The fish swims up and out, and drops in from above when you next look in on its new tank.
+- **All fish** lists every fish tank by tank, with a Visit link for each, and its sell button sells
+  the unstarred fish in every tank. In a single tank it only sells that tank's.
+- **A new catch you keep** goes to the tank on screen (or last looked at) if it has room, and
+  otherwise to the newest tank with room.
+- **Friends and mates keep their bond** in different tanks, but bonds only grow while fish share a
+  tank. A fish whose mate or best friend lives elsewhere misses them: its card says so, it now and
+  then drifts to the side glass to look out, and mates lose their pearl bonus while apart. Bring them
+  back together and they greet each other with a dance.
+- Saves from before tanks were kept move over on their own: every fish is given a home, the most
+  valuable in the newest tank, mates together, and pearls on the old sand stay with them.
+
 | Tank | Fish | Price | What is in it |
 | --- | --- | --- | --- |
 | Glass Bowl | 8 | free | A round bowl on a windowsill at night: coloured glass pebbles and a sprig of green |
-| Reed Tank | 12 | 200 | Swaying reeds, a hollow mossy log, an air stone and a snail crawling on the sand |
-| Lily Garden | 16 | 500 | Lily pads and lotus overhead, a frog, a driftwood arch, rolling moss balls, a visiting dragonfly |
-| Coral Reef | 24 | 1,200 | Branching corals, a sea fan, an anemone, a giant clam and a treasure chest, under bright sunbeams |
-| Shipwreck Cove | 32 | 3,000 | A sunken ship in a kelp forest, a ship's bell, portholes, an anchor and a diver's helmet that breathes bubbles |
-| Moon Palace | 48 | 7,500 | A moon gate, a stone dragon blowing bubble rings, lantern plants, singing geodes, glowing sand and floating lanterns |
+| Reed Tank | +10 | 250 | Swaying reeds, a hollow mossy log, an air stone and a snail crawling on the sand |
+| Lily Garden | +12 | 750 | Lily pads and lotus overhead, a frog, a driftwood arch, rolling moss balls, a visiting dragonfly |
+| Coral Reef | +14 | 2,000 | Branching corals, a sea fan, an anemone, a giant clam and a treasure chest, under bright sunbeams |
+| Shipwreck Cove | +16 | 5,000 | A sunken ship in a kelp forest, a ship's bell, portholes, an anchor and a diver's helmet that breathes bubbles |
+| Moon Palace | +20 | 12,000 | A moon gate, a stone dragon blowing bubble rings, lantern plants, singing geodes, glowing sand and floating lanterns |
 
 ![The Coral Reef and the Moon Palace, with their fish](docs/screenshots/aquarium.jpg)
 
@@ -252,18 +279,18 @@ The game explains almost none of what follows; players find it by watching and t
   they know each other.
 - **Bonds.** Every pair has a bond from 0 to 100 that grows while they spend time near each other
   and with each meeting, faster for kin, for fish from the same waters, and for playful pairs, and
-  slower for two territorial fish. While the tank is closed, each fish spends its hours with the
-  few it gets on with best. Bonds show on a fish's card as Acquainted (20), Friends (50) and Best
+  slower for two territorial fish. While the tanks are closed, each fish spends its hours with the
+  few in its tank it gets on with best. Bonds show on a fish's card as Acquainted (20), Friends (50) and Best
   friends (80); friends seek each other out. Two of the same species who reach 100, both free,
   become **mates 💕** for life.
 - **Moonpearls.** Every kept fish slowly makes pearls, more the rarer it is: about 1 an hour for a
-  Common, 3 for a Rare, 7 for an Epic, 24 for a Legendary and 80 for an Extreme. Mates make half as
-  much again, and a tank fed in the last 15 minutes makes a quarter more. While you watch, a fish now
+  Common, 2.5 for a Rare, 5.5 for an Epic, 20 for a Legendary and 65 for an Extreme. Mates make half
+  as much again while they share a tank, and a tank fed in the last 15 minutes makes a quarter more. While you watch, a fish now
   and then lets a pearl go and it sinks, drifting to the strip of sand nearest the glass, where pearls
   rest in front of every rock, plant and wreck, so none is ever hidden. While you are away the pearls
   pile up and glint into view as a few big ones when you come back. Bigger pearls are worth more.
-  - **The sand holds about eight hours of the tank's making.** When it is full the fish stop until you
-    gather what is there, so coming back once or twice a day collects nearly everything, and nobody
+  - **Each tank's sand holds about eight hours of that tank's making.** When it is full its fish stop
+    until you gather what is there, so coming back once or twice a day collects nearly everything, and nobody
     out-earns play by leaving the game open.
   - **Gathering:** tap a pearl, sweep a finger (or the mouse) across the row to gather everything it
     passes over, or press and hold to open a moonlit eddy that draws nearby pearls in. Each pearl in a
@@ -271,7 +298,8 @@ The game explains almost none of what follows; players find it by watching and t
   - **Seeing them:** pearls float and bob a little above the sand over a breathing shadow, sit in a
     pool of shade and a soft glow in their rarity's colour, stand in a faint moonbeam, send out a ring
     now and then, and a glint runs along the row.
-  - Pearls waiting light a dot on the tank button, gold when the sand is full.
+  - Pearls waiting light a dot on the tank button, gold when a tank's sand is full; the tank tabs show
+    which.
 
 <details>
 <summary>Spoilers: what each tank's decor does</summary>
@@ -507,7 +535,7 @@ In the browser console:
 | `Tidesong.addPearls(1000)` | Grants Moonpearls |
 | `Tidesong.flourish('frog')` | Plays a water's rare moment now: `frog`, `dragonfly`, `fishjump`, `owl`, `wisp`, `gull`, `dolphins`, `shootingstar`, `whale`, `crane` or `dragon` (at the matching water) |
 | `Tank._debug.feed()` | Feeds the open aquarium (it has the same 30-second cooldown as the button) |
-| `Tank.settle(Date.now() + 6 * 3600e3)` | Lets six hours pass for the tank (pearls and bonds), then open it |
+| `Tank.settle(Date.now() + 6 * 3600e3)` | Lets six hours pass for the tanks (pearls and bonds), then open one |
 | `Tidesong.reset()` | Wipes the save |
 
 ## Browser support

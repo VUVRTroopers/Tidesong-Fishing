@@ -719,6 +719,61 @@
   .fc-act .text-btn { padding: 8px 6px; font-size: 13px; }
   .sell-btn.armed { background: linear-gradient(180deg, #ffb6a8, var(--ember) 55%, #d8604f); color: #2a0d08; box-shadow: inset 0 1px 0 rgba(255, 240, 235, 0.7), 0 0 0 1px rgba(110, 30, 20, 0.5); }
   .text-btn.armed { color: var(--ember); text-decoration-color: rgba(255, 140, 124, 0.6); }
+  /* tanks: one tab each, and one for every fish in the list */
+  .tank-tabs { display: flex; gap: 6px; margin: 12px -4px 0; padding: 2px 4px; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+  .tank-tabs::-webkit-scrollbar { display: none; }
+  .tank-tab { flex: none; white-space: nowrap; padding: 7px 12px; }
+  .tank-tab small { font-size: 11.5px; font-weight: 700; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+  .tank-tab.on small { color: inherit; opacity: 0.85; }
+  .tank-tab.full-tank small { color: var(--ember); }
+  .tt-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: radial-gradient(circle at 35% 35%, #fff, #f2e8ff 45%, #c8b4f0); box-shadow: 0 0 6px rgba(220, 200, 255, 0.85); }
+  .tt-dot.full { background: radial-gradient(circle at 35% 35%, #fff, #fff1c4 45%, #f3c86a); box-shadow: 0 0 8px rgba(255, 214, 120, 1); }
+  /* moving a fish: a small panel over the tank */
+  .move-menu {
+    position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; padding: 14px; background: rgba(4, 10, 16, 0.5);
+    -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: fcIn 0.24s var(--ease) both;
+  }
+  .mm-box {
+    width: min(360px, 100%); max-height: 100%; overflow: auto; padding: 14px; border-radius: 18px; display: grid; gap: 8px;
+    background: var(--grain), linear-gradient(180deg, rgba(22, 36, 48, 0.96), rgba(8, 16, 24, 0.97)); box-shadow: var(--slab-edge), 0 16px 40px rgba(0, 0, 0, 0.5);
+  }
+  .mm-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .mm-head h3 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 18px; }
+  .mm-note { margin: 0; font-size: 12.5px; color: var(--ink-soft); line-height: 1.45; }
+  .mm-tank {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; padding: 11px 13px; border: 0; border-radius: 13px; text-align: left;
+    font-weight: 800; font-size: 14px; color: var(--ink); background: var(--pebble-fill); box-shadow: var(--pebble-edge);
+  }
+  .mm-tank:hover { box-shadow: var(--pebble-edge), inset 0 0 0 1px rgba(150, 226, 168, 0.45); }
+  .mm-tank small { font-size: 12px; font-weight: 700; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+  .mm-tank.here { opacity: 0.55; cursor: default; box-shadow: var(--well-edge); background: var(--well-fill); }
+  .mm-tank.full small { color: var(--ember); }
+  .mm-tank[aria-expanded="true"] { box-shadow: var(--well-edge), inset 0 0 0 1px rgba(232, 196, 108, 0.5); background: var(--well-fill); }
+  .mm-swap { display: grid; gap: 6px; padding: 2px 0 4px 10px; border-left: 2px solid rgba(232, 196, 108, 0.35); }
+  .mm-swap p { margin: 0; font-size: 12px; font-weight: 800; color: var(--brass); }
+  .mm-fish {
+    display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 11px; border: 0; border-radius: 11px; text-align: left; font-size: 13.5px; font-weight: 700;
+    color: var(--ink); background: var(--well-fill); box-shadow: var(--well-edge);
+  }
+  .mm-fish:hover { color: var(--brass); }
+  .mm-fish small { margin-left: auto; font-size: 12px; color: var(--ink-faint); display: inline-flex; align-items: center; gap: 4px; }
+  .move-btn { display: inline-flex; align-items: center; gap: 6px; }
+  .move-btn svg, .fr-move svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+  .fr-move { width: 38px; padding: 0; justify-content: center; }
+  /* every fish, tank by tank */
+  .tl-group + .tl-group { margin-top: 16px; }
+  .tl-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 2px 8px; }
+  .tl-head h4 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 16px; }
+  .tl-head small { font-family: var(--ui); font-size: 12px; font-weight: 700; color: var(--ink-faint); margin-left: 6px; font-variant-numeric: tabular-nums; }
+  .tl-head .text-btn { font-size: 12.5px; padding: 4px 2px; }
+  .empty-tank {
+    position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); width: min(340px, calc(100% - 32px)); padding: 14px 16px; border-radius: 16px;
+    display: grid; gap: 10px; justify-items: center; text-align: center; background: rgba(8, 16, 24, 0.66); box-shadow: var(--slab-edge);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); animation: fcIn 0.4s var(--ease) both;
+  }
+  .empty-tank p { margin: 0; font-size: 13.5px; font-weight: 700; color: var(--ink); line-height: 1.45; }
+  .fc-miss { margin: 0; font-size: 12.5px; color: #ffc6dc; line-height: 1.4; }
+  .fc-bond small { font-weight: 700; color: var(--ink-faint); }
   .tank-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 14px; margin-top: 14px; }
   .tank-cap { display: grid; gap: 7px; font-size: 13.5px; color: var(--ink-soft); flex: 1 1 150px; max-width: 280px; font-variant-numeric: tabular-nums; }
   .tank-cap b { color: var(--ink); }
@@ -942,6 +997,7 @@
         <div class="shop-wallet" id="tank-pearls"></div>
         <button class="close-btn" type="button" data-close aria-label="Close aquarium"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
+      <nav class="tank-tabs" id="tank-tabs" aria-label="Your aquariums" hidden></nav>
       <div class="tank-stage" id="tank-stage">
         <canvas id="tank-gl" aria-hidden="true"></canvas>
         <canvas id="tank-canvas" aria-label="Your aquarium. Tap a fish to see it up close, or use the list."></canvas>
@@ -949,6 +1005,8 @@
         <p class="tank-hint pearl-hint" id="pearl-hint" hidden>Sweep across the pearls, or press and hold, to gather them</p>
         <div class="fish-card" id="fish-card" hidden aria-live="polite"></div>
         <div class="tank-list" id="tank-list" hidden></div>
+        <div class="empty-tank" id="empty-tank" hidden><p>This tank is empty. Move fish in from your other tanks, or keep a new catch here.</p><button type="button" class="secondary-btn" id="empty-move">Move fish in</button></div>
+        <div class="move-menu" id="move-menu" hidden role="dialog" aria-modal="false"></div>
       </div>
       <div class="tank-bar">
         <div class="tank-cap" id="tank-cap"><span id="tank-count"></span><span class="netbar"><i id="tank-capbar"></i></span></div>
