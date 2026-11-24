@@ -14,7 +14,7 @@ wait for a bite, then hold to keep the gold fish marker inside your green band u
 - **A market of 88 pieces of gear** in seven themes on one tier ladder. Every tier offers several
   styles at the same price and boost, up to Heirloom pieces that take a whole career to save for.
 - **A living aquarium** for the fish you keep: six tanks from a glass bowl to a moonlit palace, where
-  fish explore, meet, make friends and sometimes mates, and the rarer ones leave pearls on the sand.
+  fish explore, meet, make friends and sometimes mates, and every one of them slowly makes pearls.
 - **Progress saves automatically** in the browser.
 
 ## Contents
@@ -186,6 +186,21 @@ careers, with three models of human play (casual, steady and focused):
   Tier V kit and two thirds of the time with Heirloom I. Only a full Heirloom III kit makes it close
   to certain, and a casual player still finds it a challenge even then.
 
+The aquarium's pearls were tuned the same way, over thirty days of real time for players who fish
+for 30 minutes, an hour or two hours a day and look in two to four times a day:
+
+- Fishing always pays far better than waiting. Late in the game a full tank of trophies makes about
+  1,500 pearls an hour against 9,000 to 21,000 an hour from fishing, and a full eight-hour sand is
+  worth about three quarters of an hour of a steady player's fishing.
+- A player who keeps their best fish and sells some when an upgrade is in reach gets through the gear
+  ladder about a fifth faster than one who sells everything (a steady player reaches Heirloom II on
+  day 16 instead of day 21). After the first few days the tank brings a steady player about a quarter
+  to two fifths of their pearls.
+- Rarer fish earn more for their slot, but commoner fish earn back their sale price sooner (an Epic
+  in about a day of making, a Legendary in about two). So selling a trophy for an upgrade now and
+  keeping it for its pearls are both good choices, and which is better depends on what you are saving
+  for.
+
 <p>
   <img src="docs/screenshots/rods.jpg" alt="Every rod by tier, lit by the dusk light of Lanternfen Marsh" width="49%">
   <img src="docs/screenshots/bobbers.jpg" alt="Every bobber by tier, floating on the water with reflections" width="49%">
@@ -241,11 +256,23 @@ The game explains almost none of what follows; players find it by watching and t
   few it gets on with best. Bonds show on a fish's card as Acquainted (20), Friends (50) and Best
   friends (80); friends seek each other out. Two of the same species who reach 100, both free,
   become **mates 💕** for life.
-- **Moonpearls.** Rare and rarer fish now and then drop a pearl that sinks to the sand, more often
-  if they are mated or have been fed in the last 15 minutes; tap it to collect it. Pearls keep
-  dropping while the tank is closed (a long absence counts for at most four hours), until the sand
-  holds `6 + 2 × tank` of them.
-  A pearl glinting in the tank lights a dot on the tank button.
+- **Moonpearls.** Every kept fish slowly makes pearls, more the rarer it is: about 1 an hour for a
+  Common, 3 for a Rare, 7 for an Epic, 24 for a Legendary and 80 for an Extreme. Mates make half as
+  much again, and a tank fed in the last 15 minutes makes a quarter more. While you watch, a fish now
+  and then lets a pearl go and it sinks, drifting to the strip of sand nearest the glass, where pearls
+  rest in front of every rock, plant and wreck, so none is ever hidden. While you are away the pearls
+  pile up and glint into view as a few big ones when you come back. Bigger pearls are worth more.
+  - **The sand holds about eight hours of the tank's making.** When it is full the fish stop until you
+    gather what is there, so coming back once or twice a day collects nearly everything, and nobody
+    out-earns play by leaving the game open.
+  - **Gathering:** tap a pearl, sweep a finger (or the mouse) across the row to gather everything it
+    passes over, or press and hold to open a moonlit eddy that draws nearby pearls in. Each pearl in a
+    quick run rings a note higher, and the run's total counts up beside your finger.
+  - **Seeing them:** pearls float and bob a little above the sand over a breathing shadow, sit in a
+    pool of shade and a soft glow in their rarity's colour, stand in a faint moonbeam, send out a ring
+    now and then, and a glint runs along the row. A badge in the corner shows what is waiting, what the
+    tank makes an hour and how full the sand is.
+  - Pearls waiting light a dot on the tank button, gold when the sand is full.
 
 <details>
 <summary>Spoilers: what each tank's decor does</summary>
@@ -461,8 +488,9 @@ Each piece in the catalogue below it names its theme and tier and takes everythi
 ladder. If you change the ladder, retune the Legendary and Extreme rows of `REEL` with it. Each water's colours and light are in `PAL` in
 `js/scenes.js`.
 
-In `js/tank.js`, `TR` holds each species' temperament, `PEARL` the pearl interval and value per
-rarity, and `affinity()` how readily two fish bond.
+In `js/tank.js`, `TR` holds each species' temperament, `YIELD` the pearls each rarity makes an hour,
+`DROP` the usual size of a pearl dropped while you watch, `BED_HOURS` how much the sand holds, and
+`affinity()` how readily two fish bond.
 
 ## Testing shortcuts
 

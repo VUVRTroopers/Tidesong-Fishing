@@ -2081,9 +2081,10 @@ const TankEnv = (() => {
   }
   const back = (c, sc, t) => ENVS[sc.id].back(c, sc, t);
   const mid = (c, sc, t) => { if (sc.mid) c.drawImage(sc.mid, 0, 0, sc.W, sc.H); ENVS[sc.id].mid(c, sc, t); };
-  const front = (c, sc, t) => { ENVS[sc.id].front(c, sc, t); c.drawImage(sc.fg, 0, 0, sc.W, sc.H); };
+  // `under` draws between the front decor and the glass (the aquarium puts its pearls there)
+  const front = (c, sc, t, under) => { ENVS[sc.id].front(c, sc, t); if (under) under(); c.drawImage(sc.fg, 0, 0, sc.W, sc.H); };
   const tap = (sc, x, y, api) => ENVS[sc.id].tap(sc, x, y, api);
   const shoo = sc => { if (ENVS[sc.id].shoo) ENVS[sc.id].shoo(sc); };
 
-  return { build, step, back, mid, front, tap, brush, bubble, shoo, insideEll, strandPts, rgba, glScene };
+  return { build, step, back, mid, front, tap, brush, bubble, shoo, insideEll, strandPts, rgba, mix, glScene };
 })();

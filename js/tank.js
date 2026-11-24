@@ -122,70 +122,115 @@ const Tank = (() => {
     return out.sort((x, y) => y.v - x.v);
   }
 
-  /* ================= Moonpearls ================= */
-  // seconds between drops, and the value range, for each rarity that drops them
-  const PEARL = { rare: [450, 1, 3], epic: [330, 3, 6], legendary: [240, 12, 20], extreme: [200, 40, 70] };
-  const lyingCap = () => 6 + api.save.netTier * 2;
+  /* ================= Moonpearls =================
+     Every kept fish slowly makes Moonpearls: YIELD pearls an hour by rarity. Tuned in a simulation of
+     whole careers (fishing, keeping or selling, buying gear and tanks, checking in a few times a day):
+     a tank of good fish speeds a player's gear ladder by about a fifth, and fishing always pays far
+     better than waiting. Rarer fish earn more for their slot; commoner fish earn back their price
+     sooner, so selling a trophy for an upgrade and keeping it for its pearls are both good choices.
+     While you watch, a fish drops a pearl of about DROP pearls now and then; while you are away its
+     pearls pile up and appear as a few big ones when you come back. The sand holds BED_HOURS of the
+     tank's making; when it is full the fish stop until you gather what is there. */
+  const YIELD = { common: 1, rare: 3, epic: 7, legendary: 24, extreme: 80 };
+  const DROP = { common: 1, rare: 2, epic: 3.5, legendary: 8, extreme: 20 };
+  const BED_HOURS = 8, MAX_LYING = 60, MATE_BOOST = 1.5, FED_BOOST = 1.25;
   const fedRecently = () => Date.now() - (S.fed || 0) < 15 * 60e3;
-  function pearlRate(f) {
-    let k = 1;
-    if (S.mates[f.uid] !== undefined) k /= 0.7;
-    if (fedRecently()) k /= 0.75;
-    return k;
+  const rarityOf = rec => (SPECIES[rec.id] || {}).rarity;
+  const yieldOf = rec => (YIELD[rarityOf(rec)] || 0) * (S.mates[rec.uid] !== undefined ? MATE_BOOST : 1);
+  const tankRate = () => api.save.net.reduce((a, r) => a + yieldOf(r), 0);
+  const bedCap = () => tankRate() * BED_HOURS;
+  // what lies on the sand, plus what the fish have made and not yet let go
+  function bedValue() {
+    let v = 0;
+    for (const d of S.drops) v += d.v;
+    for (const k in S.acc) v += S.acc[k];
+    return v;
   }
-  function pearlValue(f) {
-    const P = PEARL[SPECIES[f.id].rarity];
-    let v = Math.round(rand(P[1], P[2] + 0.999) - 0.499);
-    if (S.mates[f.uid] !== undefined) v = Math.round(v * 1.5);
-    return Math.max(1, v);
+  const bedFull = () => { const c = bedCap(); return c > 0 && bedValue() >= c - 0.01; };
+  /* The fish make pearls for `hours`, up to what the sand can hold. */
+  function accrue(hours, boost = 1) {
+    const rate = tankRate() * boost;
+    if (hours <= 0 || rate <= 0) return;
+    const room = bedCap() - bedValue();
+    if (room <= 0) return;
+    const k = Math.min(1, room / (rate * hours));
+    for (const rec of api.save.net) {
+      const y = yieldOf(rec) * boost;
+      if (y > 0) S.acc[rec.uid] = (S.acc[rec.uid] || 0) + y * hours * k;
+    }
+  }
+  /* What the fish made while you were away appears on the sand: one pearl from each fish, or two when
+     it made a lot, merged further if the sand gets crowded. */
+  function materialize() {
+    let made = 0;
+    for (const rec of api.save.net) {
+      const a = S.acc[rec.uid] || 0, v = Math.floor(a), r = rarityOf(rec);
+      if (v < 1 || !r) continue;
+      S.acc[rec.uid] = a - v;
+      const parts2 = v >= DROP[r] * 3 ? [Math.round(v * 0.55), v - Math.round(v * 0.55)] : [v];
+      for (const pv of parts2) { addDrop(rand(0.06, 0.94), pv, r, rec.uid, true); made++; }
+    }
+    while (S.drops.length > MAX_LYING) {
+      // fold the smallest pearl into its nearest neighbour
+      let i = 0;
+      S.drops.forEach((d, j) => { if (d.v < S.drops[i].v) i = j; });
+      const d = S.drops.splice(i, 1)[0];
+      let n = 0, nd = Infinity;
+      S.drops.forEach((q, j) => { const dd = Math.abs(q.x - d.x) + (q.row !== d.row ? 0.05 : 0); if (dd < nd) { nd = dd; n = j; } });
+      S.drops[n].v += d.v;
+      if (RARITIES[d.r] && RARITIES[S.drops[n].r] && RARITIES[d.r].tier > RARITIES[S.drops[n].r].tier) S.drops[n].r = d.r;
+    }
+    if (made) dirty = true;
+    return made;
   }
   let dropKey = 1;
-  function addDrop(x, v, r, from) {
-    S.drops.push({ x: Math.round(x * 1000) / 1000, v, r, k: Date.now() % 1e7 + dropKey++ });
+  function addDrop(x, v, r, from, born) {
+    const d = { x: Math.round(x * 1000) / 1000, v, r, k: Date.now() % 1e7 + dropKey++, row: 0 };
+    if (sc) place(d);
+    if (born) d.born = 1;
+    S.drops.push(d);
     if (from) { const rec = fishRec(from); if (rec) rec.pearls = (rec.pearls || 0) + v; }
     dirty = true;
+    return d;
   }
 
   /* ================= Time away =================
-     While the tank is closed its fish keep living: the rarer ones drop pearls (up to what the sand will
-     hold), and fish that get on spend the hours together. */
-  function settle(now = Date.now()) {
+     While the tank is closed its fish keep living: they make pearls (up to what the sand will hold), and
+     fish that get on spend the hours together. What they made shows on the sand when you open the tank. */
+  function settle(now = Date.now(), show = false) {
     const s = api.save;
     S = s.tank;
-    if (!S.last) { S.last = now; return; }
-    const secs = (now - S.last) / 1000;
-    if (secs < 5) return;
-    S.last = now;
-    const fish = s.net;
-    // pearls
-    const away = Math.min(secs, 4 * 3600);
-    for (const f of fish) {
-      const P = PEARL[SPECIES[f.id] && SPECIES[f.id].rarity];
-      if (!P) continue;
-      const exp = away / P[0] * pearlRate(f);
-      let n = Math.floor(exp) + (Math.random() < exp % 1 ? 1 : 0);
-      while (n-- > 0 && S.drops.length < lyingCap()) addDrop(rand(0.1, 0.9), pearlValue(f), SPECIES[f.id].rarity, f.uid);
-    }
-    // bonds: each fish spends its time with the few it gets on with best
-    const h = Math.min(secs / 3600, 24);
-    if (fish.length > 1 && h > 0.002) {
-      const done = new Set();
-      for (const a of fish) {
-        const best = fish.filter(b => b !== a).map(b => ({ b, k: affinity(a, b) })).sort((x, y) => y.k - x.k).slice(0, 3);
-        for (const { b, k } of best) {
-          const key = bkey(a.uid, b.uid);
-          if (done.has(key)) continue;
-          done.add(key);
-          addBond(a, b, h * 2.2 * k * rand(0.6, 1.2), false);
+    S.acc = S.acc || {};
+    const secs = S.last ? (now - S.last) / 1000 : 0;
+    if (!S.last) S.last = now;
+    if (secs >= 5) {
+      S.last = now;
+      const fish = s.net;
+      accrue(secs / 3600);
+      // bonds: each fish spends its time with the few it gets on with best
+      const h = Math.min(secs / 3600, 24);
+      if (fish.length > 1 && h > 0.002) {
+        const done = new Set();
+        for (const a of fish) {
+          const best = fish.filter(b => b !== a).map(b => ({ b, k: affinity(a, b) })).sort((x, y) => y.k - x.k).slice(0, 3);
+          for (const { b, k } of best) {
+            const key = bkey(a.uid, b.uid);
+            if (done.has(key)) continue;
+            done.add(key);
+            addBond(a, b, h * 2.2 * k * rand(0.6, 1.2), false);
+          }
         }
       }
     }
     prune();
+    if (show) materialize();
   }
   function prune() {
     const s = api.save, live = new Set(s.net.map(f => f.uid));
     for (const k of Object.keys(S.bonds)) { const [a, b] = k.split('-').map(Number); if (!live.has(a) || !live.has(b) || S.bonds[k] < 0.5) delete S.bonds[k]; }
     for (const k of Object.keys(S.mates)) if (!live.has(+k) || !live.has(S.mates[k])) delete S.mates[k];
+    // a fish that leaves takes its unfinished pearl with it
+    for (const k of Object.keys(S.acc || {})) if (!live.has(+k)) delete S.acc[k];
     if (S.news) S.news = S.news.filter(([a, b]) => live.has(a) && live.has(b));
   }
 
@@ -237,8 +282,8 @@ const Tank = (() => {
   let W = 0, H = 0, DPR = 1, T = 0, U = 1;
   let fish = [], parts = [], lifts = [], ints = [];
   let sel = null, view = 'tank', dirty = false, saveT = 0, socialT = 0, ambT = 3, cardT = 0;
-  let drag = null, down = null, sellAllArmed = 0, releaseArmed = 0, sellArmed = 0;
-  const falling = new Map();
+  let drag = null, down = null, holdT = 0, sellAllArmed = 0, releaseArmed = 0, sellArmed = 0;
+  const falling = new Map(), lifted = new Map(), pops = new Map();
   const met = new Map();
   const affC = new Map();
   const TSCALE = { bowl: 1.15, reed: 1.05, lily: 1.0, reef: 0.95, wreck: 0.9, palace: 0.84 };
@@ -261,11 +306,10 @@ const Tank = (() => {
       x: 0, y: 0, z: rand(0.12, 0.88), tz: 0.5, vx: 0, vy: 0, face: Math.random() < 0.5 ? 1 : -1, flip: 1, tilt: 0,
       state: 'wander', st: 0, dur: 0, tx: 0, ty: 0, boost: 1, poi: null, int: null, react: null, taps: [],
       phase: Math.random() * 10, wave: Math.random() * TAU, puff: 0, glow: 0, flare: 0, gulp: 0, wobble: 0, blush: 0, flash: 0, cocoon: 0, trail: 0,
-      social: rand(3, 9), pearlT: Infinity, faceLock: 0, leaving: null, eatDelay: 0, bury: 0, free: false, above: false, alpha: 1,
+      social: rand(3, 9), pearlAt: 0, faceLock: 0, leaving: null, eatDelay: 0, bury: 0, free: false, above: false, alpha: 1,
     };
     f.flip = f.face; f.tz = f.z;
-    const P = PEARL[sp.rarity];
-    if (P) f.pearlT = P[0] * rand(0.15, 1);
+    if (DROP[sp.rarity]) f.pearlAt = DROP[sp.rarity] * rand(0.6, 1.3);
     return f;
   }
   function dims(f) {
@@ -392,9 +436,11 @@ const Tank = (() => {
     f.st += dt;
     if (f.faceLock > 0) f.faceLock -= dt;
     if (f.react) { f.react.t += dt; if (f.react.t > f.react.dur) endReact(f); }
-    if (f.pearlT !== Infinity && !f.leaving) {
-      f.pearlT -= dt * pearlRate(f);
-      if (f.pearlT <= 0) { f.pearlT = PEARL[f.sp.rarity][0] * rand(0.8, 1.2); if (S.drops.length < lyingCap()) dropPearl(f); }
+    if (f.pearlAt && !f.leaving && (S.acc[f.uid] || 0) >= f.pearlAt) {
+      const v = Math.floor(S.acc[f.uid]);
+      S.acc[f.uid] -= v;
+      f.pearlAt = DROP[f.sp.rarity] * rand(0.7, 1.3);
+      dropPearl(f, v);
     }
     if (f.leaving) { f.leaving.t += dt; f.tx = f.x + f.face * f.len; f.ty = sc.surf - f.dh; f.boost = 1.6; return; }
     if (f.free) return;
@@ -847,37 +893,130 @@ const Tank = (() => {
   }
   let eatSnd = 0;
 
-  /* ================= Moonpearls in the tank ================= */
-  function dropPearl(f) {
-    const v = pearlValue(f), y = f.y + f.hh * 0.3;
-    addDrop(clamp((f.x - sc.ix0) / sc.iw, 0.04, 0.96), v, f.sp.rarity, f.uid);
-    falling.set(S.drops[S.drops.length - 1].k, { y, vy: 0 });
+  /* ================= Moonpearls in the tank =================
+     Pearls come to rest on the strip of sand nearest the glass, in front of every rock, plant and wreck,
+     so none is ever hidden: up to three loose rows, each pearl taking a clear spot near where it fell.
+     Bigger pearls are worth more. */
+  const pearlR = d => U * clamp(1.15 + Math.log10(d.v + 1) * 0.45, 1.2, 2.55);
+  // the sand nearest the glass at x, as [back edge, front edge]
+  function bedBand(x) {
+    const back = floorAt(x);
+    let front = sc.iy1 - U * 2;
+    if (sc.bowl) { const B = sc.bowl, dx = x - B.cx; front = Math.min(B.base - U * 1.6, B.cy + Math.sqrt(Math.max(0, B.R * B.R - dx * dx)) * 0.97 - U * 1.6); }
+    return [back, Math.max(back + U, front)];
+  }
+  // how far across the sand pearls may lie (in the bowl, only where its gravel is deep enough)
+  function bedX() {
+    if (sc._bedX) return sc._bedX;
+    let x0 = sc.ix0 + U * 3, x1 = sc.ix1 - U * 3;
+    if (sc.bowl) {
+      const ok = x => { const [b0, b1] = bedBand(x); return b1 - b0 > U * 3.2; };
+      while (x0 < sc.bowl.cx && !ok(x0)) x0 += U * 0.5;
+      while (x1 > sc.bowl.cx && !ok(x1)) x1 -= U * 0.5;
+    }
+    return (sc._bedX = [x0, x1]);
+  }
+  function restY(x, row, r) {
+    const [b0, b1] = bedBand(x);
+    return Math.max(b0 + r * 0.45, b1 - r * 1.05 - row * U * 1.8);
+  }
+  function restPos(d) {
+    const [X0, X1] = bedX(), x = clamp(sc.ix0 + d.x * sc.iw, X0, X1), r = pearlR(d);
+    return { x, y: restY(x, d.row || 0, r), r };
+  }
+  /* Find a pearl a clear spot near where it fell, nearest first, front row first. */
+  function place(d) {
+    const [X0, X1] = bedX(), r = pearlR(d), x0 = clamp(sc.ix0 + d.x * sc.iw, X0, X1), step = Math.max(2, U * 0.5);
+    const others = S.drops.filter(q => q !== d).map(restPos);
+    for (let k = 0; k < 200; k++) {
+      const x = x0 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * step;
+      if (x < X0 || x > X1) continue;
+      for (let row = 0; row < 3; row++) {
+        const y = restY(x, row, r);
+        if (others.every(o => Math.hypot(o.x - x, o.y - y) > (o.r + r) * 1.06)) { d.x = (x - sc.ix0) / sc.iw; d.row = row; return; }
+      }
+    }
+    d.x = (x0 - sc.ix0) / sc.iw; d.row = Math.floor(rand(0, 3));
+  }
+  function dropPearl(f, v) {
+    const y = f.y + f.hh * 0.3;
+    const d = addDrop(clamp((f.x - sc.ix0) / sc.iw, 0.04, 0.96), v, f.sp.rarity, f.uid);
+    falling.set(d.k, { x0: f.x, y0: y, y, vy: 0, bounce: 0 });
     f.gulp = 1;
     sparkle(f.x, y, RARITIES[f.sp.rarity].color, 4);
     play('pearlDrop', f.tier);
   }
-  const pearlR = d => U * clamp(0.55 + Math.log10(d.v + 1) * 0.32, 0.6, 1.25);
+  // where a pearl is now: falling, being drawn to a finger, popping into view, or at rest
   function pearlPos(d) {
-    const x = sc.ix0 + d.x * sc.iw, r = pearlR(d), F = falling.get(d.k);
-    return { x: x + (F ? Math.sin(F.y * 0.08) * U * 0.6 : 0), y: F ? F.y : floorAt(x) - r * 0.7, r };
+    const R = restPos(d), F = falling.get(d.k), L = lifted.get(d.k);
+    if (L) return { x: L.x, y: L.y, r: R.r, s: 1 };
+    if (F) {
+      const k = clamp((F.y - F.y0) / Math.max(1, R.y - F.y0), 0, 1);
+      return { x: lerp(F.x0, R.x, Math.pow(k, 0.7)) + Math.sin(F.y * 0.08) * U * 0.5 * (1 - k), y: Math.min(F.y, R.y) - F.bounce, r: R.r, s: 1 };
+    }
+    const P = pops.get(d.k);
+    if (P) { const k = clamp(P.t / 0.45, 0, 1); return { x: R.x, y: R.y, r: R.r, s: k <= 0 ? 0 : 1 + Math.sin(k * Math.PI) * 0.35 * (1 - k * 0.5) - (1 - k) * 0.6 }; }
+    return { x: R.x, y: R.y, r: R.r, s: 1 };
   }
-  function collect(d) {
+  /* Gathering pearls: one by one, or many in a sweep or a held finger, where each one in a quick run
+     rings a note higher and the run's total counts up beside your finger. */
+  const run = { n: 0, t: -9, sum: 0, label: null };
+  function collect(d, at) {
     const i = S.drops.indexOf(d);
     if (i < 0) return;
     S.drops.splice(i, 1);
-    falling.delete(d.k);
     const p = pearlPos(d), s = api.save;
+    falling.delete(d.k); lifted.delete(d.k); pops.delete(d.k);
     s.pearls += d.v;
     s.stats.found = (s.stats.found || 0) + d.v;
-    parts.push({ kind: 'collect', x: p.x, y: p.y, t: 0, col: (RARITIES[d.r] || RARITIES.rare).color });
-    parts.push({ kind: 'text', x: p.x, y: p.y - U * 2, t: 0, v: d.v });
-    sparkle(p.x, p.y, '#ffffff', 5);
-    play('pearlGet', d.v);
+    if (T - run.t > 0.75) { run.n = 0; run.sum = 0; run.label = null; }
+    run.n++; run.t = T; run.sum += d.v;
+    const col = (RARITIES[d.r] || RARITIES.rare).color;
+    spawn({ kind: 'collect', x: p.x, y: p.y, t: 0, col, s: p.r / U });
+    const lx = at ? at[0] : p.x, ly = (at ? at[1] : p.y) - U * 3.2;
+    if (!run.label || run.label.t > 1.1) { run.label = { kind: 'tally', x: lx, y: ly, t: 0, v: 0, n: 0, pop: 0 }; parts.push(run.label); }
+    const Lb = run.label;
+    Lb.v = run.sum; Lb.n = run.n; Lb.t = 0; Lb.pop = 1; Lb.x = lerp(Lb.x, lx, 0.35); Lb.y = Math.min(Lb.y, ly);
+    sparkle(p.x, p.y, '#ffffff', 4);
+    sparkle(p.x, p.y, col, 2);
+    play('pearlGet', d.v, run.n - 1);
     dirty = true;
     api.refresh();
     renderHead();
     const w = $('#tank-pearls');
     w.classList.remove('flash'); void w.offsetWidth; w.classList.add('flash');
+  }
+  /* A sweep: every pearl the finger's path passes over (generously) is gathered. */
+  function sweep(x0, y0, x1, y1) {
+    const R = Math.max(U * 3.4, 26), vx = x1 - x0, vy = y1 - y0, l2 = vx * vx + vy * vy || 1;
+    for (const d of S.drops.slice()) {
+      if (falling.has(d.k) || lifted.has(d.k)) continue;
+      const p = pearlPos(d), q = clamp(((p.x - x0) * vx + (p.y - y0) * vy) / l2, 0, 1);
+      if (Math.hypot(p.x - x0 - vx * q, p.y - y0 - vy * q) < R + p.r) { collect(d, [x1, y1]); seenGather(); }
+    }
+  }
+  /* A held finger: a moonlit eddy grows around it and draws pearls in, gathering each as it arrives. */
+  let hold = null;
+  function stepHold(dt) {
+    for (const [k, L] of lifted) {
+      const d = S.drops.find(q => q.k === k);
+      if (!d) { lifted.delete(k); continue; }
+      const tx = hold ? hold.x : L.x, ty = hold ? hold.y : L.y;
+      L.v = Math.min(L.v + U * 60 * dt, U * 70);
+      const dx = tx - L.x, dy = ty - L.y, dd = Math.hypot(dx, dy) || 1;
+      // they spiral in a little, rather than flying straight
+      L.x += (dx / dd * 0.9 - dy / dd * 0.45) * L.v * dt; L.y += (dy / dd * 0.9 + dx / dd * 0.45) * L.v * dt;
+      if (!hold) { lifted.delete(k); continue; }
+      if (dd < U * 1.6 + L.v * dt) collect(d, [hold.x, hold.y]);
+    }
+    if (!hold) return;
+    hold.t += dt;
+    hold.r = U * (4 + Math.min(1, hold.t / 1.1) * 20);
+    for (const d of S.drops) {
+      if (lifted.has(d.k) || falling.has(d.k)) continue;
+      const p = pearlPos(d);
+      if (Math.hypot(p.x - hold.x, p.y - hold.y) < hold.r) { lifted.set(d.k, { x: p.x, y: p.y, v: U * 4 }); sparkle(p.x, p.y, '#eaf2ff', 2, 0.6); }
+    }
   }
 
   /* ================= Little effects ================= */
@@ -930,7 +1069,8 @@ const Tank = (() => {
         case 'heart': p.y -= U * 2.4 * dt; p.x += Math.sin(p.t * 3 + p.ph) * U * 0.7 * dt; dead = p.t > 2; break;
         case 'spark': dead = p.t > p.life; break;
         case 'text': p.y -= U * 2.6 * dt; dead = p.t > 1.4; break;
-        case 'collect': dead = p.t > 0.8; break;
+        case 'collect': dead = p.t > 0.75; break;
+        case 'tally': p.y -= U * 0.8 * dt; p.pop = Math.max(0, p.pop - dt * 5); dead = p.t > 1.5; break;
         case 'ring': p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= Math.exp(-dt * 0.35); p.r += U * 1.3 * dt; dead = p.t > p.life || p.y < sc.surf + p.r; break;
         case 'jet': dead = p.t > 0.6; break;
         case 'sand': p.x += p.vx * dt; p.y += p.vy * dt; p.vy += U * 3 * dt; p.vx *= Math.exp(-dt * 2.5); dead = p.t > p.life; break;
@@ -941,12 +1081,25 @@ const Tank = (() => {
       }
       if (dead) parts.splice(i, 1);
     }
+    // a falling pearl sinks, drifting over to its spot, lands with a little bounce and a puff of sand
     for (const [k, F] of falling) {
       const d = S.drops.find(q => q.k === k);
       if (!d) { falling.delete(k); continue; }
-      const x = sc.ix0 + d.x * sc.iw, rest = floorAt(x) - pearlR(d) * 0.7;
-      F.vy = Math.min(F.vy + U * 22 * dt, U * 14); F.y += F.vy * dt;
-      if (F.y >= rest) { falling.delete(k); play('pearlLand'); puffSand(x, floorAt(x), 0.4); }
+      const R = restPos(d);
+      if (F.land !== undefined) {
+        F.land += dt;
+        F.bounce = Math.max(0, Math.sin(F.land * 11) * U * 0.9 * Math.exp(-F.land * 7));
+        if (F.land > 0.55) falling.delete(k);
+        continue;
+      }
+      F.vy = Math.min(F.vy + U * 22 * dt, U * 15); F.y += F.vy * dt;
+      if (F.y >= R.y) { F.y = R.y; F.land = 0; play('pearlLand'); puffSand(R.x, R.y + R.r, 0.5); sparkle(R.x, R.y, '#ffffff', 2, 0.6); }
+    }
+    for (const [k, P] of pops) {
+      const was = P.t;
+      P.t += dt;
+      if (was < 0 && P.t >= 0) { const d = S.drops.find(q => q.k === k); if (d) { const R = restPos(d); sparkle(R.x, R.y, (RARITIES[d.r] || RARITIES.rare).color, 3); if (P.ring) play('pearlLand'); } }
+      if (P.t > 0.45) pops.delete(k);
     }
     for (let i = lifts.length - 1; i >= 0; i--) if ((lifts[i].t -= dt) <= 0) lifts.splice(i, 1);
   }
@@ -1056,18 +1209,142 @@ const Tank = (() => {
     }
     ctx.restore();
   }
+  /* A pearl is painted once per rarity and size: nacre that is warm white at its heart and takes the
+     rarity's colour toward its rim, a pink and green sheen, a crisp highlight and a fine dark edge so it
+     reads on pale sand; and, separately, its glow. */
+  const pearlSprites = new Map();
+  function pearlSprite(rar, r) {
+    const R = Math.max(3, Math.round(r * DPR * 2) / 2), key = rar + '|' + R;
+    let sp = pearlSprites.get(key);
+    if (sp) return sp;
+    if (pearlSprites.size > 90) pearlSprites.clear();
+    const RA = RARITIES[rar] || RARITIES.rare, col = RA.color, deep = RA.deep;
+    const mk = n => { const c = document.createElement('canvas'); c.width = c.height = n; return c; };
+    const n = Math.ceil(R * 2.4) + 2, m = n / 2, body = mk(n), x = body.getContext('2d');
+    let g = x.createRadialGradient(m - R * 0.35, m - R * 0.4, R * 0.05, m, m, R * 1.02);
+    g.addColorStop(0, '#ffffff'); g.addColorStop(0.3, '#fbf8ff'); g.addColorStop(0.62, TankEnv.mix('#efe9f7', col, 0.28));
+    g.addColorStop(0.86, TankEnv.mix('#cbc2dc', col, 0.55)); g.addColorStop(1, TankEnv.mix('#6e6684', deep, 0.5));
+    x.fillStyle = g; x.beginPath(); x.arc(m, m, R, 0, TAU); x.fill();
+    x.save(); x.beginPath(); x.arc(m, m, R, 0, TAU); x.clip();
+    g = x.createLinearGradient(m - R, m - R * 0.2, m + R * 0.6, m + R);
+    g.addColorStop(0, 'rgba(255,170,220,0)'); g.addColorStop(0.45, 'rgba(255,175,225,0.35)'); g.addColorStop(0.7, 'rgba(160,255,230,0.3)'); g.addColorStop(1, 'rgba(160,220,255,0)');
+    x.fillStyle = g; x.fillRect(0, 0, n, n);
+    x.restore();
+    x.strokeStyle = TankEnv.rgba(col, 0.75); x.lineWidth = Math.max(1, R * 0.13); x.lineCap = 'round';
+    x.beginPath(); x.arc(m, m, R * 0.9, 0.05, 1.75); x.stroke();
+    x.fillStyle = 'rgba(255,255,255,0.95)';
+    x.beginPath(); x.ellipse(m - R * 0.38, m - R * 0.42, R * 0.3, R * 0.19, -0.65, 0, TAU); x.fill();
+    x.fillStyle = 'rgba(255,255,255,0.4)'; x.beginPath(); x.arc(m + R * 0.32, m + R * 0.4, R * 0.12, 0, TAU); x.fill();
+    x.strokeStyle = 'rgba(30,22,58,0.62)'; x.lineWidth = Math.max(1, R * 0.09); x.beginPath(); x.arc(m, m, R - x.lineWidth / 2, 0, TAU); x.stroke();
+    const n2 = Math.ceil(R * 8), m2 = n2 / 2, halo = mk(n2), h = halo.getContext('2d');
+    g = h.createRadialGradient(m2, m2, 0, m2, m2, m2);
+    g.addColorStop(0, TankEnv.rgba(col, 0.55)); g.addColorStop(0.18, TankEnv.rgba(col, 0.36)); g.addColorStop(0.45, TankEnv.rgba(col, 0.1)); g.addColorStop(1, TankEnv.rgba(col, 0));
+    h.fillStyle = g; h.fillRect(0, 0, n2, n2);
+    // its moonbeam: soft at the sides, fading upward
+    const beam = mk(32); beam.height = 128;
+    const bx = beam.getContext('2d');
+    g = bx.createLinearGradient(0, 128, 0, 0); g.addColorStop(0, TankEnv.rgba(col, 1)); g.addColorStop(1, TankEnv.rgba(col, 0));
+    bx.fillStyle = g; bx.fillRect(0, 0, 32, 128);
+    bx.globalCompositeOperation = 'destination-in';
+    g = bx.createLinearGradient(0, 0, 32, 0); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    bx.fillStyle = g; bx.fillRect(0, 0, 32, 128);
+    sp = { body, halo, beam, k: n / R / 2, k2: n2 / R / 2 };
+    pearlSprites.set(key, sp);
+    return sp;
+  }
+  /* Pearls on the sand float a little above it, bobbing gently over a shadow that breathes with them,
+     so they never read as pebbles. Each glows (brighter when the sand is full), stands in a faint moonbeam
+     (taller for bigger pearls), now and then sends out a soft ring, and a glint runs along the row. */
+  const hash = k => { const x = Math.sin(k * 12.9898) * 43758.5453; return x - Math.floor(x); };
+  let poolImg = null;
+  function pool() {
+    if (poolImg) return poolImg;
+    poolImg = document.createElement('canvas'); poolImg.width = poolImg.height = 64;
+    const x = poolImg.getContext('2d'), g = x.createRadialGradient(32, 32, 7, 32, 32, 32);
+    g.addColorStop(0, 'rgba(8,12,34,0.42)'); g.addColorStop(1, 'rgba(8,12,34,0)');
+    x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+    return poolImg;
+  }
   function drawPearls() {
+    if (!S.drops.length) return;
+    const full = bedFull(), c = ctx;
     for (const d of S.drops) {
-      const { x, y, r } = pearlPos(d), col = (RARITIES[d.r] || RARITIES.rare).color, pul = 0.75 + 0.25 * Math.sin(T * 2 + d.k);
-      ctx.save(); ctx.globalCompositeOperation = 'lighter';
-      const g = ctx.createRadialGradient(x, y, 0, x, y, r * 4);
-      g.addColorStop(0, TankEnv.rgba(col, 0.38 * pul)); g.addColorStop(1, TankEnv.rgba(col, 0));
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 4, 0, TAU); ctx.fill();
-      ctx.restore();
-      const b = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, 0, x, y, r * 1.1);
-      b.addColorStop(0, '#ffffff'); b.addColorStop(0.45, '#f6f0ff'); b.addColorStop(0.8, TankEnv.rgba(col, 0.9)); b.addColorStop(1, '#8a8098');
-      ctx.fillStyle = b; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
-      if (Math.sin(T * 1.3 + d.k * 0.7) > 0.96) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; star(ctx, x - r * 0.3, y - r * 0.4, r * 1.6, 'rgba(255,255,255,0.9)'); ctx.restore(); }
+      const P = pearlPos(d);
+      if (P.s <= 0) continue;
+      const r = P.r * P.s, sp = pearlSprite(d.r, P.r), resting = !falling.has(d.k) && !lifted.has(d.k), col = (RARITIES[d.r] || RARITIES.rare).color;
+      const h = hash(d.k), bob = resting ? (0.5 + 0.5 * Math.sin(T * 2.3 + h * TAU)) : 0, lift = resting ? r * (0.25 + bob * 0.35) : 0, y = P.y - lift;
+      // a pool of shade around each pearl, so white nacre stands out on the palest sand
+      if (resting || lifted.has(d.k)) c.drawImage(pool(), P.x - r * 2.7, y - r * 2.7, r * 5.4, r * 5.4);
+      if (resting) {
+        const sk = 1 - bob * 0.18;
+        c.fillStyle = `rgba(0,0,0,${0.34 - bob * 0.08})`; c.beginPath(); c.ellipse(P.x, P.y + r * 0.82, r * 1.15 * sk, r * 0.34 * sk, 0, 0, TAU); c.fill();
+        c.fillStyle = 'rgba(0,0,0,0.14)'; c.beginPath(); c.ellipse(P.x + r * 0.2, P.y + r * 0.86, r * 1.9, r * 0.52, 0, 0, TAU); c.fill();
+      }
+      c.save();
+      c.globalCompositeOperation = 'lighter';
+      if (resting) {
+        // a moonbeam
+        const big = Math.min(1, Math.log10(d.v + 1) / 2.2), bh = r * (5 + big * 9), bw = r * (1.6 + big), a = (0.06 + big * 0.12 + (full ? 0.06 : 0)) * (0.8 + 0.2 * Math.sin(T * 1.3 + h * 9));
+        c.globalAlpha = a;
+        c.drawImage(sp.beam, P.x - bw, y - bh, bw * 2, bh);
+        c.globalAlpha = 1;
+        // a ring that ripples out every few seconds
+        const ph = (T * 0.21 + h) % 1;
+        if (ph < 0.22) {
+          const k = ph / 0.22;
+          c.strokeStyle = TankEnv.rgba(col, 0.5 * (1 - k)); c.lineWidth = Math.max(1, U * 0.18 * (1 - k * 0.5));
+          c.beginPath(); c.ellipse(P.x, P.y + r * 0.6, r * (1.2 + k * 3), r * (0.45 + k * 1.1), 0, 0, TAU); c.stroke();
+        }
+      }
+      c.globalAlpha = clamp((sc.gl ? 0.42 : 0.6) + 0.2 * Math.sin(T * 2.1 + d.k * 0.37) + (full ? 0.25 : 0), 0, 1);
+      const hs = r * sp.k2;
+      c.drawImage(sp.halo, P.x - hs, y - hs, hs * 2, hs * 2);
+      c.restore();
+      const bs = r * sp.k;
+      c.drawImage(sp.body, P.x - bs, y - bs, bs * 2, bs * 2);
+      // the glint travels along the row, from left to right, every few seconds
+      const gl = Math.pow(Math.max(0, Math.sin(T * 1.25 - P.x / W * 4.5 + (d.row || 0) * 0.4)), 30);
+      if (gl > 0.05) { c.save(); c.globalCompositeOperation = 'lighter'; star(c, P.x - r * 0.38, y - r * 0.42, r * (0.8 + gl * 1.4), `rgba(255,255,255,${0.9 * gl})`); c.restore(); }
+    }
+  }
+  /* Over everything: the eddy around a held finger, gathered pearls flying up to your purse, and the
+     run's total. */
+  function drawGather() {
+    const c = ctx;
+    if (hold && hold.t > 0.12) {
+      const k = Math.min(1, (hold.t - 0.12) / 0.3), R = hold.r;
+      c.save();
+      c.globalCompositeOperation = 'lighter';
+      const g = c.createRadialGradient(hold.x, hold.y, 0, hold.x, hold.y, R);
+      g.addColorStop(0, `rgba(230,240,255,${0.16 * k})`); g.addColorStop(0.7, `rgba(190,210,255,${0.06 * k})`); g.addColorStop(1, 'rgba(190,210,255,0)');
+      c.fillStyle = g; c.beginPath(); c.arc(hold.x, hold.y, R, 0, TAU); c.fill();
+      c.lineCap = 'round';
+      for (let i = 0; i < 3; i++) {
+        const a = -T * 2.4 + i * TAU / 3, rr = R * (0.55 + 0.3 * ((T * 0.8 + i / 3) % 1));
+        c.strokeStyle = `rgba(235,244,255,${0.45 * k})`; c.lineWidth = Math.max(1.5, U * 0.35);
+        c.beginPath(); c.arc(hold.x, hold.y, rr, a, a + 1.1); c.stroke();
+      }
+      c.strokeStyle = `rgba(225,238,255,${0.3 * k})`; c.lineWidth = Math.max(1, U * 0.2);
+      c.beginPath(); c.arc(hold.x, hold.y, R, 0, TAU); c.stroke();
+      c.restore();
+    }
+    for (const p of parts) {
+      if (p.kind === 'collect') {
+        const k = p.t / 0.75, e = k * k, x = lerp(p.x, W - U * 3, e), y = lerp(p.y, -U, e) - Math.sin(k * Math.PI) * U * 6, s = (p.s || 1) * (1 - k * 0.5);
+        c.save(); c.globalCompositeOperation = 'lighter'; c.globalAlpha = 1 - k * 0.5;
+        c.fillStyle = TankEnv.rgba(p.col, 0.85); c.beginPath(); c.arc(x, y, U * 0.8 * s, 0, TAU); c.fill();
+        star(c, x, y, U * 1.5 * s, 'rgba(255,255,255,0.9)');
+        c.restore();
+      } else if (p.kind === 'tally') {
+        const a = 1 - Math.max(0, p.t - 1) / 0.5, sz = U * (2 + Math.min(1.6, Math.log10(p.n + 1) * 1.2)) * (1 + p.pop * 0.18);
+        c.save(); c.globalAlpha = clamp(a, 0, 1);
+        c.font = `800 ${Math.round(sz)}px Nunito, system-ui, sans-serif`; c.textAlign = 'center';
+        const txt = `+${fmt(p.v)}`;
+        c.lineWidth = Math.max(3, sz * 0.16); c.strokeStyle = 'rgba(10,16,34,0.75)'; c.strokeText(txt, p.x, p.y);
+        c.fillStyle = '#ffe9a8'; c.fillText(txt, p.x, p.y);
+        if (p.n > 1) { c.font = `700 ${Math.round(sz * 0.42)}px Nunito, system-ui, sans-serif`; c.lineWidth = 3; c.strokeText(`${p.n} pearls`, p.x, p.y + sz * 0.55); c.fillStyle = '#dfe9ff'; c.fillText(`${p.n} pearls`, p.x, p.y + sz * 0.55); }
+        c.restore();
+      }
     }
   }
   function star(c, x, y, s, col) {
@@ -1104,7 +1381,6 @@ const Tank = (() => {
         case 'spark': { const k = p.t / p.life; c.save(); c.globalCompositeOperation = 'lighter'; c.globalAlpha = Math.sin(k * Math.PI); star(c, p.x, p.y, U * 0.9 * p.s, p.col); c.restore(); break; }
         case 'ember': { const k = p.t / p.life; c.save(); c.globalCompositeOperation = 'lighter'; c.fillStyle = `rgba(255,${150 + Math.round(80 * (1 - k))},80,${1 - k})`; c.beginPath(); c.arc(p.x, p.y, U * 0.35 * (1 - k * 0.5), 0, TAU); c.fill(); c.restore(); break; }
         case 'text': { const a = 1 - Math.max(0, p.t - 0.8) / 0.6; c.save(); c.globalAlpha = a; c.font = `800 ${Math.round(U * 2.2)}px Nunito, system-ui, sans-serif`; c.textAlign = 'center'; c.lineWidth = 3; c.strokeStyle = 'rgba(10,20,30,0.7)'; c.strokeText(`+${p.v}`, p.x, p.y); c.fillStyle = '#ffe9a8'; c.fillText(`+${p.v}`, p.x, p.y); c.restore(); break; }
-        case 'collect': { const k = p.t / 0.8, x = lerp(p.x, W - U * 4, k * k), y = lerp(p.y, U * 2, k * k) - Math.sin(k * Math.PI) * U * 8; c.save(); c.globalCompositeOperation = 'lighter'; c.globalAlpha = 1 - k * 0.6; c.fillStyle = TankEnv.rgba(p.col, 0.8); c.beginPath(); c.arc(x, y, U * 0.9, 0, TAU); c.fill(); star(c, x, y, U * 1.6, 'rgba(255,255,255,0.9)'); c.restore(); break; }
         case 'ring': { const a = (1 - p.t / p.life) * 0.85; c.save(); c.translate(p.x, p.y); c.rotate(-0.15); c.beginPath(); c.ellipse(0, 0, p.r * 0.42, p.r, 0, 0, TAU); c.strokeStyle = `rgba(225,245,255,${a})`; c.lineWidth = Math.max(1.5, U * 0.5); c.stroke(); c.restore(); break; }
         case 'jet': { const k = p.t / 0.6; c.save(); c.strokeStyle = `rgba(220,245,255,${0.9 * (1 - k)})`; c.lineWidth = Math.max(1.2, U * 0.35); c.lineCap = 'round'; c.beginPath(); const e = Math.min(1, k * 2.2); c.moveTo(p.x, p.y); c.quadraticCurveTo(lerp(p.x, p.tx, 0.4), Math.min(p.y, p.ty) - U * 3, lerp(p.x, p.tx, e), lerp(p.y, p.ty, e)); c.stroke(); c.restore(); break; }
         case 'sand': { const k = p.t / p.life; c.fillStyle = `rgba(${p.col},${0.55 * (1 - k)})`; c.beginPath(); c.arc(p.x, p.y, U * (0.3 + k * 0.5), 0, TAU); c.fill(); break; }
@@ -1139,18 +1415,20 @@ const Tank = (() => {
     const order = fish.slice().sort((a, b) => b.z - a.z);
     fishLayer(order.filter(f => f.z >= 0.5), sc.tint.far);
     TankEnv.mid(ctx, sc, T);
-    drawPearls();
     fishLayer(order.filter(f => f.z < 0.5), sc.tint.near);
     glows();
     ctx.save(); ctx.clip(sc.clip); drawParts(); ctx.restore();
-    TankEnv.front(ctx, sc, T);
+    TankEnv.front(ctx, sc, T, () => { ctx.save(); ctx.clip(sc.clip); drawPearls(); ctx.restore(); });
     drawSelection();
+    drawGather();
   }
 
   /* ================= Each frame ================= */
   function update(dt) {
     T += dt;
     TankEnv.step(sc, dt, T, envApi);
+    accrue(dt / 3600, fedRecently() ? FED_BOOST : 1);
+    stepHold(dt);
     socialT -= dt;
     if (socialT <= 0) { socialT = 0.12; socialTick(0.12); }
     for (const f of fish) {
@@ -1200,8 +1478,8 @@ const Tank = (() => {
     look(x, y, secs) { for (const f of fish) if (!f.leaving && !f.free && f.state !== 'social') { go(f, 'look', secs * rand(0.8, 1.3), f.x, f.y, 0.3); f.face = Math.sign(x - f.x) || f.face; f.faceLock = secs; } },
     pearl(x, y, v, r) {
       if (!isOpen) return;
-      addDrop(clamp((x - sc.ix0) / sc.iw, 0.04, 0.96), v, r);
-      falling.set(S.drops[S.drops.length - 1].k, { y, vy: -U * 6 });
+      const d = addDrop(clamp((x - sc.ix0) / sc.iw, 0.04, 0.96), v, r);
+      falling.set(d.k, { x0: x, y0: y, y, vy: -U * 6, bounce: 0 });
       sparkle(x, y, (RARITIES[r] || RARITIES.rare).color, 6);
       play('pearlDrop', 2);
     },
@@ -1222,36 +1500,48 @@ const Tank = (() => {
     }
     return [x, y];
   }
+  /* A press that stays put becomes a hold (an eddy that draws pearls in); one that moves becomes a sweep
+     (gathering every pearl it passes over, while curious fish follow the finger); a quick press is a tap. */
   function onDown(e) {
     if (!sc) return;
     const [x, y] = local(e);
-    down = { x, y, t: performance.now(), moved: false };
+    down = { x, y, lx: x, ly: y, t: performance.now(), moved: false };
     try { cv.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    clearTimeout(holdT);
+    holdT = setTimeout(() => { if (down && !down.moved && view === 'tank') { hold = { x: down.lx, y: down.ly, t: 0, r: U * 4 }; down.held = true; } }, 230);
   }
   function onMove(e) {
     const [x, y] = local(e);
     ptrTo[0] = clamp(x / W, 0, 1); ptrTo[1] = clamp(y / H, 0, 1);
     if (!down) return;
-    if (!down.moved && Math.hypot(x - down.x, y - down.y) > 10) {
+    if (!down.moved && !hold && Math.hypot(x - down.x, y - down.y) > 10) {
       down.moved = true;
+      clearTimeout(holdT);
       // a finger trailed through the water: the curious and the playful follow it
       for (const f of fish) if (isFree(f) && (f.tr.C || f.tr.P) && !f.tr.W) { go(f, 'chase', 8, x, y, 1.5); f.tz = 0.15; }
     }
-    if (down.moved) {
+    if (hold) { hold.x = x; hold.y = y; }
+    else if (down.moved) {
+      sweep(down.lx, down.ly, x, y);
       drag = { x: clamp(x, sc.swim.x0, sc.swim.x1), y: clamp(y, sc.swim.y0, floorAt(x)) };
       if (Math.random() < 0.3) TankEnv.bubble(sc, drag.x, drag.y, U * rand(0.1, 0.25), { z: 0.1 });
     }
+    down.lx = x; down.ly = y;
   }
   function onUp(e) {
+    clearTimeout(holdT);
     if (!down) return;
     const [x, y] = local(e), quick = performance.now() - down.t < 650;
-    if (!down.moved && quick) tapAt(x, y);
-    down = null; drag = null;
+    if (!down.moved && !down.held && quick) tapAt(x, y);
+    if (hold && hold.t > 0.15) seenGather();
+    down = null; drag = null; hold = null;
   }
+  // after the first gather by sweep or hold, the pearl hint has done its job
+  function seenGather() { if (!S.swept) { S.swept = true; dirty = true; } }
   function tapAt(x, y) {
-    // a pearl on the sand
+    // a pearl on the sand (generously, for fingers)
     let best = null, bd = Infinity;
-    for (const d of S.drops) { const p = pearlPos(d), dd = Math.hypot(p.x - x, p.y - y); if (dd < Math.max(U * 2.6, 16) && dd < bd) { bd = dd; best = d; } }
+    for (const d of S.drops) { const p = pearlPos(d), dd = Math.hypot(p.x - x, p.y - y); if (dd < Math.max(U * 3, 22) + p.r && dd < bd) { bd = dd; best = d; } }
     if (best) { collect(best); return; }
     const hit = f => {
       if (f.leaving || f.alpha < 0.5) return false;
@@ -1320,6 +1610,26 @@ const Tank = (() => {
     v.setAttribute('aria-pressed', view === 'list' ? 'true' : 'false');
     v.querySelector('span').textContent = view === 'list' ? 'Tank' : 'List';
     $('#tank-feed').hidden = view === 'list';
+  }
+  /* The pearl bed: what lies on the sand, what the tank makes an hour, and how full the sand is. The first
+     few times pearls are waiting, a hint says how to gather them. */
+  let bedSig = '', pearlHinted = false;
+  function renderBed() {
+    const el = $('#pearl-bed'), rate = tankRate(), cap = bedCap();
+    let on = 0, v = 0;
+    for (const d of S.drops) { v += d.v; if (!falling.has(d.k)) on++; }
+    const show = view === 'tank' && (rate > 0 || v > 0), full = bedFull(), k = cap > 0 ? clamp(bedValue() / cap, 0, 1) : 0;
+    const sig = [show, full, Math.round(v), Math.round(rate), Math.round(k * 100)].join('|');
+    if (sig !== bedSig) {
+      bedSig = sig;
+      el.hidden = !show;
+      el.classList.toggle('full', full);
+      el.querySelector('.pb-ring').style.setProperty('--fill', k.toFixed(3));
+      $('#pearl-bed-text').innerHTML = `${v ? `${fmt(v)} waiting` : 'No pearls yet'}<small>${full ? 'The sand is full: gather them to keep pearls coming' : `${fmt(rate)} an hour · sand ${Math.round(k * 100)}% full`}</small>`;
+      el.setAttribute('aria-label', `${fmt(v)} Moonpearls waiting. Your fish make about ${fmt(rate)} an hour.${full ? ' The sand is full.' : ''}`);
+    }
+    if (!pearlHinted && !S.swept && on >= 2 && view === 'tank' && $('#tank-hint').hidden) { pearlHinted = true; $('#pearl-hint').hidden = false; }
+    if (S.swept && !$('#pearl-hint').hidden) $('#pearl-hint').hidden = true;
   }
   let cardSig = '';
   function renderCard(force) {
@@ -1529,6 +1839,8 @@ const Tank = (() => {
     if (sc.bowlPath) sc.clip = sc.bowlPath;
     else { sc.clip = new Path2D(); sc.clip.rect(sc.ix0, sc.iy0, sc.iw, sc.ih); }
     if (SPR.size > 90) { SPR.clear(); queue.length = 0; }
+    pearlSprites.clear();
+    for (const d of S.drops) if (d.row === undefined || !old) place(d);
     syncFish(old);
   }
   function syncFish(old) {
@@ -1572,14 +1884,17 @@ const Tank = (() => {
   function open(o = {}) {
     if (!api || isOpen) return;
     if (o.check && !api.canUse()) return;
-    settle();
+    settle(Date.now(), true);
     S.last = Date.now();
     isOpen = true;
     view = o.list ? 'list' : 'tank';
-    sel = null; sellAllArmed = sellArmed = releaseArmed = 0; cardSig = '';
+    sel = null; sellAllArmed = sellArmed = releaseArmed = 0; cardSig = ''; bedSig = ''; pearlHinted = false;
+    $('#pearl-hint').hidden = true;
     api.openModal('#m-tank');
     play('tankOpen');
     layout();
+    let i = 0;
+    for (const d of S.drops) if (d.born) { delete d.born; pops.set(d.k, { t: -0.55 - i * 0.07, ring: i++ % 3 === 0 }); }
     renderUI();
     $('#tank-hint').hidden = !!S.hinted || view === 'list';
     if (!S.hinted) { S.hinted = true; dirty = true; }
@@ -1594,7 +1909,7 @@ const Tank = (() => {
     sel = null; down = null; drag = null;
     S.last = Date.now();
     for (const I of ints.slice()) endInt(I);
-    parts = []; falling.clear(); lifts = [];
+    parts = []; falling.clear(); lifted.clear(); pops.clear(); lifts = []; hold = null;
     fish = fish.filter(f => !f.leaving);
     for (const f of fish) { f.react = null; f.free = false; f.leaving = null; f.taps = []; if (f.y < sc.surf) f.y = sc.surf + f.len; }
     $('#fish-card').hidden = true;
@@ -1605,7 +1920,12 @@ const Tank = (() => {
   function frame(dt) {
     if (!api) return;
     if (!isOpen) {
-      if ((idleT += dt) > 30) { idleT = 0; const before = S.drops.length + (S.news || []).length; settle(); if (S.drops.length + (S.news || []).length !== before) { api.persist(); api.refresh(); } }
+      if ((idleT += dt) > 30) {
+        idleT = 0;
+        const sig = P => `${P.pearls}|${P.full}|${P.hearts}`, before = sig(pending());
+        settle();
+        if (sig(pending()) !== before) { api.persist(); api.refresh(); }
+      }
       return;
     }
     dt = Math.min(dt, 0.05);
@@ -1625,6 +1945,7 @@ const Tank = (() => {
       cardT = 0.5;
       renderCard();
       placeCard();
+      renderBed();
       const k = clamp((T - lastFeed) / FEED_COOL, 0, 1), fb = $('#tank-feed');
       fb.style.setProperty('--cool', k.toFixed(3));
       fb.classList.toggle('cooling', k < 1);
@@ -1632,7 +1953,14 @@ const Tank = (() => {
     if (dirty && (saveT -= dt) <= 0) { saveT = 5; dirty = false; api.persist(); }
   }
   function onResize() { if (isOpen) { clearTimeout(rT); rT = setTimeout(() => { layout(); renderCard(true); }, 140); } }
-  const pending = () => ({ pearls: S ? S.drops.length : 0, hearts: S && S.news ? S.news.length : 0 });
+  // what is waiting in the tank: pearls on the sand or ready to appear, whether the sand is full, new friends
+  function pending() {
+    if (!S) return { pearls: 0, value: 0, full: false, hearts: 0 };
+    let n = S.drops.length, v = 0;
+    for (const d of S.drops) v += d.v;
+    for (const k in S.acc || {}) { const a = Math.floor(S.acc[k]); if (a >= 1) { n++; v += a; } }
+    return { pearls: n, value: v, full: bedFull(), hearts: S.news ? S.news.length : 0 };
+  }
 
   /* ================= Market previews ================= */
   const previews = new Map();
@@ -1685,6 +2013,6 @@ const Tank = (() => {
     init, open, onClosed, frame, settle, pending, preview,
     get isOpen() { return isOpen; },
     /* for tests and the console */
-    _debug: { get fish() { return fish; }, get sc() { return sc; }, get parts() { return parts; }, reactTo, startInteraction, select, feed, tapAt, collect, settle, pearlPos, get falling() { return falling.size; } },
+    _debug: { get fish() { return fish; }, get sc() { return sc; }, get parts() { return parts; }, reactTo, startInteraction, select, feed, tapAt, collect, settle, pearlPos, sweep, accrue, bedValue, bedCap, tankRate, pending, YIELD, pearlSprite, get falling() { return falling.size; }, get lifted() { return lifted.size; } },
   };
 })();

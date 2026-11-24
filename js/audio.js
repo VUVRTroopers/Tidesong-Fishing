@@ -683,9 +683,13 @@ const Sound = (() => {
     flakes() { for (let i = 0; i < 10; i++) noise({ t: i * rand(0.03, 0.06), kind: 'white', type: 'highpass', f: 4200, q: 0.7, a: 0.002, d: 0.02, gain: 0.02, pan: rand(-0.3, 0.3), wet: 0.1 }); for (let i = 0; i < 3; i++) S.plip(); },
     pearlDrop(tier = 1) { bell(midi(91 + tier + [0, 2, -1, 4][pickV('pearlDrop', 4)]), { gain: 0.016, dur: 1.4, partials: GLASS, wet: 0.45, beat: false }); },
     pearlLand() { bell(midi([98, 96, 100, 93][pickV('pearlLand', 4)]), { gain: 0.01, dur: 0.5, partials: GLASS, wet: 0.3, beat: false }); },
-    pearlGet(v = 1) {
-      const notes = [[84, 88, 91, 96, 100], [84, 86, 91, 93, 98], [81, 84, 88, 93, 96], [86, 91, 93, 98, 100]][pickV('pearlGet', 4)], k = Math.min(5, 2 + Math.floor(Math.log10(v + 1) * 2));
-      for (let i = 0; i < k; i++) bell(midi(notes[i]), { t: i * 0.055, gain: 0.03, dur: 1.4, partials: GLASS, pan: (i - k / 2) * 0.15, wet: 0.3 });
+    /* run: how many pearls into a quick run of gathering this one is; each climbs a step up a pentatonic
+       ladder, and later ones in a long sweep ring shorter and softer so a sweep of fifty stays a shimmer */
+    pearlGet(v = 1, run = 0) {
+      const notes = [[84, 88, 91, 96, 100], [84, 86, 91, 93, 98], [81, 84, 88, 93, 96], [86, 91, 93, 98, 100]][pickV('pearlGet', 4)];
+      const k = run ? Math.min(3, 1 + Math.floor(Math.log10(v + 1) * 1.5)) : Math.min(5, 2 + Math.floor(Math.log10(v + 1) * 2));
+      const up = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24][Math.min(run, 10)] - (run > 10 ? (run % 3) * 2 : 0), g = 0.03 / (1 + Math.max(0, run - 4) * 0.12);
+      for (let i = 0; i < k; i++) bell(midi(notes[i] + up - (run ? 7 : 0)), { t: i * 0.055, gain: g, dur: run ? 0.9 : 1.4, partials: GLASS, pan: (i - k / 2) * 0.15 + rand(-0.15, 0.15) * Math.min(1, run), wet: 0.3 });
     },
     splashIn(size = 1) { splashFx(size * 0.45, { pan: rand(-0.2, 0.2) }); },
     fish(kind, tier = 0) {

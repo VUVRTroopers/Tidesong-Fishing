@@ -28,7 +28,7 @@
     v: 2, xp: 0, loc: 'mistwillow', caught: {}, total: 0, sound: true, intro: false,
     pearls: 0, net: [], netTier: 0, uid: 1,
     // the aquarium: when it was last looked after, pearls lying on the sand, bonds between fish, mates
-    tank: { last: 0, drops: [], bonds: {}, mates: {}, fed: 0 },
+    tank: { last: 0, drops: [], bonds: {}, mates: {}, acc: {}, fed: 0 },
     bait: { worm: 3, shrimp: 0, roe: 0 },
     owned: { rods: ['willow'], bobbers: ['classic'], lines: ['mono'] },
     equip: { rod: 'willow', bobber: 'classic', line: 'mono', bait: null },
@@ -48,6 +48,7 @@
     if (!Array.isArray(s.tank.drops)) s.tank.drops = [];
     if (!s.tank.bonds || typeof s.tank.bonds !== 'object') s.tank.bonds = {};
     if (!s.tank.mates || typeof s.tank.mates !== 'object') s.tank.mates = {};
+    if (!s.tank.acc || typeof s.tank.acc !== 'object') s.tank.acc = {};
     for (const k of ['rods', 'bobbers', 'lines']) if (!Array.isArray(s.owned[k])) s.owned[k] = fresh().owned[k];
     if (!d.v) {
       // A save from before the market opened: earlier catches are sold on the player's behalf.
@@ -1005,7 +1006,8 @@
     const pend = Tank.pending();
     ui.tankDot.hidden = !pend.pearls && !pend.hearts;
     ui.tankDot.classList.toggle('heart', !!pend.hearts);
-    ui.netBtn.setAttribute('aria-label', `Your aquarium: ${used} of ${cap} fish${used >= cap ? ', full' : ''}${pend.pearls ? '. Something glints on the sand' : ''}`);
+    ui.tankDot.classList.toggle('full', !pend.hearts && pend.full);
+    ui.netBtn.setAttribute('aria-label', `Your aquarium: ${used} of ${cap} fish${used >= cap ? ', full' : ''}${pend.full ? `. ${fmt(pend.value)} Moonpearls are waiting and the sand is full` : pend.pearls ? `. ${fmt(pend.value)} Moonpearls are waiting` : ''}`);
     const bait = activeBait();
     const stocked = BAIT_ORDER.reduce((a, id) => a + (save.bait[id] || 0), 0);
     ui.baitLabel.textContent = bait ? `${BAITS[bait].name} ×${save.bait[bait]}` : stocked ? 'Add bait' : 'No bait';

@@ -692,6 +692,22 @@
     -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); pointer-events: none; animation: hintFade 7s ease forwards;
   }
   @keyframes hintFade { 0% { opacity: 0; } 8%, 72% { opacity: 1; } 100% { opacity: 0; } }
+  .pearl-hint { top: auto; bottom: 26%; white-space: normal; text-align: center; width: max-content; max-width: 86%; animation-duration: 9s; }
+  /* the pearl bed: how much is waiting on the sand, and how full the sand is */
+  .pearl-bed {
+    position: absolute; left: 12px; top: 12px; display: flex; align-items: center; gap: 8px; padding: 5px 12px 5px 5px; border-radius: 999px;
+    font-size: 12.5px; font-weight: 800; color: var(--ink); background: rgba(8, 16, 24, 0.58); box-shadow: var(--slab-edge);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); pointer-events: none; transition: box-shadow 0.4s ease;
+  }
+  .pb-ring { --fill: 0; position: relative; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+    background: conic-gradient(#f2e6ff calc(var(--fill) * 1turn), rgba(255, 255, 255, 0.14) 0); }
+  .pb-ring::before { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: rgba(10, 18, 30, 0.92); }
+  .pb-ring .pearl { position: relative; margin: 0; width: 12px; height: 12px; }
+  .pb-text small { display: block; font-size: 10.5px; font-weight: 700; color: var(--ink-faint); margin-top: 1px; }
+  .pearl-bed.full { box-shadow: var(--slab-edge), 0 0 0 1.5px rgba(242, 230, 255, 0.7), 0 0 18px rgba(214, 190, 255, 0.55); animation: bedGlow 2.2s ease-in-out infinite; }
+  .pearl-bed.full .pb-ring { background: conic-gradient(#ffe7a6 1turn, transparent 0); }
+  @keyframes bedGlow { 50% { box-shadow: var(--slab-edge), 0 0 0 1.5px rgba(255, 236, 180, 0.85), 0 0 26px rgba(255, 220, 150, 0.6); } }
+  .tank-dot.full { background: radial-gradient(circle at 35% 35%, #fff, #fff1c4 45%, #f3c86a); box-shadow: 0 0 0 2px rgba(8, 17, 28, 0.8), 0 0 14px rgba(255, 214, 120, 1); }
   .fish-card {
     position: absolute; left: 12px; bottom: 12px; width: min(348px, calc(100% - 24px)); padding: 12px 14px; border-radius: 16px;
     display: grid; gap: 6px; background: var(--grain), linear-gradient(180deg, rgba(22, 36, 48, 0.86), rgba(8, 16, 24, 0.9));
@@ -755,7 +771,7 @@
     .tank-btns { justify-content: flex-start; }
     .tank-cap { max-width: none; flex-basis: 100%; }
   }
-  @media (prefers-reduced-motion: reduce) { .tank-dot, .tank-hint, .fish-card { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .tank-dot, .tank-hint, .fish-card, .pearl-bed.full { animation: none; } }
   .ladder { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
   .rung { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; padding: 12px 14px; border-radius: 14px; background: var(--panel-fill); box-shadow: var(--panel-edge); }
   .rung > div:first-child { display: grid; gap: 2px; }
@@ -944,6 +960,8 @@
         <canvas id="tank-gl" aria-hidden="true"></canvas>
         <canvas id="tank-canvas" aria-label="Your aquarium. Tap a fish to see it up close, or use the list."></canvas>
         <p class="tank-hint" id="tank-hint" hidden>Tap a fish to see it up close</p>
+        <p class="tank-hint pearl-hint" id="pearl-hint" hidden>Sweep across the pearls, or press and hold, to gather them</p>
+        <div class="pearl-bed" id="pearl-bed" hidden aria-live="polite"><span class="pb-ring" aria-hidden="true"><i class="pearl"></i></span><span class="pb-text" id="pearl-bed-text"></span></div>
         <div class="fish-card" id="fish-card" hidden aria-live="polite"></div>
         <div class="tank-list" id="tank-list" hidden></div>
       </div>
