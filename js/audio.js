@@ -590,6 +590,19 @@ const Sound = (() => {
       osc(midi(55), { a: 0.5, hold: 0.5, d: 2.2, gain: 0.03, type: 'warm', lp: 900, dest: music, wet: 0.28 });
     },
 
+    /* A badge pressed into the scrapbook: a soft paper thwip, then a glassy chime that climbs higher and
+       lasts longer the grander the badge (1 bronze … 5 moon), with a warm swell under the two finest. */
+    badge(grade = 1) {
+      const g = clamp(grade | 0, 1, 5);
+      noise({ type: 'bandpass', f: 2600, f1: 900, fTime: 0.12, q: 0.9, a: 0.004, d: 0.12, gain: 0.03, wet: 0.1 });
+      const sets = [[0, 4, 7], [0, 4, 7, 12], [0, 4, 7, 11, 14], [0, 5, 9, 12, 16, 19], [0, 4, 7, 12, 16, 19, 24]];
+      const notes = sets[g - 1], root = 76 + [0, 2, -1][pickV('badge', 3)];
+      notes.forEach((n, i) => bell(midi(root + n), { t: 0.08 + i * 0.075, gain: 0.028, dur: 1.6 + g * 0.3, partials: GLASS, pan: (i / (notes.length - 1) - 0.5) * 0.6, wet: 0.35 }));
+      if (g >= 4) osc(midi(root - 12), { t: 0.1, a: 0.3, hold: 0.4, d: 1.8, gain: 0.02, type: 'warm', lp: 1200, dest: music, wet: 0.4 });
+    },
+    /* turning a page of the scrapbook */
+    page() { noise({ type: 'bandpass', f: 1700, f1: 3400, fTime: 0.2, q: 0.7, a: 0.03, d: 0.17, gain: 0.02, wet: 0.12 }); },
+
     coin(n = 1) {
       const sets = [[84, 88, 91, 96], [84, 86, 91, 93], [81, 84, 88, 93], [86, 91, 93, 98], [79, 84, 88, 91]];
       const notes = sets[pickV('coin', sets.length)], k = Math.min(4, 1 + Math.floor(Math.log2(n + 1))), gap = rand(0.06, 0.08);

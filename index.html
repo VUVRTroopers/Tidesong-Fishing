@@ -454,6 +454,147 @@
   .jcard.unknown .jmeta { color: var(--ink-faint); }
   @media (max-width: 420px) { .jgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
+  /* scrapbook: a book of cream pages inside the card; badges are stuck on as medals, the ones still to
+     earn are pencilled in */
+  .book { width: min(100%, 860px); }
+  .book-tally { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 12px 0 0; font-size: 12px; font-weight: 800; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .book-bar { flex: 1 1 100%; height: 7px; border-radius: 4px; background: rgba(0, 0, 0, 0.32); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55), 0 1px 0 rgba(255, 255, 255, 0.08); overflow: hidden; }
+  .book-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(180deg, #fff1c6, var(--brass) 55%, #c39033); box-shadow: 0 0 6px rgba(232, 196, 108, 0.45); transition: width 0.8s var(--ease); }
+  .book-tally .gm { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .book-tally .gm i { width: 12px; height: 12px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff 0 12%, var(--gc) 55%, color-mix(in srgb, var(--gc) 55%, #000)); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 0 6px color-mix(in srgb, var(--gc) 45%, transparent); }
+  .book-tabs .tab { display: inline-flex; align-items: center; gap: 7px; position: relative; }
+  .book-tabs .tab small { font-size: 11px; font-weight: 800; opacity: 0.68; font-variant-numeric: tabular-nums; }
+  .book-tabs .tdot { width: 7px; height: 7px; border-radius: 50%; background: #ffd46e; box-shadow: 0 0 0 1.5px rgba(8, 17, 28, 0.7), 0 0 8px rgba(255, 212, 110, 0.9); }
+  .bk-paper {
+    --paper-ink: #3a2c1b; --pencil: #8a7759;
+    position: relative; border-radius: 6px 16px 16px 6px; padding: 22px 18px 24px; color: var(--paper-ink); user-select: none; -webkit-user-select: none;
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.45 0 0 0 0 0.33 0 0 0 0 0.18 0.11 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+      radial-gradient(ellipse 90% 70% at 35% 0%, #fbf4e4, #f1e5ca 62%, #e7d6b4);
+    box-shadow: inset 6px 0 10px -6px rgba(90, 60, 25, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.4), inset 0 0 36px rgba(150, 105, 50, 0.16), 0 2px 0 rgba(0, 0, 0, 0.28), 0 12px 28px rgba(0, 0, 0, 0.36);
+  }
+  /* washi tape at two corners, in the page's colour */
+  .bk-paper::before, .bk-paper::after {
+    content: ""; position: absolute; top: -7px; width: 84px; height: 20px; pointer-events: none; opacity: 0.78;
+    background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.22) 0 6px, transparent 6px 12px), color-mix(in srgb, var(--pc, #7cc49a) 60%, #f4ecd8);
+    box-shadow: 0 1px 2px rgba(60, 40, 10, 0.2); -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 4px, #000 calc(100% - 4px), transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 4px, #000 calc(100% - 4px), transparent 100%);
+  }
+  .bk-paper::before { left: 18px; transform: rotate(-6deg); }
+  .bk-paper::after { right: 22px; transform: rotate(5deg); }
+  .bk-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; margin: 0 0 6px; }
+  .bk-head h3 { font-family: var(--display); font-style: italic; font-weight: 500; font-size: clamp(24px, 4vw, 30px); margin: 0; color: #2c2113; }
+  .bk-head .bk-count { margin-left: auto; font-weight: 800; font-size: 13px; color: var(--pencil); font-variant-numeric: tabular-nums; }
+  .bk-head p { flex: 1 1 100%; margin: 0; font-family: var(--display); font-size: 15px; color: #6c5a40; }
+  .bk-sec { display: flex; align-items: center; gap: 10px; margin: 20px 0 8px; font-size: 11px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: var(--pencil); }
+  .bk-sec::after { content: ""; flex: 1; height: 1px; background: repeating-linear-gradient(90deg, rgba(120, 95, 60, 0.45) 0 4px, transparent 4px 8px); }
+  .bk-head + .bk-grid { margin-top: 14px; }
+  .bk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 10px 8px; }
+  .bk-cell {
+    position: relative; display: grid; justify-items: center; align-content: start; gap: 4px; min-width: 0; padding: 10px 4px 8px;
+    border: 0; border-radius: 14px; background: none; color: inherit; font: inherit; text-align: center; cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.2s var(--ease);
+  }
+  .bk-cell:hover { background: rgba(120, 88, 40, 0.07); }
+  .bk-cell:active { transform: translateY(1px); }
+  .bk-cell:focus-visible, .bk-series button:focus-visible, .bk-paper .secondary-btn:focus-visible { outline: 2px solid #b88a2c; outline-offset: 1px; box-shadow: none !important; }
+  .bk-medal { width: 76px; height: 76px; display: block; transform: rotate(var(--rot, 0deg)); transition: transform 0.3s var(--ease), filter 0.3s ease; }
+  .bk-cell.got .bk-medal { filter: drop-shadow(0 1.5px 1px rgba(60, 35, 10, 0.4)) drop-shadow(0 6px 8px rgba(60, 35, 10, 0.22)); }
+  .bk-cell.got:hover .bk-medal { transform: rotate(0deg) scale(1.07) translateY(-2px); }
+  .bk-medal svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .bk-name { font-family: var(--display); font-weight: 600; font-size: 14px; line-height: 1.2; color: #30241a; text-wrap: balance; overflow-wrap: anywhere; }
+  .bk-cell.lock .bk-name { color: var(--pencil); font-weight: 500; }
+  .bk-meta { font-size: 11.5px; font-weight: 700; color: var(--pencil); font-variant-numeric: tabular-nums; }
+  .bk-prog { display: block; width: 72%; height: 4px; border-radius: 2px; background: rgba(120, 95, 60, 0.2); box-shadow: inset 0 1px 1px rgba(80, 55, 20, 0.2); overflow: hidden; margin-top: 2px; }
+  .bk-prog i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #b88a2c, #e2b55a); }
+  .bk-new {
+    position: absolute; top: 4px; right: 6px; padding: 3px 7px; border-radius: 999px; transform: rotate(7deg);
+    font-size: 9.5px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #fffaf0; background: #c2573a; box-shadow: 0 2px 4px rgba(80, 30, 10, 0.3);
+  }
+  .bk-cell.new .bk-medal { animation: bkGlint 2.6s ease-in-out infinite; }
+  @keyframes bkGlint {
+    0%, 100% { filter: drop-shadow(0 1.5px 1px rgba(60, 35, 10, 0.4)) drop-shadow(0 6px 8px rgba(60, 35, 10, 0.22)); }
+    50% { filter: drop-shadow(0 1.5px 1px rgba(60, 35, 10, 0.4)) drop-shadow(0 0 12px rgba(255, 205, 100, 0.95)); }
+  }
+  /* one badge, up close */
+  .bk-detail { display: grid; justify-items: center; gap: 8px; text-align: center; padding-top: 18px; }
+  .bk-paper .secondary-btn { color: #7a5718; background: rgba(255, 255, 255, 0.45); box-shadow: inset 0 0 0 1px rgba(150, 110, 40, 0.38), 0 1px 2px rgba(80, 50, 10, 0.15); text-shadow: none; display: inline-flex; align-items: center; gap: 7px; }
+  .bk-paper .secondary-btn:hover { background: rgba(255, 255, 255, 0.7); }
+  .bk-back { justify-self: start; }
+  .bk-stage { width: 210px; height: 210px; display: grid; place-items: center; perspective: 720px; margin: 2px 0 4px; touch-action: none; }
+  .bk-big {
+    position: relative; width: 180px; height: 180px; cursor: pointer; transform-style: preserve-3d;
+    transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform 0.5s var(--ease);
+    filter: drop-shadow(0 5px 3px rgba(60, 35, 10, 0.3)) drop-shadow(0 18px 20px rgba(60, 35, 10, 0.24));
+  }
+  .bk-big svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  .bk-stage.live .bk-big { transition: transform 0.08s linear; }
+  .bk-big.idle { animation: bkSway 7s ease-in-out infinite; }
+  .bk-big.spin { animation: bkSpin 0.95s cubic-bezier(.2, .8, .25, 1); }
+  @keyframes bkSway { 0%, 100% { transform: rotateY(-12deg) rotateX(4deg); } 50% { transform: rotateY(12deg) rotateX(-3deg); } }
+  @keyframes bkSpin { from { transform: rotateY(0deg) scale(1); } 45% { transform: rotateY(200deg) scale(1.08); } to { transform: rotateY(360deg) scale(1); } }
+  .bk-shine {
+    position: absolute; inset: 9%; border-radius: 50%; pointer-events: none; mix-blend-mode: soft-light;
+    background: linear-gradient(115deg, transparent 32%, rgba(255, 255, 255, 0.95) 47%, transparent 62%) var(--sx, 50%) 50% / 260% 260% no-repeat;
+    transition: background-position 0.12s linear;
+  }
+  .bk-big.idle .bk-shine { animation: bkShine 7s ease-in-out infinite; }
+  @keyframes bkShine { 0%, 100% { background-position: 90% 50%; } 50% { background-position: 10% 50%; } }
+  .bk-grade {
+    padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; color: #2e2212;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--gc) 55%, #fff), var(--gc)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 0 0 1px color-mix(in srgb, var(--gc) 55%, #4a3412), 0 2px 4px rgba(60, 40, 10, 0.2);
+  }
+  .bk-title { font-family: var(--display); font-weight: 600; font-size: clamp(26px, 5vw, 32px); line-height: 1.1; margin: 4px 0 0; color: #2a1f12; text-wrap: balance; }
+  .bk-desc { margin: 0; max-width: 36ch; font-family: var(--display); font-size: 17px; line-height: 1.45; color: #4a3a24; text-wrap: balance; }
+  .bk-note { margin: 2px 0 0; max-width: 46ch; font-size: 13px; line-height: 1.55; color: #7a6646; text-wrap: pretty; }
+  .bk-when { margin: 4px 0 0; font-family: var(--display); font-style: italic; font-size: 15px; color: #6c5a40; }
+  .bk-dprog { display: grid; justify-items: center; gap: 6px; width: min(280px, 86%); margin-top: 4px; font-size: 13px; font-weight: 800; color: #6c5a40; font-variant-numeric: tabular-nums; }
+  .bk-dprog .bk-prog { width: 100%; height: 8px; border-radius: 4px; }
+  .bk-series { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 4px; width: 100%; margin-top: 12px; padding-top: 14px; border-top: 1px dashed rgba(120, 95, 60, 0.4); }
+  .bk-series button { display: grid; justify-items: center; gap: 2px; padding: 5px 4px 4px; border: 0; border-radius: 10px; background: none; color: var(--pencil); font: inherit; cursor: pointer; min-width: 48px; }
+  .bk-series button:hover { background: rgba(120, 88, 40, 0.08); }
+  .bk-series button.on { background: rgba(184, 138, 44, 0.16); color: #5a4318; }
+  .bk-series .bk-medal { width: 40px; height: 40px; }
+  .bk-series button span:last-child { font-size: 10.5px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  @media (max-width: 600px) {
+    .bk-paper { padding: 20px 10px 18px; }
+    .bk-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px 4px; }
+    .bk-medal { width: 64px; height: 64px; }
+    .bk-name { font-size: 13px; }
+    .book-tally { gap: 6px 10px; font-size: 11px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .bk-big.idle, .bk-big.idle .bk-shine, .bk-cell.new .bk-medal { animation: none; } }
+
+  /* a badge earned: a medal drops in at the top of the screen, above everything */
+  .badge-pop {
+    --gc: var(--brass);
+    position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 10px); z-index: 60;
+    display: flex; align-items: center; gap: 12px; width: max-content; max-width: min(calc(100vw - 32px), 440px); padding: 8px 20px 8px 8px; border: 0; border-radius: 999px;
+    text-align: left; color: var(--ink); font: inherit; cursor: pointer; perspective: 400px;
+    background: var(--grain), var(--slab-deep); -webkit-backdrop-filter: blur(16px) saturate(1.3); backdrop-filter: blur(16px) saturate(1.3);
+    box-shadow: var(--slab-edge), inset 0 0 0 1px color-mix(in srgb, var(--gc) 55%, transparent), 0 14px 36px rgba(0, 0, 0, 0.45), 0 0 28px color-mix(in srgb, var(--gc) 28%, transparent);
+    opacity: 0; transform: translate(-50%, -130%) scale(0.92); transition: transform 0.6s cubic-bezier(.2, .9, .3, 1.25), opacity 0.35s ease;
+  }
+  .badge-pop.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  .badge-pop.hide { opacity: 0; transform: translate(-50%, -40%) scale(0.96); transition: transform 0.4s ease-in, opacity 0.35s ease; }
+  .bp-medal { width: 54px; height: 54px; flex: none; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45)); animation: bpIn 0.95s 0.12s cubic-bezier(.2, .8, .25, 1) both; }
+  .bp-medal svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  @keyframes bpIn { from { transform: rotateY(-200deg) scale(0.3); opacity: 0; } 40% { opacity: 1; } to { transform: rotateY(0deg) scale(1); } }
+  .bp-text { display: grid; gap: 1px; min-width: 0; }
+  .bp-text small { font-size: 10.5px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gc); text-shadow: 0 0 10px color-mix(in srgb, var(--gc) 40%, transparent); }
+  .bp-text b { font-family: var(--display); font-weight: 600; font-size: 18px; line-height: 1.15; }
+  .bp-text em { font-style: normal; font-size: 12.5px; line-height: 1.3; color: var(--ink-soft); }
+  .bp-spark {
+    position: absolute; left: 35px; top: 50%; width: 5px; height: 5px; margin: -2.5px; border-radius: 50%; pointer-events: none; opacity: 0;
+    background: radial-gradient(circle, #fff 0 35%, var(--gc) 70%); box-shadow: 0 0 6px var(--gc); animation: bpSpark 0.9s ease-out both;
+  }
+  @keyframes bpSpark { 0% { opacity: 0; transform: translate(0, 0) scale(0.4); } 15% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1); } }
+  .badge-pop.g4, .badge-pop.g5 { box-shadow: var(--slab-edge), inset 0 0 0 1px color-mix(in srgb, var(--gc) 70%, transparent), 0 14px 36px rgba(0, 0, 0, 0.45), 0 0 44px color-mix(in srgb, var(--gc) 45%, transparent); }
+  @media (prefers-reduced-motion: reduce) { .bp-medal, .bp-spark { animation: none; opacity: 1; } .bp-spark { display: none; } }
+  /* the scrapbook button's new-badge dot */
+  .icon-btn { position: relative; }
+  .book-dot { position: absolute; top: 4px; right: 4px; width: 10px; height: 10px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff, #ffe7a6 45%, #e8b23c); box-shadow: 0 0 0 2px rgba(8, 17, 28, 0.8), 0 0 10px rgba(255, 214, 120, 0.9); animation: dotPulse 2.4s ease-in-out infinite; }
+  @media (max-width: 420px) { .hud-actions { gap: 6px; } .icon-btn { width: 42px; height: 42px; border-radius: 14px; } }
+
   /* intro */
   .intro { padding: 30px 26px 26px; text-align: center; width: min(100%, 470px); }
   .intro-title {
@@ -877,6 +1018,10 @@
       <button class="icon-btn glass" id="btn-journal" type="button" aria-label="Fish journal">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h10.5A3.5 3.5 0 0 1 19 8v12H8.5A3.5 3.5 0 0 1 5 16.5z"/><path d="M5 16.5A3.5 3.5 0 0 1 8.5 13H19"/><path d="M9 8.5c1.6-1.6 3.6-1.6 5 0-1.4 1.6-3.4 1.6-5 0z"/></svg>
       </button>
+      <button class="icon-btn glass" id="btn-book" type="button" aria-label="Scrapbook">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="5.6"/><path d="M8.6 13.5L7 21l5-2.7 5 2.7-1.6-7.5"/><path d="M12 6.4l.85 1.7 1.9.28-1.37 1.33.32 1.88L12 10.7l-1.7.9.32-1.88-1.37-1.33 1.9-.28z"/></svg>
+        <i class="book-dot" id="book-dot" hidden></i>
+      </button>
       <button class="icon-btn glass" id="btn-sound" type="button" aria-label="Mute sound" aria-pressed="true">
         <svg class="on" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/></svg>
         <svg class="off" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
@@ -986,6 +1131,22 @@
     </div>
   </div>
 
+  <!-- scrapbook: badges earned, page by page -->
+  <div class="modal" id="m-book" hidden role="dialog" aria-modal="true" aria-labelledby="book-title">
+    <div class="card sheet book">
+      <div class="sheet-head">
+        <div class="shop-head-text">
+          <h2 id="book-title">Scrapbook</h2>
+          <p class="sheet-sub" id="book-sub"></p>
+        </div>
+        <button class="close-btn" type="button" data-close aria-label="Close scrapbook"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <div class="book-tally" id="book-tally"></div>
+      <nav class="tabs book-tabs" id="book-tabs" role="tablist" aria-label="Scrapbook pages"></nav>
+      <div class="book-body" id="book-body" role="tabpanel"></div>
+    </div>
+  </div>
+
   <!-- aquarium -->
   <div class="modal" id="m-tank" hidden role="dialog" aria-modal="true" aria-labelledby="tank-title">
     <div class="card sheet shop tankcard">
@@ -1050,6 +1211,7 @@
 <script src="js/gear.js"></script>
 <script src="js/rods.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/badges.js"></script>
 <script src="js/shop.js"></script>
 <script src="js/tank-env.js"></script>
 <script src="js/tank-gl.js"></script>

@@ -267,6 +267,7 @@ const Shop = (() => {
         if (!spend(B.price)) return;
         s.bait[id] = (s.bait[id] || 0) + B.pack;
         if (!s.equip.bait) s.equip.bait = id;
+        if (api.note) api.note('bait', { id });
         api.play('buy');
         break;
       }

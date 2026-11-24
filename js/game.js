@@ -27,6 +27,7 @@
   const fresh = () => ({
     v: 2, xp: 0, loc: 'mistwillow', caught: {}, total: 0, sound: true, intro: false,
     pearls: 0, net: [], netTier: 0, uid: 1, gifts: [],
+    ach: null, // badges and the scrapbook (js/badges.js fills this in)
     // the aquariums: when they were last looked after, the pearls on each tank's sand, bonds between fish,
     // mates, each fish's unfinished pearl, when each tank was fed, and which tank was last looked at
     tank: { last: 0, sands: {}, bonds: {}, mates: {}, acc: {}, fedAt: {}, at: 0 },
@@ -46,6 +47,7 @@
     for (const k of ['bait', 'owned', 'equip', 'stats', 'records']) s[k] = Object.assign(fresh()[k], d[k] || {});
     if (!Array.isArray(s.net)) s.net = [];
     if (!Array.isArray(s.gifts)) s.gifts = [];
+    if (!s.ach || typeof s.ach !== 'object') s.ach = null;
     s.tank = Object.assign(fresh().tank, d.tank || {});
     if (!s.tank.sands || typeof s.tank.sands !== 'object') s.tank.sands = {};
     if (!s.tank.fedAt || typeof s.tank.fedAt !== 'object') s.tank.fedAt = {};
@@ -82,7 +84,9 @@
     homeFish(s);
     return s;
   }
-  function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* ignore */ } }
+  function persistRaw() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* ignore */ } }
+  // every change to the save is a chance to have earned a badge
+  function persist() { persistRaw(); Badges.poke(); }
   let save = load();
 
   const locById = id => LOCATIONS.find(l => l.id === id) || LOCATIONS[0];
@@ -344,6 +348,7 @@
     to.y = clamp(to.y, L.horizon + (H - L.horizon) * 0.08, H - L.m * 0.14);
     C.hit = { o, f: o.f, t: 0, hold: I.hold, dur: I.dur, arc: L.m * I.arc, at: { ...C.to }, ox: o.x, otop: o.top, from: null, to };
     Sound.play('thud', o.kind, (C.to.x / W - 0.5) * 0.8);
+    Badges.note('bonk');
     Scenes.knock(o.f, G.t, o.kind === 'wood' ? 0.8 : 1);
     ripple(o.x, o.y, 2, Math.min(1.4, o.rx / (L.m * 0.05)) * 0.8);
     // what flies off it: chips of ice, beads of water off a leaf, a splinter or two of wood
@@ -373,7 +378,7 @@
       rarity = weightedPick(baitedWeights(loc, bait));
       id = weightedPick(loc.fish[rarity]);
     }
-    G.hooked = { id, rarity };
+    G.hooked = { id, rarity, bait };
     setPhase('bite');
     ui.reelIn.hidden = true;
     splash(bobPos(), 1);
@@ -452,7 +457,8 @@
     // meter
     R.inBand = Math.abs(f.shown - b.x) <= half;
     if (R.inBand) R.progress += D.fill * R.mods.fill * dt;
-    else if (R.el > REEL_GRACE) R.progress -= D.drain * R.mods.drain * dt;
+    else if (R.el > REEL_GRACE) { R.progress -= D.drain * R.mods.drain * dt; R.slip = true; }
+    if (R.el > REEL_GRACE) R.low = Math.min(R.low ?? 1, R.progress);
   }
 
   function recordCatch(fish) {
@@ -482,6 +488,7 @@
     };
     recordCatch(fish);
     save.total += 1;
+    Badges.note('land', { loc: save.loc, rarity, size: fish.size, bait: G.hooked.bait, slip: !!(G.reel && G.reel.slip), whisker: !!(G.reel && G.reel.low < REEL_ESCAPE + 0.035) });
     const before = lvl().level;
     save.xp += xp + bonus;
     const after = lvl().level;
@@ -503,6 +510,7 @@
 
   function escapeFish() {
     Sound.stopReel();
+    Badges.note('escape');
     Sound.play('escape');
     const p = { ...G.entry };
     splash(p, 1);
@@ -1082,6 +1090,7 @@
     if (m.id === 'm-intro') { save.intro = true; persist(); unlockAudio(); }
     if (m.id === 'm-shop') { updateHUD(); if (revealOpen()) renderRevealActions(); }
     if (m.id === 'm-tank') { Tank.onClosed(); updateHUD(); if (revealOpen()) renderRevealActions(); }
+    if (m.id === 'm-book') Badges.onClosed();
     if (!quiet) Sound.play('click');
   }
   const revealOpen = () => !$('#m-reveal').hidden && revealState && revealState.mode === 'catch';
@@ -1172,6 +1181,7 @@
       const prized = RARITIES[Ld.rarity].tier >= 3;
       const home = Tank.homeFor();
       save.net.push({ uid: save.uid++, id: Ld.id, kg: Ld.kg, cm: Ld.cm, value: Ld.value, at: Date.now(), fav: prized, seen: false, t: home });
+      Badges.note('keep');
       Sound.play('equip');
       if (save.netTier > 0) setTimeout(() => toast(`Your ${SPECIES[Ld.id].name} swims off to the ${TANKS[home].name}.`, '#9fe3b0', 2600), prized ? 4100 : 300);
       if (prized) setTimeout(() => toast(`Your ${SPECIES[Ld.id].name} is starred, so “Sell all unstarred” will leave it alone.`, RARITIES[Ld.rarity].color, 3600), 400);
@@ -1180,6 +1190,7 @@
       save.stats.earned += Ld.value;
       save.stats.sold += 1;
       save.caught[Ld.id].sold = (save.caught[Ld.id].sold || 0) + 1;
+      Badges.note('sale', { n: 1, top: Ld.value });
       Sound.play('coin', 1);
     } else if (act === 'release') {
       save.stats.released += 1;
@@ -1218,8 +1229,8 @@
     const Ld = G.land;
     if (!Ld.decided) {
       // closed without choosing (should not happen): keep it if there is room, otherwise sell it
-      if (save.net.length < netCap()) save.net.push({ uid: save.uid++, id: Ld.id, kg: Ld.kg, cm: Ld.cm, value: Ld.value, at: Date.now(), fav: false, seen: false, t: Tank.homeFor() });
-      else { save.pearls += Ld.value; save.stats.earned += Ld.value; save.stats.sold += 1; }
+      if (save.net.length < netCap()) { save.net.push({ uid: save.uid++, id: Ld.id, kg: Ld.kg, cm: Ld.cm, value: Ld.value, at: Date.now(), fav: false, seen: false, t: Tank.homeFor() }); Badges.note('keep'); }
+      else { save.pearls += Ld.value; save.stats.earned += Ld.value; save.stats.sold += 1; Badges.note('sale', { n: 1, top: Ld.value }); }
       persist();
     }
     toIdle();
@@ -1428,8 +1439,20 @@
     light: Lx => { const pl = Scenes.palette(save.loc).light; return { x: pl.x * Lx.w, y: Lx.horizon - pl.y * Lx.horizon, r: pl.r * Lx.m }; },
   });
 
+  Badges.init({
+    get save() { return save; },
+    persist: persistRaw,
+    level: () => lvl().level,
+    play: (name, ...args) => Sound.play(name, ...args),
+    openModal,
+    canUse: canUseMenus,
+    // badges wait while a fish is on the line, and until the welcome card is closed
+    busy: () => ['bite', 'reeling'].includes(G.phase) || !$('#m-intro').hidden,
+  });
+
   Shop.init({
     get save() { return save; },
+    note: (kind, v) => Badges.note(kind, v),
     persist,
     refresh() { updateHUD(); if (revealOpen()) renderRevealActions(); },
     toast,
@@ -1446,6 +1469,7 @@
 
   Tank.init({
     get save() { return save; },
+    note: (kind, v) => Badges.note(kind, v),
     persist,
     refresh() { updateHUD(); if (revealOpen()) renderRevealActions(); },
     toast,
@@ -1537,6 +1561,7 @@
     addPearls(n) { save.pearls += n; persist(); updateHUD(); },
     unlockAll() { save.xp = Math.max(save.xp, xpToReach(Gear.TOP_LEVEL)); persist(); updateHUD(); },
     reset() { save = fresh(); persist(); location.reload(); },
+    badges(ids) { Badges.grant(ids); return `${Object.keys(save.ach.got).length} badges earned`; },
     get state() { return { t: G.t, phase: G.phase, save: JSON.parse(JSON.stringify(save)), reel: G.reel && { progress: G.reel.progress, band: G.reel.band.x, width: G.reel.band.w, mods: G.reel.mods, fish: G.reel.fish.shown, inBand: G.reel.inBand }, shadow: { ...FS }, bob: G.phase === 'reeling' ? { ...G.entry } : bobPos(), tip: rodTip(), cast: G.cast && { k: G.cast.k, struck: G.cast.obj ? G.cast.obj.kind : null, hit: G.cast.hit ? G.cast.hit.t : -1 } }; },
   };
   /* ================= Gifts =================

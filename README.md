@@ -16,6 +16,8 @@ wait for a bite, then hold to keep the gold fish marker inside your green band u
 - **A living aquarium** for the fish you keep: six tanks from a glass bowl to a moonlit palace, all
   kept as you buy them, where fish explore, meet, make friends and sometimes mates, and every one of
   them slowly makes pearls.
+- **135 badges in a scrapbook**, from the first fish to a full Moon Palace, in five grades from bronze
+  to moon, with secrets to find.
 - **Progress saves automatically** in the browser.
 
 ## Contents
@@ -26,6 +28,7 @@ wait for a bite, then hold to keep the gold fish marker inside your green band u
 - [The fish](#the-fish)
 - [The Driftwood Market](#the-driftwood-market)
 - [The aquarium](#the-aquarium)
+- [Badges and the scrapbook](#badges-and-the-scrapbook)
 - [Graphics](#graphics)
 - [Sound](#sound)
 - [Project structure](#project-structure)
@@ -321,6 +324,244 @@ The game explains almost none of what follows; players find it by watching and t
 
 </details>
 
+## Badges and the scrapbook
+
+![The scrapbook's On the Line page, with earned medals and pencilled-in ones still to earn, and the Master Angler badge up close](docs/screenshots/scrapbook.jpg)
+
+The ribbon-medal button at the top right opens the scrapbook: 135 badges on nine pages (First Casts,
+On the Line, Field Journal, Driftwood Market, Tackle Box, The Aquarium, Friends & Mates, Seasons and
+Secrets). Earned badges are stuck onto the page as medals. The rest are pencilled in, with progress for
+the counting ones ("37 / 50"). Tap a badge to admire it up close. It sways gently, tilts toward your
+finger or pointer with light sliding across it, and spins when tapped. The page also shows when it was
+earned, how far there is to go, and the rest of its ladder.
+
+Every badge has a grade, shown by its rim, that says roughly when it comes:
+
+| Grade | Medal | When it usually comes | Badges |
+| --- | --- | --- | --- |
+| Bronze | A plain bronze coin | The first day | 27 |
+| Silver | A beaded silver rim | The first week | 38 |
+| Gold | A scalloped gold rosette with ribbons | A few weeks in | 35 |
+| Pearl | A rosette studded with pearls | A season of fishing | 23 |
+| Moon | A moon medal on a star of light | Mastery | 12 |
+
+**Pacing.** The thresholds come from the economy simulation: 60 days of play for a casual (30 minutes
+a day), steady (an hour) and focused (two hours) player, with the simulated fishing pace halved to
+match real play (about 80 catches an hour). A new player earns about ten bronze badges in their first
+session. The catch ladder runs 10, 25, 50, 100, 250, 500, 1,000, 2,500 and 5,000. A hundred fish take
+an hour or two; a thousand take two to four weeks of regular play; five thousand take months. The other
+ladders work the same way: fish sold, Moonpearls earned, pearls gathered from the tanks (100 up to
+250,000), meals, treasures, levels, days by the water and couples of mates. A meal counts when the fish
+are hungry again (a tank's fish stay full for 15 minutes), so the meals ladder follows days of looking
+after the tanks, not taps on Feed.
+
+**The moment.** A new badge drops in at the top of the screen with its medal spinning into place and a
+chime that grows richer with the grade. Tap it to open the scrapbook at that badge. Badges wait while a
+fish is on the line. Several at once come one after another, and a crowd is gathered into one note. A
+dot on the scrapbook button and on the page tabs marks new badges until you have seen them.
+
+**Saves from before the scrapbook** are credited quietly on first load, with one note ("Your scrapbook
+is ready: 61 badges from your adventures so far"). Credit comes from everything the save already shows:
+catches, species, sales, pearls, gear, tanks, levels, today's mates and best friends, and treasures
+opened. Waters fished are worked out from species that live in only one water. Things an old save never
+recorded (fish lost, meals served, streaks, trophy sizes, days played) start counting from then.
+
+<details>
+<summary>Every badge (spoilers, except the secrets)</summary>
+
+**First Casts** (12)
+
+| Badge | Grade | To earn it |
+| --- | --- | --- |
+| First Catch | Bronze | Land your very first fish. |
+| The One That Got Away | Bronze | Lose a fish off the hook. It happens to every angler. |
+| Something Blue | Bronze | Catch your first Rare fish. |
+| A Home in Glass | Bronze | Keep a fish in your aquarium. |
+| Open for Business | Bronze | Sell a fish at the Driftwood Market. |
+| Catch and Release | Bronze | Let a fish go back to the water. |
+| Something Tasty | Bronze | Buy a pack of bait at the market. |
+| Fresh Tackle | Bronze | Buy your first piece of new gear. |
+| Dinner Bell | Bronze | Feed the fish in your aquarium. |
+| Pearl on the Sand | Bronze | Gather a Moonpearl your fish left on the sand. |
+| New Horizons | Bronze | Catch a fish in a second water. |
+| Finding Your Feet | Bronze | Reach level 5. |
+
+**On the Line** (17)
+
+| Badge | Grade | To earn it |
+| --- | --- | --- |
+| Nibbles | Bronze | Catch 10 fish. |
+| Getting the Hang of It | Bronze | Catch 25 fish. |
+| Steady Hands | Bronze | Catch 50 fish. |
+| Century | Silver | Catch 100 fish. |
+| Old Hand | Silver | Catch 250 fish. |
+| Seasoned Angler | Gold | Catch 500 fish. |
+| A Thousand Tides | Gold | Catch 1,000 fish. |
+| Master Angler | Pearl | Catch 2,500 fish. |
+| Tidesong Legend | Moon | Catch 5,000 fish. |
+| Flawless | Silver | Land a fish without it ever slipping out of your band. |
+| By a Whisker | Silver | Land a fish when the reel was a hair from letting it go. |
+| Trophy Catch | Silver | Land a fish at the very top of its size range. |
+| Trophy Wall | Gold | Land 25 trophy-sized fish. |
+| On a Roll | Silver | Land 10 fish in a row without one getting away. |
+| Steady as a Rock | Gold | Land 50 fish in a row without one getting away. |
+| Unbreakable | Pearl | Land 200 fish in a row without one getting away. |
+| Untouchable | Pearl | Land a Legendary or Extreme fish without it ever slipping out of your band. |
+
+**Field Journal** (17)
+
+| Badge | Grade | To earn it |
+| --- | --- | --- |
+| Purple Patch | Silver | Catch your first Epic fish. |
+| Stuff of Legend | Gold | Catch your first Legendary fish. |
+| Here Be Dragons | Pearl | Catch an Extreme fish. |
+| Blue Ribbon | Silver | Catch 100 Rare fish. |
+| Epic Haul | Gold | Catch 50 Epic fish. |
+| Living Legend | Pearl | Catch 10 Legendary fish. |
+| Dragon Tamer | Moon | Catch 5 Extreme fish. |
+| Field Notes | Bronze | Discover 10 species. |
+| Naturalist | Silver | Discover 25 species. |
+| Ichthyologist | Gold | Discover 40 species. |
+| Every Fish in the Sea | Moon | Discover all 58 species. |
+| Five Waters | Silver | Catch a fish in all five waters. |
+| Mistwillow Journal | Silver | Discover every species that lives in Mistwillow Pond. |
+| Lanternfen Journal | Gold | Discover every species that lives in Lanternfen Marsh. |
+| Coralspire Journal | Gold | Discover every species that lives in Coralspire Lagoon. |
+| Frostveil Journal | Gold | Discover every species that lives in Frostveil Fjord. |
+| Dragonmere Journal | Pearl | Discover every species that lives in Dragonmere Sanctum. |
+
+**Driftwood Market** (18)
+
+| Badge | Grade | To earn it |
+| --- | --- | --- |
+| Fresh off the Boat | Bronze | Sell 10 fish. |
+| Market Regular | Bronze | Sell 25 fish. |
+| Fishmonger | Silver | Sell 50 fish. |
+| Dockside Merchant | Silver | Sell 100 fish. |
+| Harbour Trader | Gold | Sell 250 fish. |
+| Tycoon of the Tides | Gold | Sell 500 fish. |
+| Merchant Prince | Pearl | Sell 1,000 fish. |
+| Fish Baron | Moon | Sell 2,500 fish. |
+| Pocket Money | Bronze | Earn 1,000 Moonpearls selling fish. |
+| Full Purse | Silver | Earn 10,000 Moonpearls selling fish. |
+| Pearl Hoard | Gold | Earn 50,000 Moonpearls selling fish. |
+| Treasury | Pearl | Earn 250,000 Moonpearls selling fish. |
+| Moonpearl Millionaire | Moon | Earn 1,000,000 Moonpearls selling fish. |
+| Clearance Sale | Silver | Sell 10 fish at once from your aquarium. |
+| Big Ticket | Gold | Sell a single fish for 1,000 Moonpearls or more. |
+| Crown Jewel | Pearl | Sell a single fish for 5,000 Moonpearls or more. |
+| Kind Heart | Bronze | Release 10 fish. |
+| Gentle Soul | Silver | Release 100 fish. |
+
+**Tackle Box** (18)
+
+| Badge | Grade | To earn it |
+| --- | --- | --- |
+| Tinkerer | Silver | Own 5 pieces of new gear. |
+| Well Equipped | Gold | Own 15 pieces of new gear. |
+| Tackle Collector | Pearl | Own 40 pieces of new gear. |
+| Every Last Lure | Moon | Own every rod, bobber and line in the market. |
+| Dressed to Match | Silver | Fish with a rod, bobber and line all from one collection, beyond the starter kit. |
+| Top of the Line | Gold | Own a Tier V (or finer) rod, bobber and line. |
+| Family Heirloom | Gold | Own an Heirloom. |
+| Treasured Set | Moon | Own an Heirloom III rod, bobber and line. |
+| Bait Sampler | Silver | Buy all three kinds of bait. |
+| Baited Breath | Silver | Catch 25 fish on bait. |
+| Bait Whisperer | Gold | Catch 250 fish on bait. |
+| Classic Collection | Gold | Own every rod, bobber and line in the Classic collection. |
+| Bakery Collection | Pearl | Own every rod, bobber and line in the Bakery collection. |
+| Mountain Collection | Pearl | Own every rod, bobber and line in the Mountain collection. |
+| Beach Collection | Pearl | Own every rod, bobber and line in the Beach collection. |
+| Critters Collection | Pearl | Own every rod, bobber and line in the Critters collection. |
+| Blossom Collection | Pearl | Own every rod, bobber and line in the Blossom collection. |
+| Cosmic Collection | Moon | Own every rod, bobber and line in the Cosmic collection. |
+
+**The Aquarium** (22)
+
+| Badge | Grade | To earn it |
+| --- | --- | --- |
+| Full Bowl | Bronze | Fill an aquarium to the brim. |
+| Moving Up | Bronze | Buy your second aquarium. |
+| Aquarist | Silver | Own 4 aquariums. |
+| Grand Aquarist | Gold | Own all 6 aquariums. |
+| Full House | Pearl | Fill all 6 aquariums at once. |
+| Feeding Time | Silver | Feed your fish 10 times. |
+| Flake Flinger | Silver | Feed your fish 25 times. |
+| Head Chef | Gold | Feed your fish 50 times. |
+| Banquet Host | Gold | Feed your fish 100 times. |
+| Never a Hungry Fin | Pearl | Feed your fish 250 times. |
+| Pearl Gatherer | Bronze | Gather 100 Moonpearls from your aquariums. |
+| Pocketful of Pearls | Bronze | Gather 250 Moonpearls from your aquariums. |
+| String of Pearls | Silver | Gather 500 Moonpearls from your aquariums. |
+| Pearl Diver | Silver | Gather 1,000 Moonpearls from your aquariums. |
+| Oyster Keeper | Silver | Gather 2,500 Moonpearls from your aquariums. |
+| Moonlit Sands | Gold | Gather 10,000 Moonpearls from your aquariums. |
+| Pearl Tide | Pearl | Gather 50,000 Moonpearls from your aquariums. |
+| Sea of Pearls | Moon | Gather 250,000 Moonpearls from your aquariums. |
+| Treasure Hunter | Silver | Open a treasure in one of your aquariums. |
+| Finders Keepers | Gold | Open 10 aquarium treasures. |
+| Treasure Trove | Pearl | Open 50 aquarium treasures. |
+| Treasure Map | Gold | Find all four kinds of aquarium treasure. |
+
+**Friends & Mates** (9)
+
+| Badge | Grade | To earn it |
+| --- | --- | --- |
+| Best Fishes | Silver | Two of your fish become best friends. |
+| Circle of Friends | Gold | 10 pairs of fish become best friends. |
+| Love in the Water | Silver | Two fish of a kind become mates. |
+| Paired Up | Silver | 3 couples of fish become mates. |
+| Matchmaker | Gold | 10 couples of fish become mates. |
+| Grand Matchmaker | Pearl | 25 couples of fish become mates. |
+| Rare Romance | Gold | Two Epic (or rarer) fish become mates. |
+| Legendary Love | Pearl | Two Legendary (or rarer) fish become mates. |
+| Dragons’ Dance | Moon | Two Extreme fish become mates. |
+
+**Seasons** (11)
+
+| Badge | Grade | To earn it |
+| --- | --- | --- |
+| Apprentice | Silver | Reach level 10. |
+| Journeyman | Silver | Reach level 20. |
+| Expert Angler | Gold | Reach level 30. |
+| Veteran of the Waters | Gold | Reach level 40. |
+| Master of the Waters | Pearl | Reach level 50. |
+| Tidesinger | Moon | Reach level 60, the highest there is. |
+| Coming Back for More | Silver | Catch fish on 3 different days. |
+| A Week of Tides | Silver | Catch fish on 7 different days. |
+| Fortnight Fisher | Gold | Catch fish on 14 different days. |
+| Moon Cycle | Pearl | Catch fish on 30 different days. |
+| A Hundred Tides | Moon | Catch fish on 100 different days. |
+
+</details>
+
+<details>
+<summary>The secrets (big spoilers)</summary>
+
+Secrets show only a question mark and a hint until they are found.
+
+| Badge | Grade | Hint | To earn it |
+| --- | --- | --- | --- |
+| Hello There | Bronze | Say hello to someone in your aquarium. | Tap a fish in your aquarium. |
+| Give Me Some Space | Bronze | Even fish need a little space. | Tap a fish so often that it hides from you. |
+| Bonk! | Bronze | Aim for something floating. | Cast your bobber onto something floating on the water. |
+| Clean Sweep | Silver | Gather a great many at once. | Gather 10 pearls in a single sweep. |
+| Reunited | Silver | Absence makes the heart grow fonder. | Bring a fish back to the tank where its mate lives. |
+| Night Owl | Silver | Some fish are only seen by the moon. | Catch a fish between midnight and 4 in the morning. |
+| Early Bird | Silver | Up with the sun. | Catch a fish between 5 and 7 in the morning. |
+| Pearl of the Reef | Gold | Something in the reef opens for those who wait. | Receive the giant clam’s pearls in the Coral Reef. |
+| Coral Chest | Gold | A chest that remembers treasure. | Open the chest in the Coral Reef. |
+| Sunken Treasure | Gold | Every shipwreck keeps a secret. | Open the chest aboard the wreck in Shipwreck Cove. |
+| Moon Blessing | Gold | The singing stones know a tune. | Play the singing stones of the Moon Palace in order, and receive its blessing. |
+
+</details>
+
+Badges live in `js/badges.js`. Most are read straight from the save. `save.ach` keeps the rest: `c`
+holds counters and `k` holds flags, for moments the save doesn't otherwise remember (fish lost, meals,
+treasures, friendships, streaks, the best single sale). `got` holds each badge's earned time (1 for
+credit from before the scrapbook), and `fresh` holds the badges not yet seen. `game.js`, `shop.js` and
+`tank.js` report those moments through `Badges.note()`. Every save checks for newly earned badges.
+
 ## Graphics
 
 The sky and water render in WebGL behind a 2D canvas:
@@ -471,6 +712,7 @@ js/
   gear.js           Rod, bobber and line catalogue, and the code that draws and lights bobbers and lines
   rods.js           Rod modelling: materials, baked surfaces, lighting, guides, reels, ornaments, effects
   ui.js             Interface motion: cards glide to new sizes and new sections slide in
+  badges.js         Badges and the scrapbook: the catalogue, counters, medal art, unlock moment, the book
   shop.js           The Driftwood Market: bait, gear and aquariums
   tank-env.js       The six aquariums: glass, water, sand, plants and decor that can be touched
   tank-gl.js        The aquariums' light and glass on the GPU: caustics, shafts, bloom, lensing, glass
@@ -519,6 +761,9 @@ In `js/tank.js`, `TR` holds each species' temperament, `YIELD` the pearls each r
 `DROP` the usual size of a pearl dropped while you watch, `BED_HOURS` how much the sand holds, and
 `affinity()` how readily two fish bond.
 
+The badge catalogue is built at the top of `js/badges.js` with `add()` and `ladder()`. Each badge names
+its page, grade, glyph, what it measures and its goal. `GLYPH` holds the engraved icons.
+
 ## Gift links
 
 `claim/` is a link for rewarding players: https://vuvrtroopers.github.io/tidesong-fishing/claim/ shows
@@ -546,6 +791,8 @@ In the browser console:
 | `Tidesong.flourish('frog')` | Plays a water's rare moment now: `frog`, `dragonfly`, `fishjump`, `owl`, `wisp`, `gull`, `dolphins`, `shootingstar`, `whale`, `crane` or `dragon` (at the matching water) |
 | `Tank._debug.feed()` | Feeds the open aquarium (it has the same 30-second cooldown as the button) |
 | `Tank.settle(Date.now() + 6 * 3600e3)` | Lets six hours pass for the tanks (pearls and bonds), then open one |
+| `Tidesong.badges()` | Earns every badge, to see all the medals; `Tidesong.badges(['first-catch'])` earns just those |
+| `Badges.open('level-60')` | Opens the scrapbook at a badge |
 | `Tidesong.reset()` | Wipes the save |
 
 ## Browser support

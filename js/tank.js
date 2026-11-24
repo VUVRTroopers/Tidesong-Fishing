@@ -88,6 +88,7 @@ const Tank = (() => {
     if (A.S && a.id === b.id) k *= 1.2;
     return k * (0.75 + 0.5 * hash01(a.uid, b.uid));
   }
+  const badge = (kind, v) => { if (api && api.note) api.note(kind, v); };
   const BOND = [[100, 'Mates'], [80, 'Best friends'], [50, 'Friends'], [20, 'Acquainted']];
   let S = null; // the save's tank state
   const bond = (a, b) => (S.bonds[bkey(a, b)] || 0);
@@ -99,8 +100,10 @@ const Tank = (() => {
     const nv = clamp(cur + v, 0, 100);
     S.bonds[k] = Math.round(nv * 100) / 100;
     dirty = true;
+    if (cur < 80 && nv >= 80) badge('bestie');
     if (nv >= 100 && a.id === b.id && !S.mates[a.uid] && !S.mates[b.uid]) {
       S.mates[a.uid] = b.uid; S.mates[b.uid] = a.uid;
+      badge('couple', { id: a.id });
       if (live) celebrate(a, b);
       else S.news = (S.news || []).concat([[a.uid, b.uid]]).slice(-6);
     }
@@ -794,7 +797,7 @@ const Tank = (() => {
     f.taps.push(T);
     if (f.int) endInt(f.int);
     if (f.free) return;
-    if (f.taps.length >= 4 && !f.tr.P && f.tr.react !== 'puff') { f.taps = []; f.react = null; hideAway(f); play('shy'); return; }
+    if (f.taps.length >= 4 && !f.tr.P && f.tr.react !== 'puff') { f.taps = []; f.react = null; hideAway(f); play('shy'); badge('shy'); return; }
     startReact(f, f.tr.react, x, y);
     play('fish', f.tr.react, f.tier);
     const m = mateOf(f.uid), mf = m !== undefined && byUid(m);
@@ -856,6 +859,7 @@ const Tank = (() => {
   function feed() {
     if (!isOpen || view !== 'tank') return;
     if (T - lastFeed < FEED_COOL) { play('deny'); return; }
+    if (!fedRecently(here)) badge('meal');
     lastFeed = T; S.fedAt[here] = Date.now(); dirty = true;
     const n = Math.min(24, 7 + Math.ceil(fish.length / 2.4));
     const cx = sc.ell ? sc.ell.cx + rand(-0.3, 0.3) * sc.ell.rx : lerp(sc.swim.x0, sc.swim.x1, rand(0.3, 0.7));
@@ -1011,6 +1015,7 @@ const Tank = (() => {
     s.stats.found = (s.stats.found || 0) + d.v;
     if (T - run.t > 0.75) { run.n = 0; run.sum = 0; run.label = null; }
     run.n++; run.t = T; run.sum += d.v;
+    if (run.n >= 5) badge('sweep', { n: run.n });
     const col = (RARITIES[d.r] || RARITIES.rare).color;
     spawn({ kind: 'collect', x: p.x, y: p.y, t: 0, col, s: p.r / U });
     const lx = at ? at[0] : p.x, ly = (at ? at[1] : p.y) - U * 3.2;
@@ -1527,7 +1532,7 @@ const Tank = (() => {
     party() { for (const f of fish) if (!f.leaving && !f.free) { if (f.int) endInt(f.int); startReact(f, 'spin', f.x, f.y); f.glow = 1; if (Math.random() < 0.5) heart(f.x, f.y - f.dh * 0.6, 0.7); } },
     event(kind) { if (kind === 'anemone') { const p = sc.pois.find(q => q.kind === 'anemone'); for (const f of fish) if (p && f.id === 'clownfish' && !f.leaving && !f.free) { if (f.int) endInt(f.int); visit(f, p); f.boost = 2.3; } } },
     ready: key => Date.now() >= ((S.decor || {})[key] || 0),
-    use(key, ms) { S.decor = S.decor || {}; S.decor[key] = Date.now() + ms; dirty = true; },
+    use(key, ms) { S.decor = S.decor || {}; S.decor[key] = Date.now() + ms; dirty = true; badge('treasure', { key }); },
   };
 
   /* ================= Pointer ================= */
@@ -1601,6 +1606,7 @@ const Tank = (() => {
   function select(f, x, y) {
     const again = sel === f;
     sel = f;
+    badge('tap');
     reactTo(f, x, y);
     if (!again) play('select');
     renderCard(true);
@@ -1894,7 +1900,7 @@ const Tank = (() => {
     }
     // back with its mate: they greet each other when you next look in on them
     const m = mateRec(rec);
-    if (m && tankOf(m) === to) S.meet = (S.meet || []).filter(([a]) => a !== rec.uid).concat([[rec.uid, m.uid]]).slice(-8);
+    if (m && tankOf(m) === to) { S.meet = (S.meet || []).filter(([a]) => a !== rec.uid).concat([[rec.uid, m.uid]]).slice(-8); badge('reunited'); }
     return true;
   }
   function afterMove(msg) {
@@ -1971,14 +1977,14 @@ const Tank = (() => {
 
   function sellFish(uids, how = 'sell') {
     const s = api.save;
-    let total = 0, n = 0;
+    let total = 0, n = 0, top = 0;
     for (const uid of uids) {
       const i = s.net.findIndex(f => f.uid === uid);
       if (i < 0) continue;
       const rec = s.net[i];
       s.net.splice(i, 1);
       forget(uid);
-      if (how === 'sell') { total += rec.value; n += 1; if (s.caught[rec.id]) s.caught[rec.id].sold = (s.caught[rec.id].sold || 0) + 1; }
+      if (how === 'sell') { total += rec.value; n += 1; top = Math.max(top, rec.value); if (s.caught[rec.id]) s.caught[rec.id].sold = (s.caught[rec.id].sold || 0) + 1; }
       else s.stats.released += 1;
       const f = fish.find(x => x.uid === uid);
       if (f) {
@@ -1992,6 +1998,7 @@ const Tank = (() => {
     affC.clear();
     if (how === 'sell' && n) {
       s.pearls += total; s.stats.sold += n; s.stats.earned += total;
+      badge('sale', { n, top });
       play('coin', n);
       if (n > 1) api.toast(`Sold ${n} fish for ${fmt(total)} Moonpearls`, '#e8c46c', 2600);
       api.flashWallet();
