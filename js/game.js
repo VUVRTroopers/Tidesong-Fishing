@@ -128,6 +128,7 @@
   const ui = {
     prompt: $('#prompt'), reelIn: $('#btn-reelin'), reel: $('#reel'), band: $('#band'), marker: $('#marker'),
     ringFill: $('#ring-fill'), ringNotch: $('#ring-notch'), ring: $('#reel .ring'), ringHead: $('#ring-head'), reelHint: $('#reel-hint'),
+    track: $('#track'), mkTrail: $('#mk-trail'), mkAura: $('#mk-aura'),
     placeName: $('#place-name'), placeTime: $('#place-time'), lvl: $('#lvl-num'), xpFill: $('#xp-fill'), xpText: $('#xp-text'),
     sound: $('#btn-sound'), toasts: $('#toasts'), veil: $('#veil'), rvCanvas: $('#rv-canvas'),
     pearls: $('#pearl-count'), pearlBtn: $('#btn-pearls'), netBtn: $('#btn-net'), netCount: $('#net-count'), tankDot: $('#tank-dot'),
@@ -439,6 +440,7 @@
     G.reel.fx = { s: 1, v: 0, step: -1, flash: 0, d: 0, beat: 0, t: 0 };
     ui.ring.style.transform = '';
     ui.reel.hidden = false;
+    resetMarker();
     updateReelUI(0);
     Sound.startReel(save.equip.rod);
   }
@@ -1205,6 +1207,7 @@
     ui.band.style.left = ((R.band.x - R.band.w / 2) * 100).toFixed(3) + '%';
     ui.band.style.width = (R.band.w * 100).toFixed(3) + '%';
     ui.marker.style.left = (R.fish.shown * 100).toFixed(3) + '%';
+    markerFx(R, dt);
     const p = clamp(R.progress, 0, 1);
     ui.ringFill.style.strokeDashoffset = (RING_C * (1 - p)).toFixed(2);
     ui.reel.classList.toggle('in', R.inBand);
@@ -1214,6 +1217,104 @@
     ui.ringHead.setAttribute('cx', (60 + 50 * Math.cos(a)).toFixed(2));
     ui.ringHead.setAttribute('cy', (60 + 50 * Math.sin(a)).toFixed(2));
     if (R.fx) ringFx(R, p, dt);
+  }
+
+  /* The gold line is the fish, and it should feel alive. It leaves a short wake when it darts, leans
+     against its own acceleration and swings back past upright as it brakes, and a hard kick sends a ripple
+     out from where it pushed off. When it holds still its beads breathe. Kept inside your band it warms:
+     brighter, with a glow round it and sparks drifting off, building over half a second or so; once it
+     slips out it cools back to plain gold within a third of a second. All of it comes from how the line
+     actually moves, so a harder fish simply looks livelier and nothing gives its rarity away. */
+  function markerFx(R, dt) {
+    const M = R.mk || (R.mk = { prev: R.fish.shown, vs: 0, pv: 0, as: 0, sk: 0, skv: 0, heat: 0, armed: true, cool: 0, spark: 0, flash: 0, t: 0, live: 0, w: ui.track.clientWidth || 480 });
+    if (dt <= 0) return;
+    M.t += dt;
+    const x = R.fish.shown, raw = (x - M.prev) / dt;
+    M.prev = x;
+    // speed and acceleration along the slider (slider widths per second), lightly smoothed
+    M.vs += (raw - M.vs) * (1 - Math.exp(-dt / 0.045));
+    const acc = (M.vs - M.pv) / dt;
+    M.pv = M.vs;
+    M.as += (acc - M.as) * (1 - Math.exp(-dt / 0.05));
+    const reduced = UIFX.reduced(), sp = Math.abs(M.vs), left = (x * 100).toFixed(3) + '%';
+    // warmth builds while it is in the band and drains quickly once it isn't
+    M.heat = R.inBand ? Math.min(1, M.heat + dt * 1.6) : M.heat * Math.exp(-dt / 0.12);
+    // a hard kick (common fish almost never; the rarest often): a flare, and a ripple where it pushed off
+    const ka = Math.abs(M.as);
+    M.cool -= dt;
+    if (M.armed && ka > 2.8 && M.cool <= 0) {
+      M.armed = false; M.cool = 0.3; M.flash = Math.min(1, 0.4 + ka / 8);
+      if (!reduced) markerKick(left, Math.min(1, ka / 6));
+    } else if (ka < 1.5) M.armed = true;
+    M.flash *= Math.exp(-dt / 0.16);
+    // the lean: a damped spring pushed by the acceleration, so it lags, then swings past upright and settles
+    const n = Math.min(20, Math.ceil(dt * 240)), h = dt / n;
+    for (let i = 0; i < n; i++) { M.skv += (-M.sk * 260 - M.skv * 16 - M.as * 440) * h; M.sk += M.skv * h; }
+    const sk = reduced ? 0 : clamp(M.sk, -12, 12);
+    const breathe = reduced ? 1 : 1 + 0.07 * Math.sin(M.t * 5.2) * Math.max(0, 1 - sp / 0.35);
+    const mk = ui.marker.style;
+    mk.transform = Math.abs(sk) > 0.05 ? `skewX(${sk.toFixed(2)}deg)` : '';
+    mk.setProperty('--heat', M.heat.toFixed(3));
+    mk.setProperty('--flash', M.flash.toFixed(3));
+    mk.setProperty('--bs', (breathe * (1 + 0.22 * M.heat + 0.25 * M.flash)).toFixed(3));
+    // the wake: about the stretch of slider crossed in the last 70 ms, fading out behind it
+    const tr = ui.mkTrail.style, len = reduced ? 0 : Math.min(72, sp * M.w * 0.07);
+    tr.left = left;
+    tr.width = `${len.toFixed(1)}px`;
+    tr.opacity = reduced ? '0' : (clamp((sp - 0.1) / 0.8, 0, 1) * (0.7 + 0.3 * M.heat)).toFixed(3);
+    tr.transform = `scaleX(${M.vs > 0 ? -1 : 1})`;
+    const au = ui.mkAura.style;
+    au.left = left;
+    au.opacity = (M.heat * 0.85).toFixed(3);
+    au.transform = `scale(${(0.82 + 0.18 * M.heat + (reduced ? 0 : 0.05 * Math.sin(M.t * 6))).toFixed(3)})`;
+    if (!reduced && R.inBand) {
+      M.spark += dt * 5 * Math.pow(M.heat, 1.5);
+      while (M.spark >= 1) { M.spark -= 1; markerSpark(M, x); }
+    }
+  }
+  function markerSpark(M, x) {
+    if (M.live > 14) return;
+    const el = document.createElement('i'), back = -Math.sign(M.vs) * Math.min(10, Math.abs(M.vs) * 9);
+    el.className = 'mk-spark';
+    el.style.left = `${(x * 100).toFixed(2)}%`;
+    el.style.top = `${rand(26, 74).toFixed(1)}%`;
+    el.style.setProperty('--dx', `${(rand(-6, 6) + back).toFixed(1)}px`);
+    el.style.setProperty('--dy', `${(-rand(10, 24)).toFixed(1)}px`);
+    el.style.setProperty('--d', `${rand(0.6, 1).toFixed(2)}s`);
+    M.live++;
+    const done = () => { if (el.parentNode) { el.remove(); M.live--; } };
+    el.addEventListener('animationend', done);
+    setTimeout(done, 1200);
+    ui.track.appendChild(el);
+  }
+  /* each step the ring fills, a soft pulse of light from the line: the same beat as the ring's bloom and chime */
+  function markerPulse(k) {
+    if (UIFX.reduced() || !G.reel) return;
+    const el = document.createElement('i');
+    el.className = 'mk-pulse';
+    el.style.left = `${(G.reel.fish.shown * 100).toFixed(2)}%`;
+    el.style.setProperty('--o', (0.55 + 0.4 * k).toFixed(2));
+    const done = () => el.remove();
+    el.addEventListener('animationend', done);
+    setTimeout(done, 900);
+    ui.track.insertBefore(el, ui.marker);
+  }
+  function markerKick(left, o) {
+    const el = document.createElement('i');
+    el.className = 'mk-kick';
+    el.style.left = left;
+    el.style.setProperty('--o', (0.35 + 0.45 * o).toFixed(2));
+    const done = () => el.remove();
+    el.addEventListener('animationend', done);
+    setTimeout(done, 800);
+    ui.track.insertBefore(el, ui.marker);
+  }
+  function resetMarker() {
+    ui.track.querySelectorAll('.mk-spark, .mk-kick, .mk-pulse').forEach(e => e.remove());
+    ui.marker.style.transform = '';
+    for (const k of ['--heat', '--flash', '--bs']) ui.marker.style.removeProperty(k);
+    ui.mkTrail.style.opacity = '0';
+    ui.mkAura.style.opacity = '0';
   }
 
   /* The ring is meant to be read from the corner of the eye. It blooms on every note of the harp (the same
@@ -1226,7 +1327,7 @@
     const step = Math.floor(p / 0.07);
     if (R.inBand && step > F.step) {
       const k = 0.3 + 0.7 * Math.pow(p, 1.4);
-      if (F.step >= 0) { F.v += 0.5 + 4.5 * Math.pow(k, 1.5); F.flash = Math.max(F.flash, 0.45 + 0.55 * k); ringWave(k); }
+      if (F.step >= 0) { F.v += 0.5 + 4.5 * Math.pow(k, 1.5); F.flash = Math.max(F.flash, 0.45 + 0.55 * k); ringWave(k); markerPulse(k); }
       F.step = step;
     } else if (step < F.step - 1) F.step = step + 1;
     // danger: how close the ring is to letting the fish go (the heartbeat starts at the same point as the sound's)

@@ -73,7 +73,12 @@ Then visit `http://localhost:8000`.
 3. **Fight.** A slider appears with a gold line (the fish) and a green band (your control). Hold to
    push the band right and release to let it drift left. While the gold line is inside the band, the
    ring fills. When it is outside, the ring drains. Fill the ring to land the fish. If it drops
-   below the red mark, the fish gets away.
+   below the red mark, the fish gets away. The gold line moves like something alive: it leaves a short
+   wake when it darts, leans into a dash and swings back as it brakes, sends a faint ripple from
+   where it kicks off hard, and breathes when it holds still. Inside your band it warms, glowing and
+   giving off sparks, with a pulse of light on each step the ring fills; outside it cools back to plain
+   gold. All of this follows how the line actually moves, so a calm fish looks calm and a wild one
+   looks wild, without giving its rarity away.
 4. **Keep, sell or release.** Every catch has a weight, a length and a price.
 
 A bite never announces its rarity: the cue and the slider look the same for every fish, and a shadow
