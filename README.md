@@ -956,7 +956,7 @@ docs/
 ### Link previews
 
 `index.html` carries Open Graph and Twitter card tags, so a shared link to the hosted site
-(`https://vuvrtroopers.github.io/tidesong-fishing/`) shows a title, a short description and the
+(`https://vuvrtroopers.github.io/Tidesong-Fishing/`) shows a title, a short description and the
 banner in `docs/social-preview.jpg`. If the site moves, update the absolute URLs in those tags.
 
 ![The link preview banner](docs/social-preview.jpg)
@@ -997,12 +997,12 @@ its page, grade, glyph, what it measures and its goal. `GLYPH` holds the engrave
 
 ## Gift links
 
-`claim/` is a link for rewarding players: https://vuvrtroopers.github.io/tidesong-fishing/claim/ shows
+`claim/` is a link for rewarding players: https://vuvrtroopers.github.io/Tidesong-Fishing/claim/ shows
 a preview card ("Come Back and Claim your 500 FREE Moon-Pearls!", `docs/claim-preview.jpg`) where links
 are shared, and sends whoever opens it to the game with `?gift=playtest500`. The game adds the gift's
 pearls once per save and remembers it, so opening the link again only says it was already claimed.
 `decor/` is the same for the decorations update:
-https://vuvrtroopers.github.io/tidesong-fishing/decor/ shows "NEW: Decorate your tanks! Claim 300 FREE
+https://vuvrtroopers.github.io/Tidesong-Fishing/decor/ shows "NEW: Decorate your tanks! Claim 300 FREE
 Moon-Pearls" over a decorated Coral Reef (`docs/decor-preview.jpg`) and sends players to the game with
 `?gift=decor300`, which adds 300 Moonpearls and points them to the market's Decor tab. Each gift is
 claimed separately, so a player who took the first can still take this one.
