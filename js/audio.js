@@ -689,6 +689,69 @@ const Sound = (() => {
       bell(midi(tr(b)), { t: 0.07, a: 0.005, gain: 0.013, dur: 1.4, partials: GLASS, wet: 0.36, beat: false });
       pluck(midi(tr(a - 24)), { t: 0.01, gain: 0.019, dur: 0.6, bright: 0.24, wet: 0.22 });
     },
+    /* Decorations in the aquarium: a sound for each when it is tapped, in the water's key. */
+    deco(kind) {
+      switch (kind) {
+        case 'teacup':
+          bell(midi(tr(96)), { a: 0.003, gain: 0.02, dur: 0.6, partials: GLASS, wet: 0.3, beat: false });
+          bell(midi(tr(91)), { t: 0.14, a: 0.003, gain: 0.014, dur: 0.6, partials: GLASS, wet: 0.3, beat: false });
+          S.bubbles(0.6); break;
+        case 'globe':
+          for (let i = 0; i < 9; i++) bell(midi(tr([84, 86, 88, 91, 93, 96][(i * 2) % 6])), { t: i * 0.07 + rand(0, 0.03), a: 0.004, gain: 0.011, dur: 1.4, partials: GLASS, pan: rand(-0.5, 0.5), wet: 0.4, beat: false });
+          noise({ type: 'bandpass', f: 5200, q: 2, a: 0.01, d: 0.3, gain: 0.006, wet: 0.2 }); break;
+        case 'mushroom':
+          noise({ type: 'bandpass', f: 380, f1: 820, fTime: 0.5, q: 6, a: 0.06, hold: 0.25, d: 0.25, gain: 0.03, wet: 0.2 });
+          bell(midi(tr(88)), { t: 0.45, a: 0.004, gain: 0.014, dur: 1.2, partials: GLASS, wet: 0.35, beat: false }); break;
+        case 'jelly':
+          bell(midi(tr(84)), { a: 0.02, gain: 0.02, dur: 2.4, partials: GLASS, wet: 0.5 });
+          glow(midi(tr(72)), { a: 0.4, hold: 0.3, d: 1.8, gain: 0.014, lp: 1400, wet: 0.5 }); break;
+        case 'knight':
+          bell(midi(tr(64)), { a: 0.003, gain: 0.035, dur: 0.9, partials: TUBE, wet: 0.3 });
+          bell(midi(tr(71)), { t: 0.5, a: 0.003, gain: 0.02, dur: 1.2, partials: TUBE, wet: 0.35 });
+          S.bubbles(0.8);
+          [67, 72, 76, 79].forEach((n, i) => pluck(midi(tr(n)), { t: 0.75 + i * 0.09, gain: 0.035, dur: 1.4, bright: 0.24, wet: 0.28 })); break;
+        case 'volcano':
+          noise({ kind: 'brown', type: 'lowpass', f: 220, f1: 70, a: 0.08, hold: 0.4, d: 1.4, gain: 0.14, wet: 0.3 });
+          glow(midi(fit(harmony().root, 36)), { a: 0.2, hold: 0.3, d: 1.4, gain: 0.03, lp: 300, wet: 0.3 });
+          S.bubbles(1.6); break;
+        case 'rocket':
+          [0, 0.5, 1.0].forEach((t, i) => osc(midi(tr(i < 2 ? 84 : 91)), { t, a: 0.005, d: 0.14, gain: 0.02, wet: 0.2 })); break;
+        case 'rocketGo':
+          noise({ type: 'bandpass', f: 300, f1: 1400, fTime: 0.6, q: 0.8, a: 0.05, hold: 0.5, d: 1.0, gain: 0.07, wet: 0.25 });
+          noise({ kind: 'brown', type: 'lowpass', f: 180, a: 0.05, hold: 0.6, d: 1.0, gain: 0.1, wet: 0.2 });
+          S.bubbles(1.8); break;
+        case 'windmill':
+          noise({ type: 'bandpass', f: 500, f1: 900, fTime: 0.3, q: 7, a: 0.05, hold: 0.15, d: 0.2, gain: 0.022, wet: 0.2 });
+          noise({ type: 'bandpass', f: 700, f1: 1800, fTime: 0.8, q: 0.9, a: 0.2, d: 0.9, gain: 0.03, wet: 0.3 });
+          S.bubbles(0.8); break;
+        case 'castle':
+          for (let i = 0; i < 10; i++) noise({ t: 0.05 + i * 0.07, type: 'bandpass', f: rand(2200, 3200), q: 3, a: 0.002, d: 0.04, gain: 0.012, wet: 0.2 });
+          [[67, 0.6], [72, 0.78], [76, 0.96], [79, 1.14], [84, 1.42]].forEach(([n, t], i) => pluck(midi(tr(n)), { t, gain: 0.05 + i * 0.004, dur: 1.8, bright: 0.28, wet: 0.3 }));
+          bell(midi(tr(84)), { t: 1.42, a: 0.005, gain: 0.024, dur: 2.4, partials: GLASS, wet: 0.4 });
+          glow(midi(tr(48)), { t: 1.3, a: 0.4, hold: 0.4, d: 2, gain: 0.022, lp: 900, wet: 0.35 }); break;
+        case 'lighthouse':
+          glow(midi(fit(harmony().root, 38)), { a: 0.25, hold: 0.9, d: 1.2, gain: 0.045, lp: 600, wet: 0.5 });
+          glow(midi(fit(harmony().root, 38) + 7), { a: 0.25, hold: 0.9, d: 1.2, gain: 0.025, lp: 600, wet: 0.5 });
+          bell(midi(tr(91)), { t: 0.05, a: 0.004, gain: 0.02, dur: 2.2, partials: GLASS, wet: 0.5 }); break;
+        case 'carousel': {
+          // a little music-box waltz
+          const tune = [[72, 0], [76, 0.3], [79, 0.45], [84, 0.6], [79, 0.9], [76, 1.05], [77, 1.2], [76, 1.5], [74, 1.65], [72, 1.8]];
+          for (const [n, t] of tune) bell(midi(tr(n + 12)), { t, a: 0.003, gain: 0.016, dur: 1.2, partials: GLASS, pan: Math.sin(t * 3) * 0.4, wet: 0.35, beat: false });
+          [0, 0.6, 1.2, 1.8].forEach(t => pluck(midi(tr(48)), { t, gain: 0.03, dur: 0.8, bright: 0.2, wet: 0.25 }));
+          break;
+        }
+        case 'giant':
+          glow(midi(fit(harmony().root, 33)), { a: 0.8, hold: 0.8, d: 1.6, gain: 0.04, lp: 400, wet: 0.5 });
+          noise({ t: 0.9, type: 'bandpass', f: 600, f1: 220, fTime: 1.2, q: 1.5, a: 0.3, hold: 0.3, d: 0.8, gain: 0.04, wet: 0.4 });
+          S.bubbles(1.0); break;
+      }
+    },
+    decoPlace() {
+      noise({ type: 'lowpass', f: 600, f1: 200, a: 0.005, d: 0.3, gain: 0.05, wet: 0.2 });
+      for (let i = 0; i < 4; i++) bubble(rand(500, 1100), { t: 0.05 + i * 0.06, dur: 0.06, gain: 0.016, wet: 0.3 });
+      pluck(midi(tr(79)), { t: 0.12, gain: 0.04, dur: 1.2, bright: 0.26, wet: 0.3 });
+      pluck(midi(tr(84)), { t: 0.22, gain: 0.034, dur: 1.4, bright: 0.26, wet: 0.32 });
+    },
     /* A waiting notification nudging its button: a quiet word from that corner of the screen, in the
        water's key. The aquarium bubbles and chimes, the scrapbook rustles and chimes, the map plucks two
        notes rising. */
@@ -1377,7 +1440,7 @@ const Sound = (() => {
   /* How far (in cents) each effect's take may wander in pitch: most a little, small clicks and splashes
      more, and anything tuned to a melody (the singing geodes) not at all. */
   // the music that answers the water's pad (bites, the meter, landings, rewards) stays in tune with it
-  const SPREAD = { geode: 0, blessing: 4, gate: 6, landed: 0, levelUp: 0, unlock: 0, badge: 0, meterSet: 0, nudge: 0, escape: 2, bite: 3, coin: 2, buy: 2, release: 3, open: 3, equip: 3,
+  const SPREAD = { geode: 0, blessing: 4, gate: 6, landed: 0, levelUp: 0, unlock: 0, badge: 0, meterSet: 0, nudge: 0, deco: 0, decoPlace: 3, escape: 2, bite: 3, coin: 2, buy: 2, release: 3, open: 3, equip: 3,
     click: 30, glass: 20, plop: 20, splashIn: 25, thud: 22, gulp: 30, boop: 25, flakes: 25, pebbles: 25 };
   const play = (name, ...args) => {
     if (!ctx || !enabled || !S[name]) return;

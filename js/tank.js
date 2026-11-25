@@ -212,9 +212,21 @@ const Tank = (() => {
   }
   let compDirty = true;
   /* A fish's mood: what it eats, its company and its home, multiplied; sat is its tank's satiety. */
+  /* Decorations please the fish of the tank they stand in (js/deco.js): their joy adds to comfort. */
+  let joyCache = null;
+  const decosIn = t => (S.decos || []).filter(d => d.t === t);
+  function decoJoy(t) {
+    if (!joyCache) {
+      const ids = {};
+      for (const d of S.decos || []) if (d.t >= 0) (ids[d.t] = ids[d.t] || []).push(d.id);
+      joyCache = {};
+      for (const k in ids) joyCache[k] = Deco.joyOf(ids[k]);
+    }
+    return joyCache[t] || 0;
+  }
   function moodOf(rec, sat = satiety(tankOf(rec))) {
     const C = companyAll().get(rec.uid) || { friends: 0, best: 0, mate: null, social: 1 };
-    const food = MOOD.hungry + (MOOD.fed - MOOD.hungry) * sat, comfort = 1 + MOOD.comfort * tankOf(rec);
+    const food = MOOD.hungry + (MOOD.fed - MOOD.hungry) * sat, comfort = 1 + MOOD.comfort * tankOf(rec) + decoJoy(tankOf(rec));
     return { food, sat, social: C.social, comfort, friends: C.friends, best: C.best, mate: C.mate, mult: food * C.social * comfort };
   }
   const yieldOf = (rec, sat) => (YIELD[rarityOf(rec)] || 0) * moodOf(rec, sat).mult;
@@ -546,6 +558,9 @@ const Tank = (() => {
         case 'shade': w = tr.Y ? 0.5 : tr.zone === 't' ? 0.45 : 0.08; break;
         case 'through': w = tr.P ? 0.8 : 0.3; break;
         case 'ring': w = tr.P ? 1.1 : 0.15; break;
+        // decorations: a cosy nook for a nap, and a light that fish who glow are drawn to
+        case 'nap': w = tr.spd < 0.7 || tr.A ? 1.4 : 0.35; break;
+        case 'glow': w = tr.G ? 2.6 : tr.C ? 0.4 : 0.1; break;
       }
       if (tr.W && p.kind !== 'hide' && p.kind !== 'nibble') w = 0;
       if (tr.V && !['perch', 'hide', 'shade'].includes(p.kind)) w *= 0.2;
@@ -575,9 +590,9 @@ const Tank = (() => {
       go(f, 'through', 16, f.path[0][0], f.path[0][1]);
       return;
     }
-    const dur = { hide: rand(6, 14), perch: rand(10, 24), nibble: rand(4, 8), ride: rand(4, 7), gather: rand(4, 8), anemone: rand(10, 22), shade: rand(5, 10), ring: rand(6, 10) }[p.kind] || 6;
+    const dur = { hide: rand(6, 14), perch: rand(10, 24), nibble: rand(4, 8), ride: rand(4, 7), gather: rand(4, 8), anemone: rand(10, 22), shade: rand(5, 10), ring: rand(6, 10), nap: rand(8, 16), glow: rand(5, 10) }[p.kind] || 6;
     let x = p.x, y = p.y;
-    if (p.kind === 'gather' || p.kind === 'shade') { x += rand(-1, 1) * f.len; y += rand(-0.5, 0.5) * f.len * 0.6; }
+    if (p.kind === 'gather' || p.kind === 'shade' || p.kind === 'glow') { x += rand(-1, 1) * f.len; y += rand(-0.5, 0.5) * f.len * 0.6; }
     if (p.kind === 'nibble') x += rand(-1, 1) * f.len * 0.4;
     go(f, 'poi', dur, x, y);
     if (p.z !== undefined) f.tz = p.z;
@@ -699,8 +714,10 @@ const Tank = (() => {
         case 'gather': f.face = Math.sign(p.x - f.x) || f.face; f.faceLock = 0.3; f.boost = 0.4; break;
         case 'anemone': f.tx = p.x + Math.sin(T * 1.7 + f.uid) * p.r * 0.6; f.ty = p.y + Math.cos(T * 1.3 + f.uid) * p.r * 0.3; f.boost = 0.7; f.wobble = Math.max(f.wobble, 0.25); break;
         case 'shade': f.boost = 0.3; break;
+        case 'nap': f.boost = 0.15; f.tx = p.x + Math.sin(T * 0.4 + f.uid) * f.len * 0.08; f.ty = p.y + Math.sin(T * 0.7 + f.uid) * U * 0.3; break;
+        case 'glow': f.face = Math.sign(p.x - f.x) || f.face; f.faceLock = 0.3; f.boost = 0.35; f.glow = Math.max(f.glow, 0.4); break;
         case 'ring': {
-          const R = (sc.rings || []).find(r => r.t < r.life * 0.8 && Math.abs(r.x - f.x) < U * 40);
+          const R = (sc.rings || []).concat(sc.decoRings || []).find(r => r.t < r.life * 0.8 && Math.abs(r.x - f.x) < U * 40);
           if (R) { f.tx = R.x + U * 3; f.ty = R.y; f.boost = 1.8; if (Math.hypot(R.x - f.x, R.y - f.y) < R.r && !R.hit) { R.hit = true; sparkle(R.x, R.y, '#dff6ff', 5); play('ringpass'); } }
           break;
         }
@@ -1611,8 +1628,12 @@ const Tank = (() => {
     shadows();
     const order = fish.slice().sort((a, b) => b.z - a.z);
     fishLayer(order.filter(f => f.z >= 0.5), sc.tint.far);
+    // decorations: the back row behind the tank's own decor, the front row in front of it
+    Deco.draw(ctx, sc, T, 'b');
     TankEnv.mid(ctx, sc, T);
+    Deco.draw(ctx, sc, T, 'f');
     fishLayer(order.filter(f => f.z < 0.5), sc.tint.near);
+    Deco.drawFx(ctx, sc, T);
     glows();
     ctx.save(); ctx.clip(sc.clip); drawParts(); ctx.restore();
     TankEnv.front(ctx, sc, T, () => { ctx.save(); ctx.clip(sc.clip); drawPearls(); ctx.restore(); });
@@ -1624,6 +1645,7 @@ const Tank = (() => {
   function update(dt) {
     T += dt;
     TankEnv.step(sc, dt, T, envApi);
+    Deco.step(sc, dt, T, envApi);
     accrue(dt / 3600, true);
     stepHold(dt);
     socialT -= dt;
@@ -1665,8 +1687,8 @@ const Tank = (() => {
       lifts.push({ x, y0, y1, w, t: secs, all: secs > 3 });
       if (secs > 3) for (const f of fish) if (isFree(f) && (f.tr.P || f.tr.C) && Math.abs(f.x - x) < U * 28 && !f.tr.W) visit(f, { kind: 'ride', x, y: y1 - U * 2, z: 0.5 });
     },
-    procession(kind, n) {
-      const P = sc.pois.filter(p => p.kind === 'through');
+    procession(kind, n, poi) {
+      const P = poi ? [poi] : sc.pois.filter(p => p.kind === 'through' && !p.deco);
       if (!P.length) return;
       const p = pick(P), s0 = p.path[0];
       const line = fish.filter(f => isFree(f) && !f.tr.W && !f.tr.V).sort((a, b) => Math.hypot(a.x - s0[0], a.y - s0[1]) - Math.hypot(b.x - s0[0], b.y - s0[1])).slice(0, n);
@@ -1681,6 +1703,8 @@ const Tank = (() => {
       sparkle(x, y, (RARITIES[r] || RARITIES.rare).color, 6);
       play('pearlDrop', 2);
     },
+    sparkle: (x, y, col, n) => sparkle(x, y, col, n),
+    twirl(x, y, r) { for (const f of fish) if (isFree(f) && !f.tr.W && Math.hypot(f.x - x, f.y - y) < r) { startReact(f, 'spin', f.x, f.y); if (Math.random() < 0.3) heart(f.x, f.y - f.dh * 0.6, 0.6); } },
     party() { for (const f of fish) if (!f.leaving && !f.free) { if (f.int) endInt(f.int); startReact(f, 'spin', f.x, f.y); f.glow = 1; if (Math.random() < 0.5) heart(f.x, f.y - f.dh * 0.6, 0.7); } },
     event(kind) { if (kind === 'anemone') { const p = sc.pois.find(q => q.kind === 'anemone'); for (const f of fish) if (p && f.id === 'clownfish' && !f.leaving && !f.free) { if (f.int) endInt(f.int); visit(f, p); f.boost = 2.3; } } },
     ready: key => Date.now() >= ((S.decor || {})[key] || 0),
@@ -1750,6 +1774,8 @@ const Tank = (() => {
     const order = fish.slice().sort((a, b) => a.z - b.z);
     let f = order.find(q => !q.hide && hit(q));
     if (f) { select(f, x, y); return; }
+    const dh = Deco.hit(sc, x, y);
+    if (dh) { Deco.tap(sc, x, y, envApi); badge('decotap', { id: dh.id }); return; }
     if (TankEnv.tap(sc, x, y, envApi)) return;
     f = order.find(q => hit(q));
     if (f) { select(f, x, y); return; }
@@ -2060,6 +2086,98 @@ const Tank = (() => {
     UIFX.swap($('#m-tank .card'), $('#tank-stage'), renderUI, view === 'list' ? 1 : -1);
   }
 
+  /* ================= Decorations =================
+     Bought in the market, each one goes straight into a tank with room for it (the one on screen, or
+     last looked at, first), or into the storeroom when every tank's decorations are full. The Decor
+     panel moves them between tanks, puts them away and brings them back out. */
+  const decoCap = t => Deco.CAP[TANKS[t].id] || 0;
+  const decoRec = uid => (S.decos || []).find(d => d.uid === uid);
+  function decoChanged(tanksTouched) {
+    joyCache = null; dirty = true; rateT = 0; tabSig = '';
+    if (sc && tanksTouched.includes(here)) {
+      Deco.install(sc, decosIn(here));
+      if (sc.gl && glOn && TankGL.ok) TankGL.setScene(TankEnv.glScene(sc));
+      cardSig = '';
+    }
+    api.persist();
+    badge('decor', { n: (S.decos || []).filter(d => d.t >= 0).length, palace: decosIn(TANKS.length - 1).length });
+  }
+  /* a little welcome where a piece has just been set down */
+  function settleDeco(uid) {
+    if (!sc || !sc.decos) return;
+    const d = sc.decos.find(q => q.uid === uid);
+    if (!d) return;
+    sparkle(d.x, d.y - d.D.h * d.k * 0.5, '#fff2c0', 8);
+    for (let i = 0; i < 8; i++) TankEnv.bubble(sc, d.x + rand(-0.5, 0.5) * d.D.w * d.k, d.y - U, U * rand(0.15, 0.4), { z: 0.4 });
+    puffSand(d.x, d.y, 1.2);
+    play('decoPlace');
+  }
+  function addDecor(id) {
+    S.decos = S.decos || [];
+    const uid = S.decoUid = Math.max(S.decoUid || 0, ...S.decos.map(d => d.uid)) + 1;
+    const order = [here, ...tanks().slice().reverse()];
+    const t = order.find(q => decosIn(q).length < decoCap(q));
+    S.decos.push({ uid, id, t: t === undefined ? -1 : t });
+    decoChanged(t === undefined ? [] : [t]);
+    return t === undefined ? -1 : t;
+  }
+  function placeDecor(uid, t) {
+    const d = decoRec(uid);
+    if (!d || d.t === t || (t >= 0 && decosIn(t).length >= decoCap(t))) return false;
+    const from = d.t;
+    d.t = t;
+    decoChanged([from, t]);
+    if (t === here) settleDeco(uid); else play(t < 0 ? 'click' : 'decoPlace');
+    return true;
+  }
+  let decorOpen = false, decorMoving = null;
+  function openDecor() { decorOpen = true; decorMoving = null; play('click'); renderDecor(); }
+  function closeDecor() { if (!decorOpen) return; decorOpen = false; renderDecor(); }
+  const decoThumb = id => `<canvas class="dm-art" data-deco="${id}" aria-hidden="true"></canvas>`;
+  function renderDecor() {
+    const el = $('#decor-menu');
+    if (!decorOpen || !isOpen) { el.hidden = true; el.innerHTML = ''; return; }
+    const T0 = TANKS[here], cap = decoCap(here), mine = decosIn(here), stored = (S.decos || []).filter(d => d.t < 0);
+    let h = `<div class="mm-box dm-box"><div class="mm-head"><h3>Decorations</h3><button type="button" class="fc-close" data-dm="close" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
+    h += `<p class="mm-note">Decorations please the fish of the tank they stand in, so they make more Moonpearls. Fish love variety: a second of the same piece in one tank pleases them half as much. Tap a decoration in the tank to play with it.</p>`;
+    h += `<h4 class="dm-sub">In the ${esc(T0.name)} <small>${mine.length} of ${cap}</small></h4>`;
+    if (!mine.length) h += `<p class="dm-empty">Nothing here yet.</p>`;
+    else h += `<ul class="dm-list">${mine.map(d => {
+      const D = Deco.DEF[d.id], others = tanks().filter(t => t !== here);
+      let row = `<li class="dm-item">${decoThumb(d.id)}<span class="dm-name">${esc(D.name)}</span><span class="dm-acts">${others.length ? `<button type="button" class="secondary-btn dm-btn" data-dm="move" data-uid="${d.uid}" aria-expanded="${decorMoving === d.uid}">Move</button>` : ''}<button type="button" class="secondary-btn dm-btn" data-dm="store" data-uid="${d.uid}">Store</button></span></li>`;
+      if (decorMoving === d.uid) row += `<li class="dm-to">${others.slice().reverse().map(t => {
+        const n = decosIn(t).length, c2 = decoCap(t), full = n >= c2;
+        return `<button type="button" class="mm-tank${full ? ' full' : ''}" data-dm="to" data-uid="${d.uid}" data-t="${t}" ${full ? 'aria-disabled="true"' : ''}><span>${esc(TANKS[t].name)}</span><small>${full ? 'Full' : `${n} of ${c2}`}</small></button>`;
+      }).join('')}</li>`;
+      return row;
+    }).join('')}</ul>`;
+    if (stored.length) {
+      const groups = {};
+      for (const d of stored) (groups[d.id] = groups[d.id] || []).push(d);
+      h += `<h4 class="dm-sub">In your storeroom</h4><ul class="dm-list">${Object.entries(groups).map(([id, ds]) => `<li class="dm-item">${decoThumb(id)}<span class="dm-name">${esc(Deco.DEF[id].name)}${ds.length > 1 ? ` <small>×${ds.length}</small>` : ''}</span><span class="dm-acts"><button type="button" class="secondary-btn dm-btn" data-dm="place" data-uid="${ds[0].uid}" ${mine.length >= cap ? 'disabled' : ''}>Place here</button></span></li>`).join('')}</ul>`;
+      if (mine.length >= cap) h += `<p class="dm-empty">This tank's decorations are full. Store one to make room.</p>`;
+    }
+    h += `<button type="button" class="secondary-btn dm-shop" data-dm="shop">Find more in the Driftwood Market</button></div>`;
+    el.innerHTML = h;
+    el.hidden = false;
+    requestAnimationFrame(() => el.querySelectorAll('canvas[data-deco]').forEach(c => Deco.preview(c, c.dataset.deco, T)));
+  }
+  function onDecorMenu(e) {
+    if (e.target === e.currentTarget) { closeDecor(); return; }
+    const b = e.target.closest('[data-dm]');
+    if (!b || b.disabled || b.getAttribute('aria-disabled') === 'true') return;
+    const uid = +b.dataset.uid;
+    switch (b.dataset.dm) {
+      case 'close': closeDecor(); return;
+      case 'move': decorMoving = decorMoving === uid ? null : uid; play('click'); break;
+      case 'to': decorMoving = null; placeDecor(uid, +b.dataset.t); break;
+      case 'store': placeDecor(uid, -1); break;
+      case 'place': placeDecor(uid, here); break;
+      case 'shop': closeDecor(); api.openShop('decor'); return;
+    }
+    renderDecor(); renderTabs(); renderRate();
+  }
+
   /* ================= Moving fish between tanks =================
      A fish's Move button opens a small panel of your other tanks. A tank with room takes it at once; a
      full one opens to show its fish, and picking one swaps the two. A fish that leaves swims up and out;
@@ -2173,6 +2291,7 @@ const Tank = (() => {
     $('#pearl-hint').hidden = true;
     here = S.at = t; drops = sandOf(t); dirty = true;
     hideTip();
+    if (decorOpen) { decorMoving = null; setTimeout(renderDecor, 0); }
     materialize(t);
     sc = null;
     layout();
@@ -2313,6 +2432,7 @@ const Tank = (() => {
     layer.width = cv.width; layer.height = cv.height;
     const gl = glOn && TankGL.ok;
     sc = TankEnv.build(id, W, H, DPR, { gl });
+    Deco.install(sc, decosIn(here));
     U = sc.U;
     $('#tank-stage').classList.toggle('gl', gl);
     if (gl) { TankGL.resize(cv.width, cv.height); TankGL.setScene(TankEnv.glScene(sc)); }
@@ -2395,6 +2515,7 @@ const Tank = (() => {
     if (!isOpen) return;
     isOpen = false;
     hideTip();
+    decorOpen = false; $('#decor-menu').hidden = true;
     sel = null; down = null; drag = null; moving = null;
     $('#move-menu').hidden = true;
     S.at = here;
@@ -2531,18 +2652,24 @@ const Tank = (() => {
     mt.addEventListener('pointerout', onTipOut);
     mt.addEventListener('click', onTipTap);
     $('#move-menu').addEventListener('click', onMoveMenu);
+    $('#decor-menu').addEventListener('click', onDecorMenu);
+    $('#tank-decor').addEventListener('click', () => (decorOpen ? closeDecor() : openDecor()));
     $('#empty-move').addEventListener('click', () => { listAll = true; view = 'list'; play('click'); UIFX.swap($('#m-tank .card'), $('#tank-stage'), renderUI, 1); });
     // Escape closes the move panel before it closes the aquarium
-    window.addEventListener('keydown', e => { if (moving && e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); closeMove(); } }, true);
+    window.addEventListener('keydown', e => {
+      if (moving && e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); closeMove(); }
+      else if (decorOpen && e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); closeDecor(); }
+    }, true);
     window.addEventListener('resize', onResize);
     settle();
     here = clamp(S.at | 0, 0, api.save.netTier); drops = sandOf(here);
   }
 
   return {
-    init, open, onClosed, frame, settle, pending, preview, homeFor,
+    init, open, onClosed, frame, settle, pending, preview, homeFor, addDecor, decoCap,
+    decosIn: t => decosIn(t),
     get isOpen() { return isOpen; },
     /* for tests and the console */
-    _debug: { get fish() { return fish; }, get sc() { return sc; }, get parts() { return parts; }, reactTo, startInteraction, select, feed, tapAt, collect, settle, pearlPos, sweep, accrue, bedValue, bedCap, tankRate, pending, YIELD, pearlSprite, moveFish, swapFish, switchTank, fishIn, get here() { return here; }, get falling() { return falling.size; }, get lifted() { return lifted.size; } },
+    _debug: { get fish() { return fish; }, get sc() { return sc; }, get parts() { return parts; }, reactTo, startInteraction, select, feed, tapAt, collect, settle, pearlPos, sweep, accrue, bedValue, bedCap, tankRate, pending, YIELD, pearlSprite, moveFish, swapFish, switchTank, fishIn, placeDecor, decoJoy, get decor() { return sc && sc.decos; }, get here() { return here; }, get falling() { return falling.size; }, get lifted() { return lifted.size; } },
   };
 })();

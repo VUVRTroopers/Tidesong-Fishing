@@ -74,6 +74,7 @@ const Badges = (() => {
     chevrons: P('M6 11l6-5 6 5M6 15.5l6-5 6 5M6 20l6-5 6 5'),
     crown: P('M4 17.5L3 7.5l5 4 4-6.5 4 6.5 5-4-1 10z') + P('M4 20.5h16'),
     tank: '<rect x="3.5" y="6" width="17" height="12" rx="1.5"/>' + P('M3.5 9h17M7.5 18v2.5M16.5 18v2.5') + P('M8 13.5c1.5-1.4 3.6-1.4 5 0-1.4 1.4-3.5 1.4-5 0z') + P('M13 13.5l1.7-1.1v2.2z'),
+    castle: P('M4 20V9h3v2h2V9h2v2h2V9h2v2h2V9h3v11z') + P('M10 20v-4a2 2 0 0 1 4 0v4') + P('M5.5 9V5.5l2 .8-2 .8'),
     chest: P('M4 10.5h16V19H4z') + P('M4 10.5C4 7.5 7.6 5 12 5s8 2.5 8 5.5') + P('M4 13.5h16') + '<rect x="10.5" y="12" width="3" height="3.2" rx=".6"/>',
     hearts: P('M9.5 18s-6-3.7-6-7.7A3.2 3.2 0 0 1 9.5 8.4a3.2 3.2 0 0 1 6 1.9c0 4-6 7.7-6 7.7z') + P('M15.5 6.8a3 3 0 0 1 5 2.3c0 2.2-1.6 4.2-3.3 5.6'),
     fishes: `<g transform="translate(2.2 11)">${P('M0 0c1.8-2.7 4.8-3.6 7.5-2.4.96.42 1.74 1.08 2.28 1.68l1.32-1.38v4.2l-1.32-1.38c-.54.6-1.32 1.26-2.28 1.68C4.8 3.6 1.8 2.7 0 0z')}<circle cx="2.4" cy="-.4" r=".45"/></g><g transform="translate(9.4 17)">${P('M0 0c1.8-2.7 4.8-3.6 7.5-2.4.96.42 1.74 1.08 2.28 1.68l1.32-1.38v4.2l-1.32-1.38c-.54.6-1.32 1.26-2.28 1.68C4.8 3.6 1.8 2.7 0 0z')}<circle cx="2.4" cy="-.4" r=".45"/></g>` + P('M16.6 9.2s-2.8-1.7-2.8-3.6a1.4 1.4 0 0 1 2.8-.6 1.4 1.4 0 0 1 2.8.6c0 1.9-2.8 3.6-2.8 3.6z'),
@@ -206,6 +207,10 @@ const Badges = (() => {
   ladder('aquarium', 'Tanks', 'tanks', 'tank', 'tankCount', [[2, 1, 'Moving Up'], [4, 2, 'Aquarist'], [NTANKS, 3, 'Grand Aquarist']],
     n => (n === 2 ? 'Buy your second aquarium.' : n === NTANKS ? `Own all ${n} aquariums.` : `Own ${n} aquariums.`));
   add('aquarium', 'Tanks', 4, 'tank', 'full-house', 'Full House', `Fill all ${NTANKS} aquariums at once.`, 'fullHouse');
+  add('aquarium', 'Decor', 1, 'castle', 'decor-1', 'Home Comforts', 'Set a decoration in one of your aquariums.', 'decoPlaced', 1, { ser: 'decor' });
+  add('aquarium', 'Decor', 2, 'castle', 'decor-10', 'Interior Designer', 'Have 10 decorations standing in your aquariums.', 'decoPlaced', 10, { ser: 'decor', n: 10 });
+  add('aquarium', 'Decor', 3, 'castle', 'decor-all', 'Curator', `Own one of every decoration in the market (${Deco.LIST.length}).`, 'decoKinds', Deco.LIST.length);
+  add('aquarium', 'Decor', 4, 'castle', 'decor-palace', 'Palace Gardens', `Fill the ${TANKS[NTANKS - 1].name} with decorations.`, 'decoPalace', Deco.CAP[TANKS[NTANKS - 1].id]);
   ladder('aquarium', 'Meals', 'meals', 'food', 'meals', [[10, 2, 'Feeding Time'], [25, 2, 'Flake Flinger'], [50, 3, 'Head Chef'], [100, 3, 'Banquet Host'], [250, 4, 'Never a Hungry Fin']],
     n => `Feed your fish ${n} times.`, { note: MEAL_NOTE });
   BY['first-meal'].note = MEAL_NOTE;
@@ -239,6 +244,7 @@ const Badges = (() => {
   const secret = (g, icon, id, name, hint, desc, of, goal = 1) => add('secrets', '', g, icon, id, name, desc, of, goal, { secret: true, hint });
   secret(1, 'tap', 'tap-fish', 'Hello There', 'Say hello to someone in your aquarium.', 'Tap a fish in your aquarium.', 'tap');
   secret(1, 'shy', 'shy', 'Give Me Some Space', 'Even fish need a little space.', 'Tap a fish so often that it hides from you.', 'shy');
+  secret(1, 'castle', 'giant-wake', 'Rise and Shine', 'Some things are only sleeping.', 'Wake the sleeping stone giant.', 'dt.giant');
   secret(1, 'bonk', 'bonk', 'Bonk!', 'Aim for something floating.', 'Cast your bobber onto something floating on the water.', 'bonk');
   secret(2, 'sweep', 'sweep', 'Clean Sweep', 'Gather a great many at once.', 'Gather 10 pearls in a single sweep.', 'sweep', 10);
   secret(2, 'reunite', 'reunited', 'Reunited', 'Absence makes the heart grow fonder.', 'Bring a fish back to the tank where its mate lives.', 'reunited');
@@ -335,6 +341,11 @@ const Badges = (() => {
     if (full) A.k.fullTank = 1;
     if (M.tanks === NTANKS - 1 && full === NTANKS) A.k.fullHouse = 1;
     M.fullTank = A.k.fullTank || 0; M.fullHouse = A.k.fullHouse || 0;
+    // decorations
+    const decos = (s.tank && s.tank.decos) || [];
+    M.decoPlaced = decos.filter(d => d.t >= 0).length;
+    M.decoKinds = new Set(decos.map(d => d.id)).size;
+    M.decoPalace = decos.filter(d => d.t === NTANKS - 1).length;
     return M;
   }
   const valueOf = (b, M) => (typeof b.of === 'function' ? b.of(M) : M[b.of] || 0);
@@ -389,6 +400,8 @@ const Badges = (() => {
       case 'couple': inc('couples'); loveFlags(k, v.id); break;
       case 'treasure': inc('treasures'); k[`tr.${v.key}`] = 1; break;
       case 'reunited': case 'tap': case 'shy': case 'bonk': if (k[kind]) return; k[kind] = 1; break;
+      case 'decotap': if (!v.id || k[`dt.${v.id}`]) return; k[`dt.${v.id}`] = 1; break;
+      case 'decor': case 'decorBuy': break;
       default: return;
     }
     noted = true;

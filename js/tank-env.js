@@ -2050,6 +2050,13 @@ const TankEnv = (() => {
       mx.globalCompositeOperation = 'source-in'; mx.fillStyle = 'rgb(190,0,0)'; mx.fillRect(0, 0, m.width, m.height);
       x.setTransform(1, 0, 0, 1, 0, 0); x.drawImage(m, 0, 0);
     }
+    // decorations standing on the sand catch the caustics too
+    if (sc.decos && sc.decos.length && typeof Deco !== 'undefined') {
+      const m = mkCanvas(c.width, c.height), mx = m.getContext('2d');
+      Deco.maskOnto(mx, sc, k);
+      mx.globalCompositeOperation = 'source-in'; mx.fillStyle = 'rgb(190,0,0)'; mx.fillRect(0, 0, m.width, m.height);
+      x.setTransform(1, 0, 0, 1, 0, 0); x.drawImage(m, 0, 0);
+    }
     return c;
   }
   /* How the GPU lights each tank. */

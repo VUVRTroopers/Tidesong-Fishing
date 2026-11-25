@@ -34,7 +34,7 @@
     ach: null, // badges and the scrapbook (js/badges.js fills this in)
     // the aquariums: when they were last looked after, the pearls on each tank's sand, bonds between fish,
     // mates, each fish's unfinished pearl, when each tank was fed, and which tank was last looked at
-    tank: { last: 0, sands: {}, bonds: {}, mates: {}, acc: {}, fedAt: {}, at: 0 },
+    tank: { last: 0, sands: {}, bonds: {}, mates: {}, acc: {}, fedAt: {}, at: 0, decos: [] },
     bait: { worm: 3, shrimp: 0, roe: 0 },
     owned: { rods: ['willow'], bobbers: ['classic'], lines: ['mono'] },
     equip: { rod: 'willow', bobber: 'classic', line: 'mono', bait: null },
@@ -81,6 +81,14 @@
     if (s.equip.bait && !(s.bait[s.equip.bait] > 0)) s.equip.bait = null;
     s.netTier = clamp(s.netTier | 0, 0, TANKS.length - 1);
     s.fullWarned = Math.max(0, s.fullWarned | 0);
+    // decorations: known pieces only, each in a tank that is owned (or the storeroom, -1), and never
+    // more in a tank than it has room for (the extras go to the storeroom)
+    {
+      const seen = new Set(), room = {};
+      s.tank.decos = (Array.isArray(s.tank.decos) ? s.tank.decos : []).filter(d => d && Deco.DEF[d.id] && Number.isFinite(d.uid) && !seen.has(d.uid) && seen.add(d.uid))
+        .map(d => ({ uid: d.uid | 0, id: d.id, t: Number.isInteger(d.t) && d.t >= 0 && d.t <= s.netTier ? d.t : -1 }));
+      for (const d of s.tank.decos) if (d.t >= 0) { room[d.t] = (room[d.t] || 0) + 1; if (room[d.t] > (Deco.CAP[TANKS[d.t].id] || 0)) d.t = -1; }
+    }
     // From one tank to many: every tank bought is kept. Pearls on the old sand and the last feeding move
     // to the tank the fish were living in, and every fish is given a home tank.
     if (Array.isArray(s.tank.drops)) { if (s.tank.drops.length) s.tank.sands[s.netTier] = (s.tank.sands[s.netTier] || []).concat(s.tank.drops); delete s.tank.drops; }
@@ -2092,6 +2100,7 @@
     openModal,
     flashWallet,
     canUse: canUseMenus,
+    openShop: tab => { closeModal('#m-tank'); setTimeout(() => openShop(tab), 320); },
   });
 
   /* ================= Sizing + loop ================= */

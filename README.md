@@ -16,7 +16,7 @@ wait for a bite, then hold to keep the gold fish marker inside your green band u
 - **A living aquarium** for the fish you keep: six tanks from a glass bowl to a moonlit palace, all
   kept as you buy them, where fish explore, meet, make friends and sometimes mates, and every one of
   them slowly makes pearls, about twice as many when they are well fed and among friends.
-- **135 badges in a scrapbook**, from the first fish to a full Moon Palace, in five grades from bronze
+- **140 badges in a scrapbook**, from the first fish to a full Moon Palace, in five grades from bronze
   to moon, with secrets to find.
 - **Progress saves automatically** in the browser.
 
@@ -249,6 +249,11 @@ notification leaves two and a half times longer before nudging again, up to fift
 and a full sand nudge after about a minute, new badges after one, new waters after about half a
 minute, and a few pearls lying about only after four. With reduced motion the button glows instead.
 
+- **Decorations:** twelve pieces for the aquariums, from a teacup to a sleeping stone giant, that
+  please the fish of the tank they stand in (so they make more pearls) and give them somewhere to
+  hide, nap, gather, ride bubbles or swim through. Buy as many as you like (see
+  [Decorations](#decorations)).
+
 Star a fish to protect it from "Sell all unstarred". Legendary and Extreme catches are starred
 automatically.
 The journal keeps lifetime records (counts, heaviest, longest, most valuable, rarest) even after
@@ -456,11 +461,57 @@ The game explains almost none of what follows; players find it by watching and t
 
 </details>
 
+### Decorations
+
+The market's **Decor** tab sells twelve decorations, each painted, animated and alive in its own way.
+A decoration pleases the fish of the tank it stands in, adding to their comfort, so they make more
+pearls. Grander pieces please them more, and since the bonus scales a tank's whole output, a piece is
+worth most in a tank full of rare fish. Fish love variety: a second copy of the same piece in one tank
+pleases them half as much. The market shows how much a piece delights fish in hearts, not numbers.
+
+- **Room:** the Glass Bowl holds 2 decorations, the Reed Tank 3, the Lily Garden 4, the Coral Reef 6,
+  Shipwreck Cove 8 and the Moon Palace 10. Pieces stand on the sand in two rows, the back row behind
+  the tank's own decor and the front row in front of it, larger pieces taking the roomier places,
+  and never over the tank's own things to touch (the palace's gate, dragon and singing geodes stay
+  clear).
+- **Buying:** buy as many of each as you like. A new piece goes straight into the tank on screen (or
+  last visited) if it has room, then the newest tank with room, or the storeroom if every tank is
+  full.
+- **Moving them:** the aquarium's **Decor** button lists the tank's decorations, with **Move** (to
+  any tank with room) and **Store**, and the storeroom's pieces with **Place here**. A piece set down
+  lands with a puff of sand, bubbles and a little chime.
+- **Playing:** tap a decoration and it does something, with its own sound in the water's key.
+
+| Decoration | Tier | Price | What fish do | When you tap it |
+| --- | --- | --- | --- | --- |
+| Teacup Nook | Trinket | 240 | Sleepy fish nap in the cup | It rocks and puffs out tea-coloured fizz |
+| Snow Globe | Trinket | 280 | Curious fish gather to peer in | A flurry swirls inside, with tinkling glass |
+| Mushroom Cottage | Trinket | 320 | Shy fish hide inside | The door swings open, lamplight spills out, and anyone hiding darts out |
+| Jelly Lantern | Trinket | 360 | Fish that glow keep it company | It pulses bright and bobs up on its tether |
+| Medieval Knight | Centrepiece | 980 | Shy fish shelter behind the shield | The visor lifts in a gust of bubbles and the sword rises in salute |
+| Bubble Volcano | Centrepiece | 1,080 | Playful fish ride its bubbles; it puffs on its own now and then | It erupts, glowing, and lifts every fish nearby |
+| Tin Rocket | Centrepiece | 1,160 | Curious fish peek in at the portholes | A countdown, a roaring blast of bubbles, fish scatter and creep back |
+| Windmill | Centrepiece | 1,240 | Playful fish ride the bubbles that turn its sails | The sails whirl |
+| Castle Keep | Grand | 3,400 | Fish swim in through the gate and out the other side; shy ones hide in a tower | The portcullis rises, pennants fly, and a little parade swims through |
+| Lighthouse | Grand | 3,800 | Fish that glow gather in the beam sweeping through the water | The lamp flares, the foghorn sounds, and every fish turns to look |
+| Carousel | Grand | 4,200 | Fish circle it, and seahorses love it | It spins up to a music-box waltz and the fish around it twirl |
+| Sleeping Stone Giant | Grand | 4,600 | Shy fish hide behind it, foragers graze its moss; it breathes slow bubbles | It opens its eyes, yawns, and blows a ring for playful fish to chase |
+
+Prices follow what a piece can earn: tuned in the same 45-day career simulation as the rest of the
+economy, with a player who buys whichever piece would pay for itself soonest (within about six days)
+in whichever tank, moving the pieces it replaces down to lesser tanks. Against the same caring player
+who never decorates, decorating barely matters in the first week, and then lifts the tanks' earnings
+by about a tenth for a casual player and about a fifth for steady and focused ones (a steady player's
+tanks bring in about 41,000 pearls a day in days 14 to 30 instead of 34,500), and each reaches the
+last Heirloom tier a little sooner (a casual player two days sooner, a steady one a day and a half),
+even with the decorations bought on the way. Trinkets suit the first tanks, centrepieces the middle
+ones, and the grand pieces a finer tank full of rare fish.
+
 ## Badges and the scrapbook
 
 ![The scrapbook's On the Line page, with earned medals and pencilled-in ones still to earn, and the Master Angler badge up close](docs/screenshots/scrapbook.jpg)
 
-The ribbon-medal button at the top right opens the scrapbook: 135 badges on nine pages (First Casts,
+The ribbon-medal button at the top right opens the scrapbook: 140 badges on nine pages (First Casts,
 On the Line, Field Journal, Driftwood Market, Tackle Box, The Aquarium, Friends & Mates, Seasons and
 Secrets). Earned badges are stuck onto the page as medals. The rest are pencilled in, with progress for
 the counting ones ("37 / 50"). Tap a badge to admire it up close. It sways gently, tilts toward your
@@ -617,6 +668,10 @@ recorded (fish lost, meals served, streaks, trophy sizes, days played) start cou
 | Aquarist | Silver | Own 4 aquariums. |
 | Grand Aquarist | Gold | Own all 6 aquariums. |
 | Full House | Pearl | Fill all 6 aquariums at once. |
+| Home Comforts | Bronze | Set a decoration in one of your aquariums. |
+| Interior Designer | Silver | Have 10 decorations standing in your aquariums. |
+| Curator | Gold | Own one of every decoration in the market (12). |
+| Palace Gardens | Pearl | Fill the Moon Palace with decorations. |
 | Feeding Time | Silver | Feed your fish 10 times. |
 | Flake Flinger | Silver | Feed your fish 25 times. |
 | Head Chef | Gold | Feed your fish 50 times. |
@@ -676,6 +731,7 @@ Secrets show only a question mark and a hint until they are found.
 | --- | --- | --- | --- |
 | Hello There | Bronze | Say hello to someone in your aquarium. | Tap a fish in your aquarium. |
 | Give Me Some Space | Bronze | Even fish need a little space. | Tap a fish so often that it hides from you. |
+| Rise and Shine | Bronze | Some things are only sleeping. | Wake the sleeping stone giant. |
 | Bonk! | Bronze | Aim for something floating. | Cast your bobber onto something floating on the water. |
 | Clean Sweep | Silver | Gather a great many at once. | Gather 10 pearls in a single sweep. |
 | Reunited | Silver | Absence makes the heart grow fonder. | Bring a fish back to the tank where its mate lives. |
@@ -871,9 +927,10 @@ js/
   rods.js           Rod modelling: materials, baked surfaces, lighting, guides, reels, ornaments, effects
   ui.js             Interface motion: cards glide to new sizes and new sections slide in
   badges.js         Badges and the scrapbook: the catalogue, counters, medal art, unlock moment, the book
-  shop.js           The Driftwood Market: bait, gear and aquariums
+  shop.js           The Driftwood Market: bait, gear, aquariums and decorations
   tank-env.js       The six aquariums: glass, water, sand, plants and decor that can be touched
   tank-gl.js        The aquariums' light and glass on the GPU: caustics, shafts, bloom, lensing, glass
+  deco.js           Aquarium decorations: the catalogue, their art, places for fish, taps and comfort
   tank.js           The aquarium's life: swimming, temperaments, meetings, bonds, pearls, feeding
   game.js           Game loop, cast, bite, reel and catch logic, input, saving, map and journal
 docs/
