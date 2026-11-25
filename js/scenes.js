@@ -394,7 +394,7 @@ const Scenes = (() => {
       for (let i = 0; i < n(34); i++) P.list.push({ k: 'fly', x: rnd() * L.w, y: L.horizon - L.h * 0.15 + rnd() * L.h * 0.55, vx: 0, vy: 0, ph: rnd() * TAU, f: 0.6 + rnd() * 1.2 });
       P.fixed.push({ k: 'post', fx: 0.16, fy: 0.08, s: 1 }, { k: 'post', fx: 0.82, fy: 0.15, s: 1.25 }, { k: 'post', fx: 0.5, fy: 0.03, s: 0.7 });
     } else if (id === 'coralspire') {
-      for (let i = 0; i < 6; i++) P.list.push({ k: 'cloud', x: rnd() * L.w * 1.3, y: L.horizon * (0.12 + rnd() * 0.5), s: 0.6 + rnd() * 0.9, vx: 4 + rnd() * 6, seed: Math.floor(rnd() * 1000) });
+      for (let i = 0; i < 6; i++) P.list.push({ k: 'cloud', x: rnd() * L.w * 1.3, y: L.horizon * (0.26 + rnd() * 0.42), s: 0.6 + rnd() * 0.9, vx: 4 + rnd() * 6, seed: Math.floor(rnd() * 1000) });
       for (let i = 0; i < 3; i++) P.list.push({ k: 'gull', x: rnd() * L.w, y: L.horizon * (0.25 + rnd() * 0.4), vx: 16 + rnd() * 14, ph: rnd() * TAU, s: 0.7 + rnd() * 0.6 });
     } else if (id === 'frostveil') {
       for (let i = 0; i < n(90); i++) P.list.push({ k: 'snow', x: rnd() * L.w, y: rnd() * L.h, r: 0.7 + rnd() * 2, vy: 14 + rnd() * 30, ph: rnd() * TAU });
@@ -463,14 +463,99 @@ const Scenes = (() => {
   }
 
   /* ---------- live drawing ---------- */
-  function cloud(ctx, x, y, s, seed) {
-    const rnd = seeded(seed);
-    ctx.fillStyle = 'rgba(255,255,255,0.75)';
-    for (let i = 0; i < 7; i++) {
-      ctx.beginPath(); ctx.arc(x + (i - 3) * 22 * s + rnd() * 8, y - Math.sin((i / 6) * Math.PI) * 14 * s - rnd() * 6, (16 + rnd() * 14) * s, 0, TAU); ctx.fill();
+  /* A fair-weather cumulus, painted once into its own small canvas and then simply drawn as it drifts:
+     soft overlapping puffs heaped into a dome over a flat base, shaded blue-grey underneath and lit
+     white toward the sun (high on the right), with a soft lower edge and a few thin wisps trailing off
+     the base. Each cloud keeps its own shape (its seed). */
+  const cloudCache = new Map();
+  let puffTmp = null;
+  function cloudSprite(seed, w) {
+    const key = seed + '|' + Math.round(w / 8);
+    let c = cloudCache.get(key);
+    if (c) return c;
+    const rnd = seeded(seed), rs = Math.min(2, window.devicePixelRatio || 1);
+    const tall = 0.75 + rnd() * 0.5, wide = 0.85 + rnd() * 0.3;
+    // the lobes, relative to the middle of the flat base: overlapping well (each about twice as wide as
+    // the gap to the next), a row along the base, a bigger heap over the middle, and a crown on top,
+    // tapering toward both ends; a soft core behind them all keeps it one cloud, not a pile of balls
+    const puffs = [{ x: 0, y: -0.1 * w * tall, r: 0.3 * w, core: true }];
+    const row = (n, spread, rMin, rMax, y0, lift) => {
+      for (let i = 0; i < n; i++) {
+        const u = n > 1 ? (i / (n - 1)) * 2 - 1 : 0, dome = 1 - u * u;
+        const r = w * (rMin + (rMax - rMin) * rnd()) * (0.62 + 0.38 * dome);
+        puffs.push({ x: u * w * spread * wide + (rnd() - 0.5) * w * 0.035, y: -(y0 + dome * lift) * w * tall - r * 0.55, r });
+      }
+    };
+    row(7 + Math.floor(rnd() * 3), 0.4, 0.085, 0.115, 0, 0.02);
+    row(4 + Math.floor(rnd() * 2), 0.26, 0.13, 0.17, 0.1, 0.06);
+    row(2 + Math.floor(rnd() * 2), 0.12 + rnd() * 0.06, 0.1, 0.14, 0.24, 0.04);
+    let minX = 0, maxX = 0, minY = 0;
+    for (const p of puffs) { minX = Math.min(minX, p.x - p.r); maxX = Math.max(maxX, p.x + p.r); minY = Math.min(minY, p.y - p.r); }
+    const pad = w * 0.06, cw = maxX - minX + pad * 2, ch = -minY + pad * 2 + w * 0.05;
+    const ox = -minX + pad, oy = -minY + pad;
+    c = document.createElement('canvas');
+    c.width = Math.ceil(cw * rs); c.height = Math.ceil(ch * rs);
+    const x = c.getContext('2d');
+    x.setTransform(rs, 0, 0, rs, 0, 0);
+    // each lobe is shaded on its own (lit toward the sun, high on the right; blue-grey away from it),
+    // with a feathered edge, and the lobes are laid back to front so each bulge reads against the next
+    if (!puffTmp) puffTmp = document.createElement('canvas');
+    puffs.sort((a, b) => (b.core ? 1 : 0) - (a.core ? 1 : 0) || a.y - b.y);
+    for (const p of puffs) {
+      if (p.core) {
+        // the core: a broad soft mass, just lighter than shade
+        x.save(); x.translate(ox + p.x, oy + p.y); x.scale(1, 0.42);
+        const g = x.createRadialGradient(0, 0, 0, 0, 0, p.r * 1.3);
+        g.addColorStop(0, 'rgba(240,246,252,1)'); g.addColorStop(0.7, 'rgba(222,234,245,0.9)'); g.addColorStop(1, 'rgba(222,234,245,0)');
+        x.fillStyle = g; x.beginPath(); x.arc(0, 0, p.r * 1.3, 0, TAU); x.fill();
+        x.restore();
+        continue;
+      }
+      const R = p.r * rs, size = Math.ceil(R * 2 + 4);
+      puffTmp.width = size; puffTmp.height = size;
+      const q = puffTmp.getContext('2d'), m = size / 2;
+      // lit from the upper right: bright nearly to the sunward edge, shading only on the far side
+      const g = q.createRadialGradient(m + R * 0.4, m - R * 0.45, 0, m + R * 0.4, m - R * 0.45, R * 1.9);
+      g.addColorStop(0, '#ffffff'); g.addColorStop(0.45, '#fafcff'); g.addColorStop(0.75, '#dce8f2'); g.addColorStop(1, '#bccfe1');
+      q.fillStyle = g; q.beginPath(); q.arc(m, m, R, 0, TAU); q.fill();
+      // a little warm light on the sunward rim
+      const wg = q.createRadialGradient(m + R * 0.55, m - R * 0.55, 0, m + R * 0.55, m - R * 0.55, R * 0.7);
+      wg.addColorStop(0, 'rgba(255,250,232,0.55)'); wg.addColorStop(1, 'rgba(255,250,232,0)');
+      q.fillStyle = wg; q.fillRect(0, 0, size, size);
+      q.globalCompositeOperation = 'destination-in';
+      const fg = q.createRadialGradient(m, m, R * 0.8, m, m, R);
+      fg.addColorStop(0, 'rgba(0,0,0,1)'); fg.addColorStop(1, 'rgba(0,0,0,0)');
+      q.fillStyle = fg; q.fillRect(0, 0, size, size);
+      x.drawImage(puffTmp, ox + p.x - R / rs - 2 / rs, oy + p.y - R / rs - 2 / rs, size / rs, size / rs);
     }
-    ctx.fillStyle = 'rgba(200,230,240,0.35)';
-    ctx.beginPath(); ctx.ellipse(x, y + 6 * s, 80 * s, 8 * s, 0, 0, TAU); ctx.fill();
+    // the shaded underside, then a flat base that fades out softly
+    x.globalCompositeOperation = 'source-atop';
+    x.fillStyle = lg(x, 0, oy - w * tall * 0.3, 0, oy, [[0, 'rgba(156,188,216,0)'], [1, 'rgba(156,188,216,0.4)']]);
+    x.fillRect(0, 0, cw, ch);
+    x.globalCompositeOperation = 'destination-in';
+    x.fillStyle = lg(x, 0, oy - w * 0.075, 0, oy - w * 0.012, [[0, 'rgba(0,0,0,1)'], [1, 'rgba(0,0,0,0)']]);
+    x.fillRect(0, 0, cw, ch);
+    // thin wisps trailing off the base
+    x.globalCompositeOperation = 'destination-over';
+    for (let i = 0; i < 2 + Math.floor(rnd() * 2); i++) {
+      const ww = w * (0.16 + rnd() * 0.14), wx = ox + (rnd() - 0.5) * (cw - 2 * ww - 2 * pad) * 0.9, wy = oy - w * 0.035;
+      x.save(); x.translate(wx, wy); x.scale(1, 0.1);
+      const g = x.createRadialGradient(0, 0, 0, 0, 0, ww);
+      g.addColorStop(0, 'rgba(236,245,251,0.45)'); g.addColorStop(1, 'rgba(236,245,251,0)');
+      x.fillStyle = g; x.beginPath(); x.arc(0, 0, ww, 0, TAU); x.fill();
+      x.restore();
+    }
+    c = { c, w: cw, h: ch, ax: ox, ay: oy };
+    if (cloudCache.size > 40) cloudCache.delete(cloudCache.keys().next().value);
+    cloudCache.set(key, c);
+    return c;
+  }
+  // clouds higher in the sky are nearer and larger; those down by the horizon are small and flat
+  function cloud(ctx, x, y, s, seed, L) {
+    const near = 1 - Math.min(1, Math.max(0, y / L.horizon));
+    const w = Math.max(60, 300 * s * (0.55 + 0.75 * near));
+    const S = cloudSprite(seed, w);
+    ctx.drawImage(S.c, x - S.ax, y - S.ay, S.w, S.h);
   }
 
   function aurora(ctx, L, t, alpha = 1, flip = false) {
@@ -499,10 +584,38 @@ const Scenes = (() => {
     ctx.restore();
   }
 
+  /* Without WebGL the aurora is painted at half resolution into its own layer, refreshed a dozen times a
+     second (it moves slowly), and laid over the sky and, mirrored and fainter, over the water. */
+  let auLayer = null;
+  function auroraLayer(L, t) {
+    const sc = 0.5, w = Math.max(1, Math.ceil(L.w * sc)), h = Math.max(1, Math.ceil(L.horizon * sc));
+    if (!auLayer) auLayer = { c: document.createElement('canvas'), t: -1 };
+    const A = auLayer;
+    if (A.c.width !== w || A.c.height !== h) { A.c.width = w; A.c.height = h; A.t = -1; }
+    if (A.t < 0 || Math.abs(t - A.t) > 0.08) {
+      const x = A.c.getContext('2d');
+      x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, w, h);
+      x.setTransform(sc, 0, 0, sc, 0, 0);
+      aurora(x, L, t);
+      A.t = t;
+    }
+    return A.c;
+  }
+  function drawAurora(ctx, L, t, alpha, flip) {
+    const c = auroraLayer(L, t);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = alpha;
+    if (flip) { ctx.translate(0, L.horizon * 2); ctx.scale(1, -1); }
+    ctx.drawImage(c, 0, 0, L.w, L.horizon);
+    ctx.restore();
+  }
+  /* Lighter work on slow devices: set by the game when it has had to lower the resolution. */
+  let lite = false;
+
   function drawSky(ctx, L, t) {
     const id = cur.id, P = cur.parts;
     if (id === 'coralspire') {
-      for (const p of P.list) if (p.k === 'cloud') cloud(ctx, p.x - 150, p.y, p.s * (L.m / 700), p.seed);
+      for (const p of P.list) if (p.k === 'cloud') cloud(ctx, p.x - 150, p.y, p.s * (L.m / 700), p.seed, L);
       ctx.strokeStyle = 'rgba(40,70,80,0.7)'; ctx.lineWidth = 1.4; ctx.lineCap = 'round';
       for (const p of P.list) if (p.k === 'gull') {
         const f = Math.sin(t * 6 + p.ph) * 4 * p.s, s = 8 * p.s;
@@ -511,7 +624,7 @@ const Scenes = (() => {
       }
     } else if (id === 'frostveil') {
       // with WebGL the aurora is drawn in the sky shader instead, lit and bloomed
-      if (!glSky) aurora(ctx, L, t);
+      if (!glSky) drawAurora(ctx, L, t, 1, false);
       const rnd = seeded(5);
       for (let i = 0; i < 14; i++) {
         const x = rnd() * L.w, y = rnd() * L.horizon * 0.7, tw = Math.max(0, Math.sin(t * (0.8 + rnd()) + i * 2));
@@ -639,7 +752,7 @@ const Scenes = (() => {
       ctx.drawImage(bg, 0, sy * dpr, bg.width, step * dpr, off, horizon + y, w, step + 0.6);
     }
     ctx.globalAlpha = 1;
-    if (id === 'frostveil') aurora(ctx, L, t, 0.45, true);
+    if (id === 'frostveil') drawAurora(ctx, L, t, 0.45, true);
 
     // fade reflection into deep water
     ctx.fillStyle = lg(ctx, 0, horizon, 0, h, Pal.water.map(([o, c]) => [o, rgbA(c, Math.min(1, 0.12 + o * 1.1))]));
@@ -810,6 +923,21 @@ const Scenes = (() => {
   /* Airborne particles over everything. */
   function drawAir(ctx, L, t) {
     const P = cur.parts;
+    // snow is drawn in four batches by brightness, each one path, rather than flake by flake
+    if (cur.id === 'frostveil') {
+      const bins = [[], [], [], []];
+      P.list.forEach((p, i) => {
+        if (p.k !== 'snow' || (lite && i % 5 > 2)) return;
+        bins[Math.min(3, Math.floor((0.5 + 0.5 * Math.sin(p.ph + t)) * 4))].push(p);
+      });
+      bins.forEach((b, i) => {
+        if (!b.length) return;
+        ctx.fillStyle = `rgba(240,248,255,${(0.55 + 0.35 * ((i + 0.5) / 4 * 2 - 1)).toFixed(3)})`;
+        ctx.beginPath();
+        for (const p of b) { ctx.moveTo(p.x + p.r, p.y); ctx.arc(p.x, p.y, p.r, 0, TAU); }
+        ctx.fill();
+      });
+    }
     for (const p of P.list) {
       switch (p.k) {
         case 'mote': glow(ctx, '255,250,225', p.x, p.y, p.r * 4, 0.35 + 0.3 * Math.sin(t * 1.3 + p.ph)); break;
@@ -828,9 +956,6 @@ const Scenes = (() => {
           }
           break;
         }
-        case 'snow':
-          ctx.fillStyle = `rgba(240,248,255,${0.55 + 0.35 * Math.sin(p.ph + t)})`;
-          ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.fill(); break;
         case 'petal':
           ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(t * 2 + p.ph);
           ctx.fillStyle = 'rgba(255,170,190,0.8)'; ctx.beginPath(); ctx.ellipse(0, 0, p.r * 1.4, p.r * 0.8, 0, 0, TAU); ctx.fill();
@@ -863,6 +988,8 @@ const Scenes = (() => {
 
   return {
     layout, ensure, update, preview, renderDyn, glMeta, lighting, pads, obstacles, knock, drawSurface,
+    set lite(v) { lite = !!v; }, get lite() { return lite; },
+    _cloudSprite: (seed, w) => cloudSprite(seed, w),
     drawBack(ctx, L, t) { ctx.drawImage(cur.bg, 0, 0, L.w, L.h); drawSky(ctx, L, t); drawWater(ctx, L, t); drawSurface(ctx, L, t); },
     drawFront, drawAir,
     palette: id => PAL[id],

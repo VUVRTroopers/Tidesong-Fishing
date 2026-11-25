@@ -1,6 +1,7 @@
 /* Tidesong — WebGL sky and water renderer.
    Draws behind the 2D canvas. Per frame:
-   1. scene pass: analytic dithered sky (with Frostveil's aurora) + painted scenery + live sky layer, and perspective water with
+   0. Frostveil only: the aurora, into a small texture.
+   1. scene pass: analytic dithered sky (with the aurora) + painted scenery + live sky layer, and perspective water with
       multi-frequency waves, mirrored reflections that distort more toward the foreground, ripple rings,
       a sun/moon glitter path, sky glints and horizon haze. Wind sways masked foliage.
    2. bloom: bright pass at 1/4 resolution, blurred at 1/4 and 1/8.
@@ -44,57 +45,22 @@ uniform vec4 uBob;
 uniform vec4 uFish[${MAX_FISH}];   // per fish: x, y (uv), length (in screen heights), heading (radians, on the water plane; depth axis squashed by 0.6)
 uniform vec4 uFishB[${MAX_FISH}];  // per fish: opacity, tail phase, depth (0 shallow, 1 deep), tail swing
 uniform float uAurora; // strength of the aurora (Frostveil), 0 elsewhere
+uniform sampler2D uAu;  // the aurora, rendered by FS_AURORA
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 float h1(float n) { return fract(sin(n) * 43758.5453); }
 float vn(float x) { float i = floor(x), f = fract(x); return mix(h1(i * 17.13), h1(i * 17.13 + 17.13), f * f * (3.0 - 2.0 * f)); }
 
-/* How brightly the aurora burns above each part of the horizon (some stretches of curtain are faint). */
-float auAlong(float x, float fi) { return smoothstep(0.15, 0.7, vn(x * 1.1 + uTime * 0.035 + fi * 6.5)); }
-float auAmb(float uvx) {
-  float x = uvx * uAspect;
-  return (auAlong(x, 0.0) * 0.55 + auAlong(x, 1.0) * 0.45 + auAlong(x, 2.0) * 0.35) * uAurora;
-}
-
-/* The aurora, as emitted light added to the sky (so the bloom catches its brightest folds): three curtains
-   hanging from bright lower edges that fold slowly across the sky, woven from fine vertical rays that
-   shimmer and drift, green at the base turning violet higher up, with a pink fringe along the edge and
-   slow pulses of light travelling along them. */
+/* The aurora is drawn by its own small pass into a low-resolution texture (it is soft and slow, and
+   costly per pixel), and the sky and its reflection in the water sample it: colour in rgb (halved),
+   and how brightly it burns along the horizon above each column in alpha. */
 vec3 aurora(vec2 uv) {
-  vec3 acc = vec3(0.0);
-  if (uAurora <= 0.0) return acc;
-  float y = uv.y / uHor, x = uv.x * uAspect, t = uTime;
-  for (int i = 0; i < 3; i++) {
-    float fi = float(i), ph = fi * 2.17;
-    // each curtain sweeps across the sky in a long fold, with smaller folds riding on it
-    float b = 0.62 - fi * 0.2, A1 = 0.085 - fi * 0.01, f1 = 3.1 + fi * 0.55, f2 = 6.7 - fi * 0.9;
-    float a1 = x * f1 + t * (0.07 + fi * 0.015) + ph, a2 = x * f2 - t * 0.11 + ph * 1.7, a3 = x * 15.0 + t * 0.25 + ph;
-    // a slow tilt across the whole sky too, so the curtains are never parallel
-    float base = b + (x - 0.9) * (0.06 - fi * 0.05) * sin(t * 0.02 + ph) + A1 * sin(a1) + 0.03 * sin(a2) + 0.01 * sin(a3);
-    float slope = A1 * f1 * cos(a1) + 0.03 * f2 * cos(a2) + 0.15 * cos(a3);
-    float h = 0.3 - fi * 0.04 + 0.06 * sin(x * 2.6 + t * 0.11 + ph);
-    float v = (base - y) / h;   // 0 at the curtain's lower edge, 1 at its top
-    if (v < -0.7 || v > 2.2) continue;
-    float along = auAlong(x, fi), str = 0.62 - fi * 0.13;
-    vec3 low = mix(vec3(0.3, 1.0, 0.58), vec3(0.25, 0.85, 1.0), fi * 0.35);
-    vec3 high = mix(vec3(0.6, 0.38, 1.0), vec3(0.95, 0.35, 0.82), fi * 0.5);
-    vec3 col = mix(low, high, smoothstep(0.1, 0.85, v + fi * 0.25));
-    // a soft glow around the whole curtain, so the sky fills with colour behind the rays
-    acc += col * exp(-pow((v - 0.35) / 0.8, 2.0)) * 0.13 * along * str;
-    if (v < -0.2 || v > 1.6) continue;
-    float edge = smoothstep(-0.05, 0.04, v);
-    float fade = exp(-v * 1.7) * smoothstep(1.6, 0.6, v);
-    float rx = x * 46.0 + v * 1.8 + ph * 9.0;
-    float rays = 0.45 * vn(rx + t * 0.35) + 0.35 * vn(rx * 2.3 - t * 0.6) + 0.2 * vn(rx * 5.1 + t * 1.1);
-    rays = 0.25 + 1.35 * pow(rays, 2.2);
-    // where the curtain folds it is seen edge-on, and burns brighter
-    float fold = 1.0 + 1.2 * smoothstep(0.15, 0.4, abs(slope));
-    float pulse = 1.0 + 0.8 * exp(-pow((fract(x * 0.22 - t * 0.018 + fi * 0.37) - 0.5) / 0.09, 2.0));
-    float I = edge * fade * rays * along * pulse * fold * str;
-    col += vec3(1.0, 0.35, 0.6) * exp(-pow(v / 0.05, 2.0)) * 0.35 * (1.0 - fi * 0.4);
-    acc += col * I;
-  }
-  return acc * uAurora * smoothstep(1.0, 0.88, y);
+  if (uAurora <= 0.0) return vec3(0.0);
+  return texture2D(uAu, vec2(uv.x, 1.0 - clamp(uv.y / uHor, 0.0, 1.0))).rgb * 2.0;
+}
+float auAmb(float uvx) {
+  if (uAurora <= 0.0) return 0.0;
+  return texture2D(uAu, vec2(uvx, 0.5)).a * 1.5;
 }
 const vec3 AU_LIGHT = vec3(0.3, 0.95, 0.65);
 
@@ -231,6 +197,64 @@ void main() {
   gl_FragColor = vec4(col + dith, 1.0);
 }`;
 
+  /* The aurora alone, over the sky's height, into a small texture: three curtains hanging from bright
+     lower edges that fold slowly across the sky, woven from fine vertical rays. */
+  const FS_AURORA = `
+varying vec2 vUv;
+uniform float uAspect, uTime, uHor, uAurora;
+float h1(float n) { return fract(sin(n) * 43758.5453); }
+float vn(float x) { float i = floor(x), f = fract(x); return mix(h1(i * 17.13), h1(i * 17.13 + 17.13), f * f * (3.0 - 2.0 * f)); }
+/* How brightly the aurora burns above each part of the horizon (some stretches of curtain are faint). */
+float auAlong(float x, float fi) { return smoothstep(0.15, 0.7, vn(x * 1.1 + uTime * 0.035 + fi * 6.5)); }
+float auAmb(float uvx) {
+  float x = uvx * uAspect;
+  return (auAlong(x, 0.0) * 0.55 + auAlong(x, 1.0) * 0.45 + auAlong(x, 2.0) * 0.35) * uAurora;
+}
+
+/* The aurora, as emitted light added to the sky (so the bloom catches its brightest folds): three curtains
+   hanging from bright lower edges that fold slowly across the sky, woven from fine vertical rays that
+   shimmer and drift, green at the base turning violet higher up, with a pink fringe along the edge and
+   slow pulses of light travelling along them. */
+vec3 aurora(vec2 uv) {
+  vec3 acc = vec3(0.0);
+  if (uAurora <= 0.0) return acc;
+  float y = uv.y / uHor, x = uv.x * uAspect, t = uTime;
+  for (int i = 0; i < 3; i++) {
+    float fi = float(i), ph = fi * 2.17;
+    // each curtain sweeps across the sky in a long fold, with smaller folds riding on it
+    float b = 0.62 - fi * 0.2, A1 = 0.085 - fi * 0.01, f1 = 3.1 + fi * 0.55, f2 = 6.7 - fi * 0.9;
+    float a1 = x * f1 + t * (0.07 + fi * 0.015) + ph, a2 = x * f2 - t * 0.11 + ph * 1.7, a3 = x * 15.0 + t * 0.25 + ph;
+    // a slow tilt across the whole sky too, so the curtains are never parallel
+    float base = b + (x - 0.9) * (0.06 - fi * 0.05) * sin(t * 0.02 + ph) + A1 * sin(a1) + 0.03 * sin(a2) + 0.01 * sin(a3);
+    float slope = A1 * f1 * cos(a1) + 0.03 * f2 * cos(a2) + 0.15 * cos(a3);
+    float h = 0.3 - fi * 0.04 + 0.06 * sin(x * 2.6 + t * 0.11 + ph);
+    float v = (base - y) / h;   // 0 at the curtain's lower edge, 1 at its top
+    if (v < -0.7 || v > 2.2) continue;
+    float along = auAlong(x, fi), str = 0.62 - fi * 0.13;
+    vec3 low = mix(vec3(0.3, 1.0, 0.58), vec3(0.25, 0.85, 1.0), fi * 0.35);
+    vec3 high = mix(vec3(0.6, 0.38, 1.0), vec3(0.95, 0.35, 0.82), fi * 0.5);
+    vec3 col = mix(low, high, smoothstep(0.1, 0.85, v + fi * 0.25));
+    // a soft glow around the whole curtain, so the sky fills with colour behind the rays
+    acc += col * exp(-pow((v - 0.35) / 0.8, 2.0)) * 0.13 * along * str;
+    if (v < -0.2 || v > 1.6) continue;
+    float edge = smoothstep(-0.05, 0.04, v);
+    float fade = exp(-v * 1.7) * smoothstep(1.6, 0.6, v);
+    float rx = x * 46.0 + v * 1.8 + ph * 9.0;
+    float rays = 0.45 * vn(rx + t * 0.35) + 0.35 * vn(rx * 2.3 - t * 0.6) + 0.2 * vn(rx * 5.1 + t * 1.1);
+    rays = 0.25 + 1.35 * pow(rays, 2.2);
+    // where the curtain folds it is seen edge-on, and burns brighter
+    float fold = 1.0 + 1.2 * smoothstep(0.15, 0.4, abs(slope));
+    float pulse = 1.0 + 0.8 * exp(-pow((fract(x * 0.22 - t * 0.018 + fi * 0.37) - 0.5) / 0.09, 2.0));
+    float I = edge * fade * rays * along * pulse * fold * str;
+    col += vec3(1.0, 0.35, 0.6) * exp(-pow(v / 0.05, 2.0)) * 0.35 * (1.0 - fi * 0.4);
+    acc += col * I;
+  }
+  return acc * uAurora * smoothstep(1.0, 0.88, y);
+}
+void main() {
+  gl_FragColor = vec4(aurora(vec2(vUv.x, vUv.y * uHor)) * 0.5, auAmb(vUv.x) / 1.5);
+}`;
+
   const FS_BRIGHT = `
 varying vec2 vFb;
 uniform sampler2D uTex;
@@ -341,7 +365,7 @@ void main() {
     precision = hf && hf.precision > 0 ? 'highp' : 'mediump';
     P = {
       scene: program(FS_SCENE), bright: program(FS_BRIGHT), blur: program(FS_BLUR),
-      copy: program(FS_COPY), rays: program(FS_RAYS), final: program(FS_FINAL),
+      copy: program(FS_COPY), rays: program(FS_RAYS), final: program(FS_FINAL), au: program(FS_AURORA),
     };
     buf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
@@ -381,6 +405,8 @@ void main() {
       scene: target(W, H),
       bright: target(W / 4, H / 4), qa: target(W / 4, H / 4), qb: target(W / 4, H / 4),
       ea: target(W / 8, H / 8), eb: target(W / 8, H / 8), rays: target(W / 4, H / 4),
+      // fine vertical rays need a few hundred columns; the curtains are smooth top to bottom
+      au: target(Math.max(256, Math.min(640, W * 0.5)), 200),
     };
   }
 
@@ -411,7 +437,8 @@ void main() {
   function render(o) {
     if (!ok || !meta || !fb) return;
     const m = meta, t = o.t % 1000;
-    upload(tex.dyn, o.dyn);
+    // the live sky layer can skip a frame (on slow devices it is refreshed every other frame)
+    if (o.dyn) upload(tex.dyn, o.dyn);
     ripData.fill(0);
     const rips = o.ripples || [];
     for (let i = 0; i < Math.min(MAX_RIP, rips.length); i++) ripData.set(rips[i], i * 4);
@@ -419,8 +446,16 @@ void main() {
     const fishes = o.fish || [], fishBs = o.fishB || [];
     for (let i = 0; i < Math.min(MAX_FISH, fishes.length); i++) { fishData.set(fishes[i], i * 4); fishBData.set(fishBs[i], i * 4); }
 
+    if (m.aurora > 0) {
+      pass(P.au, fb.au, pr => {
+        gl.uniform1f(pr.u('uAspect'), W / H);
+        gl.uniform1f(pr.u('uTime'), t);
+        gl.uniform1f(pr.u('uHor'), m.hor);
+        gl.uniform1f(pr.u('uAurora'), m.aurora);
+      });
+    }
     pass(P.scene, fb.scene, pr => {
-      bind(pr, 0, tex.bg, 'uBg'); bind(pr, 1, tex.dyn, 'uDyn'); bind(pr, 2, tex.mask, 'uMask');
+      bind(pr, 0, tex.bg, 'uBg'); bind(pr, 1, tex.dyn, 'uDyn'); bind(pr, 2, tex.mask, 'uMask'); bind(pr, 3, fb.au.t, 'uAu');
       gl.uniform2f(pr.u('uRes'), W, H);
       gl.uniform1f(pr.u('uAspect'), W / H);
       gl.uniform1f(pr.u('uTime'), t);

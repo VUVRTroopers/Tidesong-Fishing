@@ -152,6 +152,25 @@ Each water opens at a fishing level and has its own fish, odds, light, sounds an
 frog hopping onto a lily pad, a gull sweeping past, dolphins leaping past the reef, a whale breaching
 under the aurora.
 
+- **Leaping fish and dolphins** follow a single arc that begins and ends below the water, the body
+  always pointing along its flight, so they nose out and dive back in head first. Under the surface
+  they are a dim shape rising into view (squashed a little, as water makes things look shallower);
+  in the air they are lit and shaded (a dolphin dark above and pale below, with its beak, rounded
+  forehead, swept-back fin, flippers and flukes; a fish silvery, with a flicking forked tail), with a
+  faint reflection below. They throw up a cone of spray as they leave, shed drops from the tail, and
+  land in a crown of spray, a patch of foam, a splash and rings. Dolphins come in pods of two or
+  three, porpoising one after another.
+- **The whale** in Frostveil surfaces the way whales do, its back rolling up through the water like
+  the rim of a turning wheel: a glassy swell first, then the head, a long arch of back with its small
+  fin and white water where it cuts the surface, a misty blow that bursts from the blowhole and
+  drifts off on the cold air, the arch rounding higher before it sounds, and the flukes lifting on a
+  thick tail stock, pouring water, before sliding straight down into a smooth slick and rings.
+  Nothing appears or vanishes: everything passes through the waterline.
+- **Coralspire's clouds** are fair-weather cumulus, each painted once from overlapping lobes laid back
+  to front, every lobe lit white toward the sun and shaded blue-grey away from it, over a soft core,
+  with a darker underside, a flat soft base and a few trailing wisps. Clouds high overhead are larger
+  than those down by the horizon.
+
 ![Lanternfen Marsh, Coralspire Lagoon, Frostveil Fjord and Dragonmere Sanctum](docs/screenshots/waters.jpg)
 
 | Water | Opens at | Time of day | Rarity odds per bite |
@@ -683,7 +702,10 @@ The sky and water render in WebGL behind a 2D canvas:
   from casts, bites and splashes, and a glitter path under the sun or moon.
 - **Light:** bloom on bright light, god rays, horizon haze, a vignette and dithering. Foliage
   sways in the wind.
-- **The aurora** over Frostveil is drawn by the sky shader. Curtains of fine, shimmering rays hang
+- **The aurora** over Frostveil is drawn by its own small shader pass into a low-resolution texture
+  each frame (it is soft and slow, and costly per pixel), which the sky, its reflection in the water
+  and the green light on the ice all sample, so it costs a fraction of drawing it at full resolution
+  and looks the same. Curtains of fine, shimmering rays hang
   from bright lower edges, fold across the sky and burn brighter where they fold. Each runs from
   green to violet, with slow pulses of light travelling along it. It blooms, mirrors in the water
   and casts a faint green light on the ice and the haze.
@@ -716,7 +738,14 @@ leaping fish are lit by it:
   when deep and seen through the reflections. It is the same shape for every fish.
 
 Phones render the scene at reduced resolution, and a governor lowers it further if the frame rate
-drops. Without WebGL, or with `#nogl` in the URL, the game falls back to a 2D renderer.
+stays under about 42 frames a second: first the GPU scene's resolution, then the 2D canvas's (the
+only canvas without WebGL), and from the second step the snow thins a little and the live sky layer
+is refreshed every other frame. It never acts while the aquarium is open. Without WebGL, or with
+`#nogl` in the URL, the game falls back to a 2D renderer, which paints the aurora at half resolution a
+dozen times a second and draws the snow in four batches. Measured with software rendering (where the
+shaders' cost shows most, as on an older phone's GPU), Frostveil runs about twice as fast as before
+and every other water about two thirds faster, with frames that match the old ones pixel for pixel
+to within half a shade.
 
 ### The aquariums
 

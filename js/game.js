@@ -20,6 +20,9 @@
   const GLON = !/nogl/.test(location.hash) && WaterGL.init(waterCanvas);
   if (!GLON) waterCanvas.hidden = true;
   let glScale = 1, dynScale = 1, sceneGL = null;
+  // ceilings the quality governor has set on the GPU scene's and the 2D canvas's resolution
+  const qual = { gl: Infinity, dpr: Infinity };
+  let frameNo = 0;
   let W = 0, H = 0, DPR = 1, L = null;
 
   /* ================= Save ================= */
@@ -1077,7 +1080,9 @@
     lit = Scenes.lighting();
     const gpu = sceneMode();
     if (gpu) {
-      WaterGL.render({ t: G.t, dyn: Scenes.renderDyn(L, G.t, dynScale), ripples: rippleUniforms(), bob: bobUniform(), ...fishUniforms() });
+      frameNo++;
+      const dyn = !Scenes.lite || frameNo % 2 === 0 ? Scenes.renderDyn(L, G.t, dynScale) : null;
+      WaterGL.render({ t: G.t, dyn, ripples: rippleUniforms(), bob: bobUniform(), ...fishUniforms() });
       ctx.clearRect(0, 0, W, H);
       Scenes.drawSurface(ctx, L, G.t);
     } else {
@@ -2094,13 +2099,13 @@
     const was = L && { W, H, hor: L.horizon };
     W = window.innerWidth; H = window.innerHeight;
     const dpr = window.devicePixelRatio || 1;
-    DPR = Math.max(1, Math.min(dpr, 2, Math.sqrt(4.2e6 / Math.max(1, W * H))));
+    DPR = Math.max(1, Math.min(dpr, 2, qual.dpr, Math.sqrt(4.2e6 / Math.max(1, W * H))));
     canvas.width = Math.round(W * DPR);
     canvas.height = Math.round(H * DPR);
     L = Scenes.layout(W, H);
     if (GLON) {
       const want = coarse ? Math.min(dpr, 1.5) : Math.min(dpr, 1.75);
-      glScale = Math.max(0.75, Math.min(want, Math.sqrt(3.0e6 / Math.max(1, W * H))));
+      glScale = Math.min(qual.gl, Math.max(0.75, Math.min(want, Math.sqrt(3.0e6 / Math.max(1, W * H)))));
       dynScale = Math.min(1, glScale);
       WaterGL.resize(W * glScale, H * glScale);
     }
@@ -2128,21 +2133,24 @@
     return useGL;
   }
 
-  /* Adaptive quality: if the GPU scene keeps missing ~42 fps, render it at a lower resolution. */
+  /* Adaptive quality: if the game keeps missing ~42 fps, it renders the GPU scene at a lower resolution,
+     then the 2D canvas (the only canvas without WebGL); from the second step down, the snow thins a
+     little and the live sky layer is refreshed every other frame. Each step waits two seconds to see. */
   const perf = { acc: 0, n: 0, lowered: 0 };
   function governQuality(rawDt) {
-    if (!GLON || !WaterGL.ok || document.hidden || rawDt <= 0 || rawDt > 0.25) return;
+    // (not while the aquarium is open: it covers the lake, and its own cost is not the lake's)
+    if (document.hidden || Tank.isOpen || rawDt <= 0 || rawDt > 0.25) return;
     perf.acc += rawDt; perf.n += 1;
     if (perf.acc < 2) return;
     const avg = perf.acc / perf.n;
     perf.acc = 0; perf.n = 0;
-    if (avg > 1 / 42 && glScale > 0.72 && perf.lowered < 4) {
-      perf.lowered += 1;
-      glScale = Math.max(0.7, glScale * 0.82);
-      dynScale = Math.min(1, glScale);
-      WaterGL.resize(W * glScale, H * glScale);
-      syncScene(true);
-    }
+    if (avg <= 1 / 42 || perf.lowered >= 7) return;
+    if (GLON && WaterGL.ok && glScale > 0.72) qual.gl = Math.max(0.7, glScale * 0.82);
+    else if (DPR > 1.05) qual.dpr = Math.max(1, DPR * 0.8);
+    else return;
+    perf.lowered += 1;
+    Scenes.lite = perf.lowered >= 2;
+    resize();
   }
 
   let last = performance.now();
