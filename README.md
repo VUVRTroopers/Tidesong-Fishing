@@ -467,19 +467,34 @@ The market's **Decor** tab sells twelve decorations, each painted, animated and 
 A decoration pleases the fish of the tank it stands in, adding to their comfort, so they make more
 pearls. Grander pieces please them more, and since the bonus scales a tank's whole output, a piece is
 worth most in a tank full of rare fish. Fish love variety: a second copy of the same piece in one tank
-pleases them half as much. The market shows how much a piece delights fish in hearts, not numbers.
+pleases them half as much.
 
+- **Shown, not told:** the market's Decor tab is pictures and icons. A card has the piece's portrait,
+  one to three hearts for how much it pleases fish, a row of icons for what fish do with it (an arched
+  door to hide in, a moon to nap in, an eye for gathering round, a sparkle for glowing company, rising
+  bubbles to ride, a ledge to rest on, an arch to swim through, a leaf to graze, a ring) and a ripple
+  for its tap surprise, an ×N badge for how many you own, and its price. A heart-to-pearl chip and a
+  row of dots for each tank's spaces sit on top. The words are all in tips: hover (or tap) an icon,
+  the hearts or the picture.
 - **Room:** the Glass Bowl holds 2 decorations, the Reed Tank 3, the Lily Garden 4, the Coral Reef 6,
-  Shipwreck Cove 8 and the Moon Palace 10. Pieces stand on the sand in two rows, the back row behind
-  the tank's own decor and the front row in front of it, larger pieces taking the roomier places,
-  and never over the tank's own things to touch (the palace's gate, dragon and singing geodes stay
-  clear).
+  Shipwreck Cove 8 and the Moon Palace 10.
+- **Never hidden:** every decoration is drawn in front of the tank's own decor, never behind it, and
+  each is placed by its real outline. A piece slides along the sand from its spot to the nearest place
+  where it covers none of the tank's things to touch or swim through (the log, stone and moss balls,
+  the clam, chests, anemone and starfish, the helmet, anchor and bell, the dragon, the singing geodes
+  and the lantern tops, the lily arch's passage, the palace gate's ring), stays out of the plants
+  growing in front, and avoids standing over the rest of the scenery where it can. Tall pieces stand
+  at the back and short ones before them, so no piece is lost behind another. In the two grandest
+  tanks the pieces stand a little smaller, as befits bigger aquariums, and the palace's singing geodes
+  sit closer together, leaving open sand on both sides of the gate. A tap goes to the nearest piece
+  under the finger, by its outline.
 - **Buying:** buy as many of each as you like. A new piece goes straight into the tank on screen (or
   last visited) if it has room, then the newest tank with room, or the storeroom if every tank is
   full.
-- **Moving them:** the aquarium's **Decor** button lists the tank's decorations, with **Move** (to
-  any tank with room) and **Store**, and the storeroom's pieces with **Place here**. A piece set down
-  lands with a puff of sand, bubbles and a little chime.
+- **Moving them:** the aquarium's **Decor** button opens a panel with the tank's spaces as dots, its
+  pieces with icon buttons to move one (to any tank with room, each shown with its dots) or put it in
+  the storeroom, and the storeroom's pieces with a button to place one here. A piece set down lands
+  with a puff of sand, bubbles and a little chime.
 - **Playing:** tap a decoration and it does something, with its own sound in the water's key.
 
 | Decoration | Tier | Price | What fish do | When you tap it |

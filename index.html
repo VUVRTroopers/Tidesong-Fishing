@@ -992,19 +992,27 @@
   .mm-tank.full small { color: var(--ember); }
   .mm-tank[aria-disabled="true"] { opacity: 0.5; cursor: default; }
   /* the Decor panel: this tank's decorations, and the storeroom */
-  .dm-box { width: min(420px, 100%); }
-  .dm-sub { margin: 4px 0 0; font-size: 13px; font-weight: 800; color: var(--ink); display: flex; align-items: baseline; justify-content: space-between; }
-  .dm-sub small { font-weight: 700; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+  .dm-box { width: min(400px, 100%); }
+  .dm-box .mm-head h3 { margin-right: auto; }
+  .dm-cap { cursor: help; padding: 4px 2px; }
+  .dm-sub { display: flex; align-items: center; gap: 8px; margin: 4px 0 0; color: var(--ink-faint); cursor: help; }
+  .dm-sub i { flex: 1; height: 1px; background: rgba(214, 222, 255, 0.14); }
   .dm-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
   .dm-item { display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 6px; border-radius: 13px; background: var(--well-fill); box-shadow: var(--well-edge); }
   .dm-art { width: 52px; height: 40px; flex: none; border-radius: 9px; }
   .dm-name { flex: 1 1 auto; min-width: 0; font-weight: 800; font-size: 13.5px; color: var(--ink); }
   .dm-name small { color: var(--ink-faint); font-weight: 700; }
   .dm-acts { display: flex; gap: 6px; flex: none; }
-  .dm-btn { padding: 6px 11px; font-size: 12.5px; }
+  .dm-ibtn { width: 36px; height: 34px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 10px; color: var(--ink-soft); background: var(--pebble-fill); box-shadow: var(--pebble-edge); }
+  .dm-ibtn:hover { color: var(--ink); }
+  .dm-ibtn[aria-expanded="true"] { color: var(--brass); box-shadow: var(--well-edge), inset 0 0 0 1px rgba(232, 196, 108, 0.5); background: var(--well-fill); }
+  .dm-ibtn[aria-disabled="true"] { opacity: 0.4; cursor: default; }
   .dm-to { display: grid; gap: 6px; padding: 2px 0 4px 18px; }
-  .dm-empty { margin: 0; font-size: 12.5px; color: var(--ink-faint); }
-  .dm-shop { justify-self: start; margin-top: 4px; }
+  .dm-to .slot-dots { max-width: 50%; justify-content: flex-end; }
+  .dm-empty-add { width: 100%; height: 64px; display: grid; place-items: center; padding: 0; border-radius: 13px; color: var(--ink-faint); background: transparent; border: 2px dashed rgba(214, 222, 255, 0.22); }
+  .dm-empty-add:hover { color: var(--ink); border-color: rgba(232, 196, 108, 0.5); }
+  .dm-empty-add .ln-ico { width: 26px; height: 26px; }
+  .dm-shop { justify-self: start; margin-top: 4px; display: inline-flex; align-items: center; gap: 7px; }
   .mm-tank[aria-expanded="true"] { box-shadow: var(--well-edge), inset 0 0 0 1px rgba(232, 196, 108, 0.5); background: var(--well-fill); }
   .mm-swap { display: grid; gap: 6px; padding: 2px 0 4px 10px; border-left: 2px solid rgba(232, 196, 108, 0.35); }
   .mm-swap p { margin: 0; font-size: 12px; font-weight: 800; color: var(--brass); }
@@ -1086,17 +1094,31 @@
   @keyframes dotPulse { 50% { transform: scale(1.25); } }
   .tank-item .item-art.tank-art { width: 100%; height: 132px; border-radius: 12px; box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(0, 0, 0, 0.3); }
   .tank-item { grid-template-columns: minmax(0, 1fr); grid-template-areas: "art" "body" "foot"; }
-  /* decorations in the market */
-  .deco-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); }
+  /* decorations in the market: pictures, hearts and icons; the words wait in tips */
+  .deco-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); }
   .deco-item { grid-template-columns: minmax(0, 1fr); grid-template-areas: "art" "body" "foot"; }
-  .deco-item .item-art.deco-art { width: 100%; height: 150px; border-radius: 12px; box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(0, 0, 0, 0.3); }
-  .tier-sec { display: grid; gap: 10px; margin-bottom: 16px; }
-  .tier-head h3 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 18px; }
-  .tier-head p { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-soft); }
-  .delight { display: flex; align-items: center; gap: 2px; margin: 6px 0 0; font-size: 11.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-faint); }
-  .delight span { margin-left: 6px; }
-  .dl-heart { width: 15px; height: 15px; fill: rgba(255, 255, 255, 0.12); }
+  .deco-art-wrap { grid-area: art; position: relative; }
+  .deco-item .item-art.deco-art { width: 100%; height: 150px; border-radius: 12px; box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(0, 0, 0, 0.3); cursor: help; }
+  .deco-have { position: absolute; top: 8px; right: 8px; padding: 3px 9px; border-radius: 999px; font-size: 12.5px; font-weight: 800; color: var(--ink); background: rgba(6, 12, 18, 0.78); box-shadow: 0 0 0 1px rgba(232, 196, 108, 0.45); font-variant-numeric: tabular-nums; cursor: help; }
+  .deco-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .delight { display: inline-flex; align-items: center; gap: 1px; margin: 0; cursor: help; }
+  .dl-heart { width: 17px; height: 17px; fill: rgba(255, 255, 255, 0.12); }
   .dl-heart.on { fill: #ff7fb0; filter: drop-shadow(0 0 3px rgba(255, 127, 176, 0.5)); }
+  .deco-does { display: inline-flex; flex-wrap: wrap; gap: 5px; }
+  .dchip { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; font-style: normal; background: var(--well-fill); box-shadow: var(--well-edge); cursor: help; }
+  .dchip .dg { width: 18px; height: 18px; display: block; }
+  .dchip.tap { box-shadow: var(--well-edge), inset 0 0 0 1px rgba(255, 214, 168, 0.3); }
+  .slot-dots { display: inline-flex; flex-wrap: wrap; gap: 3px; vertical-align: middle; }
+  .slot-dots i { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.07); box-shadow: inset 0 0 0 1px rgba(214, 222, 255, 0.28); }
+  .slot-dots i.on { background: radial-gradient(circle at 35% 30%, #fff6d8 0 18%, var(--brass) 60%, #a8842e 100%); box-shadow: 0 0 4px rgba(232, 196, 108, 0.45); }
+  .ln-ico { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+  .deco-visit { justify-content: flex-start; }
+  .deco-why { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 999px; background: var(--well-fill); box-shadow: var(--well-edge); cursor: help; }
+  .deco-why .dl-heart { width: 20px; height: 20px; }
+  .dv-arrow { width: 16px; height: 16px; fill: none; stroke: var(--ink-faint); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .dv-tanks { flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+  .dv-tank { display: inline-flex; padding: 6px 8px; border-radius: 10px; background: var(--well-fill); box-shadow: var(--well-edge); cursor: help; }
+  .dv-store { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 10px; color: var(--ink-soft); font-size: 13px; background: var(--well-fill); box-shadow: var(--well-edge); cursor: help; }
   .tank-item.past { opacity: 0.6; }
   .tank-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); }
   .tank-visit { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 14px; padding: 12px 14px; border-radius: 16px; background: var(--panel-fill); box-shadow: var(--panel-edge); margin-bottom: 12px; font-size: 13.5px; color: var(--ink-soft); }

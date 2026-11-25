@@ -1628,10 +1628,9 @@ const Tank = (() => {
     shadows();
     const order = fish.slice().sort((a, b) => b.z - a.z);
     fishLayer(order.filter(f => f.z >= 0.5), sc.tint.far);
-    // decorations: the back row behind the tank's own decor, the front row in front of it
-    Deco.draw(ctx, sc, T, 'b');
     TankEnv.mid(ctx, sc, T);
-    Deco.draw(ctx, sc, T, 'f');
+    // decorations stand in front of the tank's own decor, never behind it
+    Deco.draw(ctx, sc, T);
     fishLayer(order.filter(f => f.z < 0.5), sc.tint.near);
     Deco.drawFx(ctx, sc, T);
     glows();
@@ -1934,8 +1933,17 @@ const Tank = (() => {
     const t = e.target.closest('[data-tip]');
     if (t === tipOn && !(e.relatedTarget && t.contains(e.relatedTarget))) hideTip();
   }
+  // hover (or tap) anything with a data-tip inside root to see its words
+  function tipsOn(root) {
+    root.addEventListener('pointerdown', e => { tipPtr = e.pointerType || 'mouse'; }, true);
+    root.addEventListener('pointerover', onTipOver);
+    root.addEventListener('pointerout', onTipOut);
+    root.addEventListener('click', onTipTap);
+  }
   function onTipTap(e) {
     const t = e.target.closest('[data-tip]'), touch = tipPtr !== 'mouse';
+    // a click that redrew what it landed on (a button in a panel) has nothing left to point a tip at
+    if (t && !t.isConnected) { hideTip(); return; }
     if (t) { if (tipOn === t && touch) hideTip(); else showTip(t, touch); }
     else if (tipOn) hideTip();
   }
@@ -2134,32 +2142,44 @@ const Tank = (() => {
   function openDecor() { decorOpen = true; decorMoving = null; play('click'); renderDecor(); }
   function closeDecor() { if (!decorOpen) return; decorOpen = false; renderDecor(); }
   const decoThumb = id => `<canvas class="dm-art" data-deco="${id}" aria-hidden="true"></canvas>`;
+  // a tank's decoration spaces as a row of dots, filled for each piece standing in it
+  const slotDots = (n, cap) => `<span class="slot-dots" aria-hidden="true">${'<i class="on"></i>'.repeat(Math.min(n, cap))}${'<i></i>'.repeat(Math.max(0, cap - n))}</span>`;
+  const ICO = {
+    move: '<path d="M4 8.5h14l-3.5-3.5M20 15.5H6l3.5 3.5"/>',
+    store: '<path d="M3.5 7h17v4h-17zM5 11v8.5h14V11M10 14.5h4"/>',
+    place: '<path d="M12 3.5v10.5M8 10l4 4 4-4M4 15.5v4h16v-4"/>',
+    bag: '<path d="M5.5 8.5h13l-1.2 11.5H6.7zM9 8.5V7a3 3 0 0 1 6 0v1.5"/>',
+    plus: '<path d="M12 5.5v13M5.5 12h13"/>',
+  };
+  const ico = k => `<svg class="ln-ico" viewBox="0 0 24 24" aria-hidden="true">${ICO[k]}</svg>`;
+  const icoBtn = (k, dm, uid, label, extra = '') => `<button type="button" class="dm-ibtn" data-dm="${dm}" data-uid="${uid}" aria-label="${esc(label)}" data-tip="${esc(label)}" ${extra}>${ico(k)}</button>`;
+  /* The decorations panel: this tank's pieces (move, or put away), its spaces as dots, the storeroom's
+     pieces to place here, and the way to the market. Pictures and icons; the words wait in tips. */
   function renderDecor() {
     const el = $('#decor-menu');
     if (!decorOpen || !isOpen) { el.hidden = true; el.innerHTML = ''; return; }
-    const T0 = TANKS[here], cap = decoCap(here), mine = decosIn(here), stored = (S.decos || []).filter(d => d.t < 0);
-    let h = `<div class="mm-box dm-box"><div class="mm-head"><h3>Decorations</h3><button type="button" class="fc-close" data-dm="close" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
-    h += `<p class="mm-note">Decorations please the fish of the tank they stand in, so they make more Moonpearls. Fish love variety: a second of the same piece in one tank pleases them half as much. Tap a decoration in the tank to play with it.</p>`;
-    h += `<h4 class="dm-sub">In the ${esc(T0.name)} <small>${mine.length} of ${cap}</small></h4>`;
-    if (!mine.length) h += `<p class="dm-empty">Nothing here yet.</p>`;
-    else h += `<ul class="dm-list">${mine.map(d => {
-      const D = Deco.DEF[d.id], others = tanks().filter(t => t !== here);
-      let row = `<li class="dm-item">${decoThumb(d.id)}<span class="dm-name">${esc(D.name)}</span><span class="dm-acts">${others.length ? `<button type="button" class="secondary-btn dm-btn" data-dm="move" data-uid="${d.uid}" aria-expanded="${decorMoving === d.uid}">Move</button>` : ''}<button type="button" class="secondary-btn dm-btn" data-dm="store" data-uid="${d.uid}">Store</button></span></li>`;
+    const T0 = TANKS[here], cap = decoCap(here), mine = decosIn(here), stored = (S.decos || []).filter(d => d.t < 0), full = mine.length >= cap;
+    let h = `<div class="mm-box dm-box"><div class="mm-head"><h3>Decorations</h3><span class="dm-cap" data-tip="${esc(`${T0.name}: ${mine.length} of ${cap} spaces`)}">${slotDots(mine.length, cap)}</span><button type="button" class="fc-close" data-dm="close" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
+    const others = tanks().filter(t => t !== here);
+    if (mine.length) h += `<ul class="dm-list">${mine.map(d => {
+      const D = Deco.DEF[d.id];
+      let row = `<li class="dm-item">${decoThumb(d.id)}<span class="dm-name">${esc(D.name)}</span><span class="dm-acts">${others.length ? icoBtn('move', 'move', d.uid, 'Move to another tank', `aria-expanded="${decorMoving === d.uid}"`) : ''}${icoBtn('store', 'store', d.uid, 'Put away in your storeroom')}</span></li>`;
       if (decorMoving === d.uid) row += `<li class="dm-to">${others.slice().reverse().map(t => {
-        const n = decosIn(t).length, c2 = decoCap(t), full = n >= c2;
-        return `<button type="button" class="mm-tank${full ? ' full' : ''}" data-dm="to" data-uid="${d.uid}" data-t="${t}" ${full ? 'aria-disabled="true"' : ''}><span>${esc(TANKS[t].name)}</span><small>${full ? 'Full' : `${n} of ${c2}`}</small></button>`;
+        const n = decosIn(t).length, c2 = decoCap(t), tf = n >= c2;
+        return `<button type="button" class="mm-tank${tf ? ' full' : ''}" data-dm="to" data-uid="${d.uid}" data-t="${t}" ${tf ? 'aria-disabled="true"' : ''}><span>${esc(TANKS[t].name)}</span>${slotDots(n, c2)}</button>`;
       }).join('')}</li>`;
       return row;
     }).join('')}</ul>`;
+    else if (!stored.length) h += `<button type="button" class="dm-empty-add" data-dm="shop" aria-label="Find decorations in the market">${ico('plus')}</button>`;
     if (stored.length) {
       const groups = {};
       for (const d of stored) (groups[d.id] = groups[d.id] || []).push(d);
-      h += `<h4 class="dm-sub">In your storeroom</h4><ul class="dm-list">${Object.entries(groups).map(([id, ds]) => `<li class="dm-item">${decoThumb(id)}<span class="dm-name">${esc(Deco.DEF[id].name)}${ds.length > 1 ? ` <small>×${ds.length}</small>` : ''}</span><span class="dm-acts"><button type="button" class="secondary-btn dm-btn" data-dm="place" data-uid="${ds[0].uid}" ${mine.length >= cap ? 'disabled' : ''}>Place here</button></span></li>`).join('')}</ul>`;
-      if (mine.length >= cap) h += `<p class="dm-empty">This tank's decorations are full. Store one to make room.</p>`;
+      h += `<div class="dm-sub" data-tip="Your storeroom">${ico('store')}<i></i></div><ul class="dm-list">${Object.entries(groups).map(([id, ds]) => `<li class="dm-item">${decoThumb(id)}<span class="dm-name">${esc(Deco.DEF[id].name)}${ds.length > 1 ? ` <small>×${ds.length}</small>` : ''}</span><span class="dm-acts">${icoBtn('place', 'place', ds[0].uid, full ? 'This tank is full' : 'Place in this tank', full ? 'aria-disabled="true"' : '')}</span></li>`).join('')}</ul>`;
     }
-    h += `<button type="button" class="secondary-btn dm-shop" data-dm="shop">Find more in the Driftwood Market</button></div>`;
+    h += `<button type="button" class="secondary-btn dm-shop" data-dm="shop">${ico('bag')}<span>Market</span></button></div>`;
     el.innerHTML = h;
     el.hidden = false;
+    dropTip();
     requestAnimationFrame(() => el.querySelectorAll('canvas[data-deco]').forEach(c => Deco.preview(c, c.dataset.deco, T)));
   }
   function onDecorMenu(e) {
@@ -2646,11 +2666,7 @@ const Tank = (() => {
     $('#fish-card').addEventListener('click', onCard);
     $('#tank-list').addEventListener('click', onList);
     $('#tank-tabs').addEventListener('click', onTabs);
-    const mt = $('#m-tank');
-    mt.addEventListener('pointerdown', e => { tipPtr = e.pointerType || 'mouse'; }, true);
-    mt.addEventListener('pointerover', onTipOver);
-    mt.addEventListener('pointerout', onTipOut);
-    mt.addEventListener('click', onTipTap);
+    tipsOn($('#m-tank'));
     $('#move-menu').addEventListener('click', onMoveMenu);
     $('#decor-menu').addEventListener('click', onDecorMenu);
     $('#tank-decor').addEventListener('click', () => (decorOpen ? closeDecor() : openDecor()));
@@ -2666,7 +2682,7 @@ const Tank = (() => {
   }
 
   return {
-    init, open, onClosed, frame, settle, pending, preview, homeFor, addDecor, decoCap,
+    init, open, onClosed, frame, settle, pending, preview, homeFor, addDecor, decoCap, tipsOn, hideTip, dropTip,
     decosIn: t => decosIn(t),
     get isOpen() { return isOpen; },
     /* for tests and the console */

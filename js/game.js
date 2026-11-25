@@ -1698,6 +1698,7 @@
   function closeModal(sel, quiet) {
     const m = typeof sel === 'string' ? $(sel) : sel;
     if (m.hidden || m.classList.contains('closing')) return;
+    Tank.hideTip();
     const i = modalStack.indexOf(m);
     if (i >= 0) modalStack.splice(i, 1);
     const top = modalStack[modalStack.length - 1];

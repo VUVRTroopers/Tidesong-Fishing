@@ -1707,7 +1707,7 @@ const TankEnv = (() => {
       sc.gate = { cx: X(sc, 0.5), cy: Y(sc, 0.5), Ro, Ri: Ro * 0.78, glow: 0 };
       const dx = X(sc, 0.13), k = Math.min(sc.ih * 0.1, sc.iw * 0.07);
       sc.dragon = { x: dx, base: sc.floor(dx), k, mouth: [dx + k * 1.55, sc.floor(dx) - k * 3.35], next: 6, rings: [] };
-      sc.geodes = GEODES.map(([col, note], i) => { const x = X(sc, [0.05, 0.27, 0.4, 0.61, 0.9][i]); return { x, y: sc.floor(x) + U * 0.8, col, note, glow: 0, s: U * (2.4 + r() * 0.8), seed: 600 + i }; });
+      sc.geodes = GEODES.map(([col, note], i) => { const x = X(sc, [0.05, 0.255, 0.315, 0.62, 0.92][i]); return { x, y: sc.floor(x) + U * 0.8, col, note, glow: 0, s: U * (2.4 + r() * 0.8), seed: 600 + i }; });
       sc.played = [];
       for (const [u, h] of [[0.29, 0.34], [0.7, 0.42], [0.8, 0.28], [0.95, 0.36]]) {
         const x = X(sc, u);

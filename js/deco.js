@@ -1,7 +1,7 @@
 /* Tidesong — decorations for the aquariums, bought in the Driftwood Market and placed in any tank.
-   Each is painted once into a small sprite (with separate sprites for the parts that move), drawn in one
-   of two rows on the sand (the back row behind the tank's own decor, the front row in front of it), and
-   brings its own life: places fish like to go (somewhere to hide, nap, gather, ride bubbles or swim
+   Each is painted once into a small sprite (with separate sprites for the parts that move), stands in
+   one of two rows on the sand, always drawn in front of the tank's own decor and never over its things
+   to touch, and brings its own life: places fish like to go (somewhere to hide, nap, gather, ride bubbles or swim
    through), bubbles, lights, and something that happens when it is tapped. A tank's decorations please
    its fish (its "comfort"), so they make more pearls; a second of the same piece in one tank pleases
    them half as much.
@@ -858,16 +858,18 @@ const Deco = (() => {
   });
 
   /* ======================================================================
-     Placing decorations in a tank: slots on the sand, in two rows
+     Placing decorations in a tank: slots on the sand, in two rows, as starting places
      ====================================================================== */
   // per tank, in order of preference: [u across the inside, row ('b' back, 'f' front), room (fraction of the width)]
+  // the grander tanks are bigger aquariums: their pieces stand a little smaller in them
+  const SCALE = { reef: 1, wreck: 0.9, palace: 0.85 };
   const SLOTS = {
     bowl: [[0.34, 'f', 0.2], [0.6, 'b', 0.16]],
     reed: [[0.64, 'f', 0.12], [0.3, 'b', 0.14], [0.75, 'b', 0.1]],
     lily: [[0.13, 'f', 0.11], [0.88, 'f', 0.11], [0.49, 'b', 0.14], [0.22, 'b', 0.1]],
     reef: [[0.51, 'f', 0.1], [0.2, 'f', 0.1], [0.34, 'b', 0.1], [0.69, 'b', 0.1], [0.95, 'b', 0.08], [0.56, 'b', 0.08]],
     wreck: [[0.24, 'f', 0.09], [0.45, 'f', 0.1], [0.68, 'f', 0.1], [0.84, 'f', 0.1], [0.37, 'b', 0.08], [0.1, 'b', 0.1], [0.95, 'f', 0.08], [0.56, 'b', 0.08]],
-    // the palace's gate hides anything behind it, and its dragon and singing geodes stay clear
+    // starting places: each piece then slides to clear sand (see install)
     palace: [[0.5, 'f', 0.1], [0.16, 'f', 0.1], [0.75, 'f', 0.1], [0.27, 'b', 0.08], [0.71, 'b', 0.07], [0.82, 'b', 0.07], [0.93, 'b', 0.07], [0.33, 'f', 0.05], [0.97, 'f', 0.045], [0.215, 'b', 0.05]],
   };
   const CAP = Object.fromEntries(Object.entries(SLOTS).map(([k, v]) => [k, v.length]));
@@ -920,29 +922,172 @@ const Deco = (() => {
     return d;
   }
 
-  /* Lay out this tank's decorations: the largest pieces take the roomiest slots. Adds their places for
-     fish, their bubble streams and their parts to the scene. */
+  /* A piece's outline, two cells to a unit: what of it is solid, sails and canopy included, so that
+     placing pieces can look at their real shapes rather than their boxes. */
+  const SIL = new Map();
+  function silhouette(D) {
+    let m = SIL.get(D.id);
+    if (m) return m;
+    const R = 2, W = Math.ceil((D.w + PAD * 2) * R), H = Math.ceil((D.h + PAD * 2) * R);
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const x = c.getContext('2d');
+    x.scale(R, R); x.translate(D.w / 2 + PAD, D.h + PAD);
+    D.paint(x);
+    if (D.anim) { try { D.anim(x, make({ uid: 0 }, D, 0, 0, 1, 'f', R, null), 0); } catch (e) { /* the base alone will do */ } }
+    const a = x.getImageData(0, 0, W, H).data, bits = new Uint8Array(W * H);
+    for (let i = 0; i < W * H; i++) bits[i] = a[i * 4 + 3] > 90 ? 1 : 0;
+    m = { R, W, H, ox: (D.w / 2 + PAD) * R, oy: (D.h + PAD) * R, bits };
+    SIL.set(D.id, m);
+    return m;
+  }
+
+  /* Where a decoration may stand. Two coarse grids over the scene, one cell every 4 pixels: 'hard' for
+     what a piece must never cover (the things in the tank you can tap, the swim-throughs, the plants
+     standing in front), 'soft' for the rest of the tank's own decor, read from its pixels, which a
+     piece would rather not stand in front of but may. */
+  function keepOut(sc) {
+    const C = 4, gw = Math.ceil(sc.W / C), gh = Math.ceil(sc.H / C), soft = new Uint8Array(gw * gh), hard = new Uint8Array(gw * gh);
+    if (sc.mid) {
+      const c = document.createElement('canvas'); c.width = gw; c.height = gh;
+      const x = c.getContext('2d'); x.drawImage(sc.mid, 0, 0, gw, gh);
+      const d = x.getImageData(0, 0, gw, gh).data;
+      for (let i = 0; i < gw * gh; i++) if (d[i * 4 + 3] > 50) soft[i] = 1;
+    }
+    const U = sc.U, rect = (x0, y0, x1, y1) => {
+      for (let gy = Math.max(0, Math.floor(y0 / C)); gy <= Math.min(gh - 1, Math.floor(y1 / C)); gy++)
+        for (let gx = Math.max(0, Math.floor(x0 / C)); gx <= Math.min(gw - 1, Math.floor(x1 / C)); gx++) hard[gy * gw + gx] = 1;
+    };
+    const box = (o, hw, up, down = U) => o && rect(o.x - hw, o.y - up, o.x + hw, o.y + down);
+    if (sc.log) rect(sc.log.x0, sc.log.y - sc.log.r, sc.log.x1, sc.log.y + sc.log.r);
+    if (sc.stone) box(sc.stone, U * 4, U * 3);
+    if (sc.anem) box(sc.anem, sc.anem.R * 0.9, sc.anem.R * 1.1);
+    if (sc.clam) box(sc.clam, sc.clam.w * 0.6, sc.clam.w * 0.7);
+    if (sc.chest) box(sc.chest, sc.chest.w * 0.6, sc.chest.w * 0.8);
+    if (sc.helmet) box(sc.helmet, sc.helmet.r * 1.2, sc.helmet.r * 1.3, sc.helmet.r);
+    if (sc.anchor) box(sc.anchor, U * 4, U * 9);
+    if (sc.bell) box(sc.bell, U * 2, 0, U * 5.5);
+    if (sc.stoneLamp) box(sc.stoneLamp, U * 2.5, U * 3, U * 6);
+    // the dragon itself, not its plinth: a short piece may stand before that
+    if (sc.dragon) box({ x: sc.dragon.x + sc.dragon.k * 0.2, y: sc.dragon.base - sc.dragon.k * 0.9 }, sc.dragon.k * 1.5, sc.dragon.k * 3, 0);
+    for (const g of sc.geodes || []) box(g, g.s * 1.45, g.s * 2.5, g.s * 0.6);
+    for (const st of sc.stars || []) if (st.r) box(st, st.r * 1.4, st.r * 1.4, st.r * 1.4);
+    for (const b of sc.balls || []) box({ x: b.x, y: sc.floor(b.x) }, b.r * 1.15, b.r * 2.1, U * 0.5);
+    // swim-throughs stay open: the palace gate's ring, the upper part of the lily arch's passage (a small
+    // piece may sit beneath)
+    if (sc.gate) rect(sc.gate.cx - sc.gate.Ri * 0.75, sc.gate.cy - sc.gate.Ri * 0.3, sc.gate.cx + sc.gate.Ri * 0.75, sc.gate.cy + sc.gate.Ri * 0.4);
+    if (sc.arch) { const fl = sc.floor((sc.arch.x0 + sc.arch.x1) / 2); rect(sc.arch.x0 + U * 2, sc.arch.top, sc.arch.x1 - U * 2, sc.arch.top + (fl - sc.arch.top) * 0.55); }
+    // plants: those in front of the decorations along their whole length; those among them only at the
+    // top (the bowl's stems) or their lantern (the palace's), so a piece may stand before a stem
+    for (const s of sc.strands || []) {
+      if (s.layer === 'front') rect(s.x - s.w * 2.5, s.y - s.len, s.x + s.w * 2.5, s.y + U);
+      else if (s.kind === 'lantern') rect(s.x - U * 3.5, s.y - s.len - U * 3.5, s.x + U * 3.5, s.y - s.len + U * 3.5);
+      else if (s.layer === 'mid') rect(s.x - s.w * 2.5 - U, s.y - s.len - U * 2, s.x + s.w * 2.5 + U, s.y - s.len * 0.6);
+    }
+    const frac = (g, x0, y0, x1, y1) => {
+      let n = 0, hit = 0;
+      for (let gy = Math.max(0, Math.floor(y0 / C)); gy <= Math.min(gh - 1, Math.floor(y1 / C)); gy++)
+        for (let gx = Math.max(0, Math.floor(x0 / C)); gx <= Math.min(gw - 1, Math.floor(x1 / C)); gx++) { n++; hit += g[gy * gw + gx]; }
+      return n ? hit / n : 0;
+    };
+    const occ = (x0, y0, x1, y1) => ({ hard: frac(hard, x0, y0, x1, y1), soft: frac(soft, x0, y0, x1, y1) });
+    occ.grid = { hard, soft, gw, gh, C };
+    return occ;
+  }
+
+  /* Lay out this tank's decorations. Tall pieces take the back row, short ones the front; the biggest
+     go first, each from the roomiest slot left in its row, sliding along the sand (by its real outline)
+     to the nearest spot where it covers none of the tank's things to touch, little of the rest of its
+     scenery, and hides no other piece, nor is hidden. Every decoration is drawn in front of the tank's
+     own decor; the back row is a little smaller and set further back on the sand. Adds their places
+     for fish and their bubble streams to the scene. */
   function install(sc, recs) {
     uninstall(sc);
     const slots = (SLOTS[sc.id] || []).map((s, i) => ({ u: s[0], row: s[1], room: s[2], i }));
     const list = recs.filter(r => DEF[r.id]).slice(0, slots.length);
-    const bySize = list.slice().sort((a, b) => DEF[b.id].w - DEF[a.id].w || a.uid - b.uid);
-    const free = slots.slice(0, list.length).sort((a, b) => b.room - a.room || a.i - b.i);
+    // the tallest pieces stand at the back, the shortest in front of them, so that both are seen
+    const used = slots.slice(0, list.length), nb = used.filter(s => s.row === 'b').length;
+    const rowOf = new Map(list.slice().sort((a, b) => DEF[b.id].h - DEF[a.id].h || a.uid - b.uid).map((r, i) => [r.uid, i < nb ? 'b' : 'f']));
+    const pool = { b: [], f: [] };
+    for (const s of used.slice().sort((a, b) => b.room - a.room || a.i - b.i)) pool[s.row].push(s);
+    // the biggest are placed first, each starting from the roomiest slot left in its row
+    const bySize = list.slice().sort((a, b) => DEF[b.id].w * DEF[b.id].h - DEF[a.id].w * DEF[a.id].h || a.uid - b.uid);
     // a unit for decorations: the aquarium's, a little less in a narrow (phone) tank
-    const unit = sc.id === 'bowl' ? Math.min(sc.U, sc.iw / 56) : Math.min(sc.U * 1.3, sc.iw / 84);
+    const unit = (sc.id === 'bowl' ? Math.min(sc.U, sc.iw / 56) : Math.min(sc.U * 1.3, sc.iw / 84)) * (SCALE[sc.id] || 1);
+    const occ = keepOut(sc), G = occ.grid, C = G.C;
+    // which piece is seen at each cell of the scene so far (-1: none), and how many cells of each are seen
+    const top = new Int16Array(G.gw * G.gh).fill(-1), seen = [], total = [], ys = [];
+    // the stretch of sand a piece may stand on
+    const lo = sc.id === 'bowl' ? sc.ix0 + sc.iw * 0.18 : sc.ix0 + sc.U, hi = sc.id === 'bowl' ? sc.ix1 - sc.iw * 0.18 : sc.ix1 - sc.U;
+    // every cell a piece would fill, standing at (x, y) at size k
+    const cells = (M, x, y, k, fn) => {
+      const gx0 = Math.max(0, Math.floor((x - M.ox / M.R * k) / C)), gx1 = Math.min(G.gw - 1, Math.floor((x + (M.W - M.ox) / M.R * k) / C));
+      const gy0 = Math.max(0, Math.floor((y - M.oy / M.R * k) / C)), gy1 = Math.min(G.gh - 1, Math.floor((y + (M.H - M.oy) / M.R * k) / C));
+      for (let gy = gy0; gy <= gy1; gy++) {
+        const my = Math.floor(((gy + 0.5) * C - y) / k * M.R + M.oy);
+        if (my < 0 || my >= M.H) continue;
+        for (let gx = gx0; gx <= gx1; gx++) {
+          const mx = Math.floor(((gx + 0.5) * C - x) / k * M.R + M.ox);
+          if (mx >= 0 && mx < M.W && M.bits[my * M.W + mx]) fn(gy * G.gw + gx);
+        }
+      }
+    };
     sc.decos = [];
-    bySize.forEach((rec, i) => {
-      const s = free[i], D = DEF[rec.id];
-      const x = sc.ix0 + sc.iw * s.u, fl = sc.floor(x), band = Math.max(sc.U * 2, sc.iy1 - fl);
-      const back = s.row === 'b';
-      const y = back ? fl + band * 0.12 : fl + band * 0.62;
-      // pieces may overlap their neighbours a little (they stand at different depths), and only shrink
-      // (never below about three quarters) where a slot is really tight
-      const fit = (s.room * sc.iw * 1.7) / (D.w * unit);
-      const k = unit * (back ? 0.8 : 1) * clamp(fit, 0.74, 1);
-      const tint = back && sc.depthCol ? rgba(sc.depthCol, 0.22) : back ? 'rgba(20,50,70,0.18)' : null;
-      sc.decos.push(make(rec, D, x, y, k, s.row, sc.dpr, tint));
+    bySize.forEach(rec => {
+      const D = DEF[rec.id], M = silhouette(D), want = rowOf.get(rec.uid), s = pool[want].shift();
+      let best = null;
+      // try its own row first, then the other (a little less gladly)
+      for (const row of [want, want === 'b' ? 'f' : 'b']) {
+        const back = row === 'b';
+        // pieces only shrink (never below about three quarters) where a slot is really tight
+        const fit = (s.room * sc.iw * 1.7) / (D.w * unit);
+        const k = unit * (back ? 0.8 : 1) * clamp(fit, 0.74, 1), hw = D.w * k * 0.5;
+        const at = x => { const fl = sc.floor(x), band = Math.max(sc.U * 2, sc.iy1 - fl); return back ? fl + band * 0.12 : fl + band * 0.62; };
+        // what standing at x would cover of the tank's own things, and how much of it, or of the pieces
+        // already placed, would be lost from view (a short piece may stand before a tall one, but neither
+        // may be lost behind the other)
+        const cost = x => {
+          const y = at(x), lost = new Map();
+          let n = 0, hard = 0, soft = 0, hid = 0;
+          cells(M, x, y, k, j => {
+            n++; hard += G.hard[j]; soft += G.soft[j];
+            const q = top[j];
+            if (q < 0) return;
+            if (y >= ys[q]) lost.set(q, (lost.get(q) || 0) + 1); else hid++;
+          });
+          let other = n ? hid / n : 0;
+          for (const [q, l] of lost) other = Math.max(other, 1 - (seen[q] - l) / total[q]);
+          return { hard: n ? hard / n : 0, soft: n ? soft / n : 0, other, y };
+        };
+        // the slot's own place first, then further and further out along the sand on both sides
+        const x0 = clamp(sc.ix0 + sc.iw * s.u, lo + hw, hi - hw), step = sc.iw * 0.01;
+        let done = false;
+        for (let n = 0; n <= 200; n++) {
+          const x = x0 + (n % 2 ? 1 : -1) * Math.ceil(n / 2) * step;
+          if (n && (x - hw < lo || x + hw > hi)) continue;
+          const c = cost(x);
+          const score = c.hard * 12 + c.soft * 1.5 + Math.max(0, c.other - 0.15) * 6 + Math.abs(x - x0) / sc.iw * 0.6 + (row === want ? 0 : 0.35);
+          if (!best || score < best.score) best = { x, y: c.y, k, row, c, score };
+          if (c.hard < 0.01 && c.soft < 0.2 && c.other < 0.15) { done = true; break; }
+        }
+        if (done && best.row === want) break;
+      }
+      const { x, y, k, row } = best;
+      // claim its cells
+      const me = sc.decos.length;
+      let n = 0;
+      ys.push(y); seen.push(0);
+      cells(M, x, y, k, j => {
+        n++;
+        const q = top[j];
+        if (q < 0 || y >= ys[q]) { if (q >= 0) seen[q]--; top[j] = me; seen[me]++; }
+      });
+      total.push(Math.max(1, n));
+      const tint = row === 'b' && sc.depthCol ? rgba(sc.depthCol, 0.22) : row === 'b' ? 'rgba(20,50,70,0.18)' : null;
+      const d = make(rec, D, x, y, k, row, sc.dpr, tint);
+      d.place = best.c; // what it covers where it stands, for checking the layout
+      sc.decos.push(d);
     });
+    // nearer pieces (lower on the sand) are drawn over farther ones
     sc.decos.sort((a, b) => a.y - b.y);
     for (const d of sc.decos) {
       for (const p of d.D.pois || []) {
@@ -990,19 +1135,18 @@ const Deco = (() => {
     };
   }
 
-  /* Drawing: row 'b' before the tank's own middle decor, row 'f' after it; fx (beams, glows) over the
-     fish. */
-  function draw(c, sc, t, row) {
+  /* Drawing: every decoration in front of the tank's own decor (nearer ones over farther ones), and fx
+     (beams, glows) over the fish. */
+  function draw(c, sc, t) {
     if (!sc.decos) return;
     for (const d of sc.decos) {
-      if (d.row !== row) continue;
       const B = baseSprite(d.D, d.k * d.dpr, d.tint);
       c.save(); c.translate(d.x, d.y); c.scale(d.k, d.k);
       c.drawImage(B.c, -B.ox, -B.oy, B.w, B.h);
       if (d.D.anim) d.D.anim(c, d, t);
       c.restore();
     }
-    if (row === 'f' && sc.decoRings) drawRings(c, sc);
+    if (sc.decoRings) drawRings(c, sc);
   }
   function drawFx(c, sc, t) {
     if (!sc.decos) return;
@@ -1024,12 +1168,16 @@ const Deco = (() => {
   }
 
   /* A tap on a decoration: the nearest one whose shape it lands on, front row first. */
+  /* The piece under a tap: the nearest first, by its outline, with a little grace for fingers (so a tap
+     beside a slim lighthouse reaches what stands behind it). */
   function hit(sc, x, y) {
     if (!sc.decos) return null;
-    const order = sc.decos.slice().sort((a, b) => (a.row === 'f' ? 0 : 1) - (b.row === 'f' ? 0 : 1) || b.y - a.y);
-    for (const d of order) {
-      const lx = (x - d.x) / d.k, ly = (y - d.y) / d.k, D = d.D;
-      if (Math.abs(lx) <= D.w / 2 + 0.6 && ly <= 0.8 && ly >= -D.h - 0.6) return d;
+    for (let i = sc.decos.length - 1; i >= 0; i--) {
+      const d = sc.decos[i], M = silhouette(d.D), g = 7 / d.k;
+      for (const [ox, oy] of [[0, 0], [g, 0], [-g, 0], [0, g], [0, -g]]) {
+        const mx = Math.floor(((x - d.x) / d.k + ox) * M.R + M.ox), my = Math.floor(((y - d.y) / d.k + oy) * M.R + M.oy);
+        if (mx >= 0 && my >= 0 && mx < M.W && my < M.H && M.bits[my * M.W + mx]) return d;
+      }
     }
     return null;
   }
@@ -1078,5 +1226,34 @@ const Deco = (() => {
     c.restore();
   }
 
-  return { LIST, DEF, CAP, SLOTS, joyOf, install, uninstall, step, draw, drawFx, tap, hit, maskOnto, preview };
+  /* ---------- little pictures of what fish do with a piece ---------- */
+  const svg = (body, cls = '') => `<svg class="dg${cls}" viewBox="0 0 24 24" aria-hidden="true">${body}</svg>`;
+  const DOES = {
+    through: ['Fish swim right through it', svg('<path d="M5 20v-8a7 7 0 0 1 14 0v8" fill="none" stroke="#c9a77a" stroke-width="3" stroke-linecap="round"/><path d="M2.5 15.5h17" fill="none" stroke="#9fe0ff" stroke-width="2" stroke-linecap="round"/><path d="M17 12.5l3.5 3-3.5 3z" fill="#9fe0ff"/>')],
+    hide: ['Shy fish hide in it', svg('<path d="M5 20.5V11a7 7 0 0 1 14 0v9.5z" fill="#c79a62"/><path d="M8.6 20.5V13a3.4 3.4 0 0 1 6.8 0v7.5z" fill="#2b1d12"/><circle cx="11" cy="15.6" r=".9" fill="#ffe7a8"/><circle cx="13.2" cy="15.6" r=".9" fill="#ffe7a8"/>')],
+    nap: ['Sleepy fish nap in it', svg('<path d="M14 3.5a8.5 8.5 0 1 0 6.6 13.8A7 7 0 0 1 14 3.5z" fill="#c9d6ff"/><path d="M15.5 4.5h4l-4 4.4h4" fill="none" stroke="#eef2ff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>')],
+    gather: ['Curious fish gather round', svg('<path d="M2 12s3.8-6.2 10-6.2S22 12 22 12s-3.8 6.2-10 6.2S2 12 2 12z" fill="#cfe9ff"/><circle cx="12" cy="12" r="3.9" fill="#3f86c4"/><circle cx="12" cy="12" r="1.9" fill="#0f2233"/><circle cx="13.3" cy="10.7" r=".9" fill="#fff"/>')],
+    glow: ['Glowing fish keep it company', svg('<path d="M12 1.8l2.3 7.9 7.9 2.3-7.9 2.3L12 22.2l-2.3-7.9L1.8 12l7.9-2.3z" fill="#ffe08a"/><circle cx="12" cy="12" r="2.4" fill="#fffbe6"/>')],
+    ride: ['Playful fish ride its bubbles', svg('<circle cx="8" cy="17.5" r="3.6" fill="none" stroke="#9fe0ff" stroke-width="1.8"/><circle cx="15.2" cy="10.6" r="2.8" fill="none" stroke="#9fe0ff" stroke-width="1.8"/><circle cx="9.8" cy="4.6" r="1.9" fill="none" stroke="#9fe0ff" stroke-width="1.6"/><circle cx="6.9" cy="16.3" r=".9" fill="#e8fbff"/>')],
+    perch: ['Fish rest on top of it', svg('<path d="M3 19.5h18" stroke="#c9a77a" stroke-width="2.6" stroke-linecap="round"/><path d="M6.5 13.5q5-5.2 10 0q-5 5.2-10 0z" fill="#ffb36b"/><path d="M16 13.5l4-3v6z" fill="#ffb36b"/><circle cx="9" cy="12.8" r=".9" fill="#1b2a36"/>')],
+    nibble: ['Foragers graze its moss', svg('<path d="M4.5 19.5C4.5 11 10.5 4.5 19.5 4.5c0 9-6.5 15-15 15z" fill="#8fd48a"/><path d="M5 19L15 9" stroke="#3f8a45" stroke-width="1.6" stroke-linecap="round"/>')],
+    ring: ['Fish swim through its bubble rings', svg('<ellipse cx="12" cy="12" rx="5.2" ry="8.6" fill="none" stroke="#dff4ff" stroke-width="2.4"/><ellipse cx="11" cy="10.5" rx="2.6" ry="5" fill="none" stroke="#9fe0ff" stroke-width="1" opacity=".7"/>')],
+  };
+  const ORDER = ['through', 'hide', 'nap', 'gather', 'glow', 'ride', 'perch', 'nibble', 'ring'];
+  const TAP = svg('<circle cx="12" cy="12" r="2.8" fill="#ffd6a8"/><circle cx="12" cy="12" r="6.4" fill="none" stroke="#ffd6a8" stroke-width="1.6" opacity=".65"/><circle cx="12" cy="12" r="9.8" fill="none" stroke="#ffd6a8" stroke-width="1.4" opacity=".3"/>');
+  const sentences = D => (D.blurb || '').match(/[^.!?]+[.!?)]+/g) || [];
+  const attr = t => String(t).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  /* A piece in one line (its first sentence), what it does when tapped, and a row of icons for what fish
+     do with it, each with its words in a tip. */
+  const about = D => (sentences(D)[0] || D.name).trim();
+  function chips(D) {
+    const kinds = new Set((D.pois || []).map(p => p.kind));
+    let h = '';
+    for (const k of ORDER) if (kinds.has(k)) h += `<i class="dchip" data-tip="${attr(DOES[k][0])}" aria-label="${attr(DOES[k][0])}">${DOES[k][1]}</i>`;
+    const tap = sentences(D).filter(x => /^\s*Tap\b/.test(x)).join(' ').trim();
+    if (tap) h += `<i class="dchip tap" data-tip="${attr(tap)}" aria-label="${attr(tap)}">${TAP}</i>`;
+    return h;
+  }
+
+  return { LIST, DEF, CAP, SLOTS, about, chips, joyOf, install, uninstall, step, draw, drawFx, tap, hit, maskOnto, preview };
 })();

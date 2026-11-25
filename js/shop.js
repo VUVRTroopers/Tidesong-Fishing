@@ -42,6 +42,7 @@ const Shop = (() => {
       UIFX.swap(card, $('#shop-panel'), render, dir);
     });
     $('#shop-panel').addEventListener('click', onClick);
+    Tank.tipsOn($('#m-shop'));
   }
 
   function open(which) {
@@ -74,6 +75,7 @@ const Shop = (() => {
     const panel = $('#shop-panel');
     panel.setAttribute('aria-labelledby', `tab-${tab}`);
     panel.innerHTML = tab === 'bait' ? renderBait() : tab === 'tanks' ? renderTanks() : tab === 'decor' ? renderDecor() : renderGear(tab);
+    Tank.dropTip();
     requestAnimationFrame(() => paint(api.time()));
   }
 
@@ -223,40 +225,43 @@ const Shop = (() => {
     return html + '</div>';
   }
 
-  /* Decorations: three tiers, each piece with what it brings to a tank, how much it delights fish (in
-     hearts, not numbers), how many you have, and a price; buy as many as you like. */
-  const TIERS = [
-    [1, 'Trinkets', 'Small pieces that please fish a little. Lovely in your first tanks.'],
-    [2, 'Centrepieces', 'Pieces with something going on, that please fish well.'],
-    [3, 'Grand pieces', 'Grand, lively pieces that delight fish the most: best in your finest tank, full of your rarest fish.'],
-  ];
+  /* Decorations, shown rather than told: each piece's picture, hearts for how much it pleases fish,
+     icons for what fish do with it (and what a tap does), and a price. The words wait in tips. At the
+     top, hearts making pearls, and each tank's spaces as a row of dots. */
   const HEART = on => `<svg class="dl-heart${on ? ' on' : ''}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.4C6 16.2 3 12.9 3 9.4 3 6.8 5 5 7.4 5c1.9 0 3.5 1 4.6 2.7C13.1 6 14.7 5 16.6 5 19 5 21 6.8 21 9.4c0 3.5-3 6.8-9 11z"/></svg>`;
+  const PLEASE = ['Pleases fish a little', 'Pleases fish well', 'Delights fish'];
+  const BOX = '<svg class="ln-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7h17v4h-17zM5 11v8.5h14V11M10 14.5h4"/></svg>';
+  const dots = (n, cap) => `<span class="slot-dots" aria-hidden="true">${'<i class="on"></i>'.repeat(Math.min(n, cap))}${'<i></i>'.repeat(Math.max(0, cap - n))}</span>`;
   function renderDecor() {
     const s = api.save, decos = s.tank.decos || [], have = id => decos.filter(d => d.id === id).length;
-    const room = TANKS.slice(0, s.netTier + 1).reduce((a, T) => a + (Deco.CAP[T.id] || 0), 0), placed = decos.filter(d => d.t >= 0).length, stored = decos.length - placed;
-    let html = `<p class="tab-note">Decorations for your aquariums. Each one pleases the fish of the tank it stands in, so they make more Moonpearls, and brings them something to enjoy: a place to hide, nap, gather or ride the bubbles, and a surprise when you tap it. Grander pieces please fish more, and a piece is worth most in a tank of rare fish. Fish love variety: a second of the same piece in one tank pleases them half as much. Each tank holds a few, from ${Deco.CAP.bowl} in the ${esc(TANKS[0].name)} to ${Deco.CAP.palace} in the ${esc(TANKS[TANKS.length - 1].name)}; move them between tanks with the aquarium's <b>Decor</b> button.</p>
-      <div class="tank-visit"><span>Your tanks hold <b>${placed} of ${room}</b> decorations${stored ? `, and ${stored} ${stored === 1 ? 'waits' : 'wait'} in your storeroom` : ''}.</span><button type="button" class="secondary-btn" data-action="visit">Visit your ${s.netTier ? 'tanks' : 'tank'}</button></div>`;
-    for (const [tier, title, note] of TIERS) {
-      html += `<section class="tier-sec"><div class="tier-head"><h3>${title}</h3><p>${note}</p></div><div class="items deco-grid">`;
-      for (const D of Deco.LIST.filter(d => d.tier === tier)) {
-        const n = have(D.id), afford = s.pearls >= D.price;
-        html += `
-          <article class="item deco-item">
-            <canvas class="item-art deco-art" data-deco="${D.id}" aria-hidden="true"></canvas>
-            <div class="item-body">
-              <h4>${esc(D.name)}${n ? ` <span class="have">You have ${n}</span>` : ''}</h4>
-              <p>${esc(D.blurb)}</p>
-              <p class="delight" aria-label="Delights fish ${['a little', 'well', 'greatly'][tier - 1]}">${[1, 2, 3].map(i => HEART(i <= tier)).join('')}<span>Delight</span></p>
+    const stored = decos.filter(d => d.t < 0).length;
+    const tanksHtml = TANKS.slice(0, s.netTier + 1).map((T, t) => {
+      const n = decos.filter(d => d.t === t).length, cap = Deco.CAP[T.id] || 0;
+      return `<span class="dv-tank" data-tip="${esc(`${T.name}: ${n} of ${cap}`)}">${dots(n, cap)}</span>`;
+    }).join('');
+    let html = `<div class="tank-visit deco-visit">
+        <span class="deco-why" data-tip="Decorations please fish, and happier fish make more Moonpearls">${HEART(true)}<svg class="dv-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h14M13 7l5 5-5 5"/></svg><span class="pearl"></span></span>
+        <span class="dv-tanks">${tanksHtml}${stored ? `<span class="dv-store" data-tip="In your storeroom">${BOX}<b>${stored}</b></span>` : ''}</span>
+        <button type="button" class="secondary-btn" data-action="visit">Visit</button>
+      </div><div class="items deco-grid">`;
+    for (const D of Deco.LIST) {
+      const n = have(D.id), afford = s.pearls >= D.price;
+      html += `
+        <article class="item deco-item">
+          <div class="deco-art-wrap"><canvas class="item-art deco-art" data-deco="${D.id}" data-tip="${esc(Deco.about(D))}" aria-label="${esc(Deco.about(D))}"></canvas>${n ? `<span class="deco-have" data-tip="You have ${n}">×${n}</span>` : ''}</div>
+          <div class="item-body">
+            <h4>${esc(D.name)}</h4>
+            <div class="deco-meta">
+              <span class="delight" data-tip="${PLEASE[D.tier - 1]}. A second one in the same tank, half as much" aria-label="${PLEASE[D.tier - 1]}">${[1, 2, 3].map(i => HEART(i <= D.tier)).join('')}</span>
+              <span class="deco-does">${Deco.chips(D)}</span>
             </div>
-            <div class="item-foot">
-              <button type="button" class="buy-btn" data-action="buy-deco" data-id="${D.id}" ${afford ? '' : 'disabled'}>Buy · ${pearls(D.price)}</button>
-              ${afford ? '' : `<span class="need">Need ${pearls(D.price - s.pearls)} more</span>`}
-            </div>
-          </article>`;
-      }
-      html += '</div></section>';
+          </div>
+          <div class="item-foot">
+            <button type="button" class="buy-btn" data-action="buy-deco" data-id="${D.id}" ${afford ? '' : 'disabled'}>Buy · ${pearls(D.price)}</button>
+          </div>
+        </article>`;
     }
-    return html;
+    return html + '</div>';
   }
 
   /* ---------- previews ---------- */
@@ -367,7 +372,7 @@ const Shop = (() => {
         const t = Tank.addDecor(id);
         api.play('buy');
         if (api.note) api.note('decorBuy', { id });
-        api.toast(t >= 0 ? `Your ${D.name} now stands in the ${TANKS[t].name}. Tap it there to see what it does.` : `Your ${D.name} is in the storeroom: every tank's decorations are full. Make room with the aquarium's Decor button.`, '#9fe3b0', 4400);
+        api.toast(t >= 0 ? `${D.name} → ${TANKS[t].name}` : `${D.name} → storeroom (your tanks are full)`, '#9fe3b0', 3200);
         break;
       }
       case 'visit':
