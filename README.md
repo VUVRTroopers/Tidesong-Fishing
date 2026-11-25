@@ -767,19 +767,35 @@ built to feel natural rather than electronic:
   its own echo while the new one opens up, and the reverb itself crossfades.
 - **A living backdrop:** a quiet chord breathes under each scene and moves to a new chord every
   twenty seconds or so, one voice at a time.
+- **Music that grows out of the water:** each water's music sits in its own key (C for the pond,
+  the marsh and the lagoon, D for the fjord, B-flat for the sanctum), and everything musical in a
+  catch is played in that key and in tune with the backdrop: the bite, the meter's chime, the
+  reel's harp and drone, the catch, an escape, and the chimes for level-ups, badges, coins and the
+  market. The backdrop's chord holds while a fish is on the line, so the fight's drone (on that
+  chord's root and fifth) always agrees with it.
 - **The fight:** you hear the water churned up by the fish, panned to where it pulls; the line
   humming under strain when the fish is outside the band; the reel's ratchet clicking in an even
 "trrrr" as you wind (real metallic clicks scheduled ahead on the audio clock at the spool's rate, so
 they never stutter), coasting down when you let go and clicking faster as drag when the fish runs; a harp
-  climbing the pentatonic scale as the ring fills; and a soft heartbeat when the fish is about to
-  escape.
+  climbing the water's scale as the ring fills; a soft drone that leans in as the ring fills and
+  eases back (never drops out) while the fish slips out of the band; and a soft heartbeat when the
+  fish is about to escape.
+- **The catch blooms:** the drone brightens and lingers a moment, and the backdrop itself swells and
+  opens for a few seconds. A harp runs up the scale, quickening a little and growing louder as it
+  climbs, and settles on a note of the backdrop's chord; then that chord rings out, rolled on the
+  harp over a soft glow (single round tones that swell in and settle away, so nothing pulses or
+  buzzes). Rarer fish add a chime, then a low root and a cascade of chimes, and the rarest a deep
+  bell and a rumble of water. A fish that gets away lets the drone sigh down a step instead.
+- **Bells that shimmer slowly:** each bell has a faint twin a fraction of a hertz away, like the
+  slow shimmer of a real bell, rather than a fast warble on high notes.
 - **Gear with a voice of its own:** almost every rod, bobber and line sounds different, and the
   market never says how. A line sings as it flies out on the cast, a bobber announces itself as it
   lands, and a rod's reel turns with its own ratchet. Equip something new and listen. The starter
   kit keeps the plain sounds.
 - **No two plays alike:** every effect is played as a fresh take, shifted a few cents in pitch, a
-  touch louder or softer, its notes a few milliseconds early or late (a melody, like the Moon
-  Palace's singing geodes, keeps its pitch). The sounds heard most (clicks and tabs, opening menus,
+  touch louder or softer, its notes a few milliseconds early or late (anything played with the
+  backdrop, like the catch's music, or a melody, like the Moon Palace's singing geodes, keeps its
+  pitch). The sounds heard most (clicks and tabs, opening menus,
   buying, equipping, coins, a refusal, level-ups, the bite and the catch, pearls and the aquarium's
   little chimes) also rotate through several variants of their notes, in the same key and never the
   same one twice running, so buying bait five times in a row sounds like five purchases rather than

@@ -535,7 +535,7 @@
   }
 
   function landFish() {
-    Sound.stopReel();
+    Sound.stopReel('land');
     const { id, rarity } = G.hooked;
     const R = RARITIES[rarity];
     const fish = G.hooked.fish || rollFish(id);
@@ -573,7 +573,7 @@
   }
 
   function escapeFish() {
-    Sound.stopReel();
+    Sound.stopReel('lost');
     Badges.note('escape');
     if (FS) FS.bolt = FS.a + rand(-0.5, 0.5);
     Sound.play('escape');

@@ -18,7 +18,7 @@
 const Sound = (() => {
   let ctx = null, enabled = true;
   let master, sfx, amb, music, verbIn, verbHP;
-  let whiteBuf, pinkBuf, brownBuf, warmWave, reedWave, pulseCurve, softPulse, gateCurve;
+  let whiteBuf, pinkBuf, brownBuf, warmWave, reedWave, softWave, pulseCurve, softPulse, gateCurve;
   let ambient = null, ambientWanted = null, reel = null, ticker = null, offline = false;
   const space = { slots: [], active: 0, id: null };
   const MASTER = 0.92;
@@ -76,6 +76,7 @@ const Sound = (() => {
     brownBuf = makeNoise(6, 'brown');
     warmWave = periodic([1, 0.3, 0.11, 0.045, 0.02]);
     reedWave = periodic([1, 0.55, 0.38, 0.27, 0.2, 0.15, 0.11, 0.08, 0.06, 0.045, 0.035, 0.025]);
+    softWave = periodic([1, 0.12, 0.03]);
     pulseCurve = shapeCurve(x => Math.pow(0.5 + 0.5 * x, 3));
     softPulse = shapeCurve(x => Math.pow(0.5 + 0.5 * x, 1.6));
     gateCurve = shapeCurve(x => { const v = clamp((x - 0.35) / 0.3, 0, 1); return v * v * (3 - 2 * v); });
@@ -344,7 +345,9 @@ const Sound = (() => {
       if (f > 9500) continue;
       osc(f, { t: tt, _fixed: true, a: o.a ?? 0.0035, d: dur * dm, gain: g * amp, detune: rand(-3, 3), into: bus });
     }
-    if (o.beat !== false) osc(freq * 1.003, { t: tt, _fixed: true, a: 0.02, d: dur * 0.85, gain: g * 0.28, into: bus });
+    // a faint twin a fraction of a hertz away gives the slow shimmer of a real bell (a fixed ratio
+    // made high notes warble several times a second)
+    if (o.beat !== false) osc(freq + clamp(freq * 0.0012, 0.25, 1.1), { t: tt, _fixed: true, a: 0.02, d: dur * 0.85, gain: g * 0.22, into: bus });
   }
 
   /* A soft wooden tone (marimba-like) for taps and gentle refusals. */
@@ -355,6 +358,60 @@ const Sound = (() => {
     osc(freq, { t: tt, _fixed: true, a: 0.002, d: o.dur ?? 0.45, gain: g, into: bus });
     osc(freq * 3.93, { t: tt, _fixed: true, a: 0.0015, d: 0.07, gain: g * 0.18, into: bus });
     noise({ t: tt, _fixed: true, a: 0.001, d: 0.012, f: Math.min(4000, freq * 2.4), q: 1.6, gain: g * 0.35, into: bus });
+  }
+
+  /* A soft, round sustained tone (a sine with a breath of overtone) that swells in and settles away on
+     smooth curves: the body under the music's chords. One oscillator per note, so it never beats. */
+  function glow(freq, o = {}) {
+    if (!ctx) return;
+    const t0 = ctx.currentTime + when(o), a = o.a ?? 0.45, hold = o.hold ?? 0.3, d = o.d ?? 2.6, peak = (o.gain ?? 0.02) * TAKE.g;
+    const s = ctx.createOscillator(); s.setPeriodicWave(softWave); s.frequency.value = freq;
+    const g = ctx.createGain(), n = 32, c = new Float32Array(n);
+    for (let i = 0; i < n; i++) c[i] = peak * (0.5 - 0.5 * Math.cos(Math.PI * i / (n - 1)));
+    g.gain.setValueAtTime(0, t0); g.gain.setValueCurveAtTime(c, t0, a);
+    g.gain.setTargetAtTime(0, t0 + a + hold + 0.001, Math.max(0.05, d / 4.6));
+    s.connect(g);
+    route(g, { ...o, _t0: t0, lp: o.lp ?? 1600, dest: o.dest || music, wet: o.wet ?? 0.3 });
+    s.start(t0); s.stop(endOf(t0, a, d, hold));
+  }
+
+  /* The music follows the water. Each water's pad plays chords in one key, and the music written for
+     the catch (bites, the reel's harp, the landing, chimes and rewards) is written in C and moved into
+     that key, while the landing resolves on the very chord the pad is playing. */
+  const PENT = [0, 2, 4, 7, 9];
+  const keyOf = () => (ambient && !ambient.dead && ambient.L.key) || 0;
+  const tr = n => n + keyOf();
+  const fit = (n, lo) => lo + (((n - lo) % 12) + 12) % 12;
+  function harmony() {
+    const h = ambient && !ambient.dead ? ambient : null, k = h ? h.L.key || 0 : 0;
+    const chord = h ? h.L.chords[h.chord] : [48, 55, 64, 67];
+    const pcs = new Set(chord.map(n => n % 12)), inKey = n => PENT.includes((((n - k) % 12) + 12) % 12);
+    return {
+      chord, root: chord[0], tone: n => pcs.has(((n % 12) + 12) % 12),
+      // the scale's notes from lo up to hi
+      scale(lo, hi) { const out = []; for (let n = lo; n <= hi; n++) if (inKey(n)) out.push(n); return out; },
+      // the chord from its root (placed at or just above lo), `count` notes upward, spaced at least a
+      // minor third apart so the low notes never crowd into a muddy cluster
+      voicing(lo, count) {
+        const out = [fit(chord[0], lo)];
+        for (let n = out[0] + 3; out.length < count && n < out[0] + 40; n++) if (pcs.has(n % 12) && n - out[out.length - 1] >= 3) out.push(n);
+        return out;
+      },
+    };
+  }
+  /* The water's pad swells and opens for a few seconds (a catch blooming), then settles back. Its next
+     change of chord waits until the bloom has faded. */
+  function bloomPad(k = 0, hold = 1.2) {
+    const h = ambient;
+    if (!ctx || !h || h.dead || !h.pad) return;
+    const now = ctx.currentTime, P = h.pad, g = P.out.gain, f = P.lp.frequency;
+    g.cancelScheduledValues(now); g.setValueAtTime(g.value, now);
+    g.setTargetAtTime(P.base * (1.45 + 0.12 * k), now, 0.45);
+    g.setTargetAtTime(P.base, now + hold + 0.9, 2.4);
+    f.cancelScheduledValues(now); f.setValueAtTime(f.value, now);
+    f.setTargetAtTime(1500 + 260 * k, now, 0.6);
+    f.setTargetAtTime(P.f, now + hold + 0.9, 2.8);
+    h.chordAt = Math.max(h.chordAt, now + hold + 9);
   }
 
   /* A splash: a burst of water that darkens as it falls back, a soft thump, then droplets raining down. */
@@ -474,7 +531,7 @@ const Sound = (() => {
 
     open() {
       const v = [[79, 86], [81, 88], [76, 83], [79, 84], [74, 81, 86]][pickV('open', 5)], gap = rand(0.06, 0.08);
-      v.forEach((n, i) => pluck(midi(n), { t: i * gap, gain: i ? 0.04 : 0.052, dur: 1.1 + i * 0.1, wet: 0.22 }));
+      v.forEach((n, i) => pluck(midi(tr(n)), { t: i * gap, gain: i ? 0.04 : 0.052, dur: 1.1 + i * 0.1, wet: 0.22 }));
     },
 
     cast(line) {
@@ -537,57 +594,78 @@ const Sound = (() => {
     bite() {
       splashFx(1);
       osc(110, { a: 0.004, d: 0.14, glide: 66, glideTime: 0.12, gain: 0.12, lp: 380, wet: 0.05 });
-      const [a, b] = [[76, 83], [74, 81], [76, 81], [79, 83]][pickV('bite', 4)];
-      pluck(midi(a), { t: 0.03, gain: 0.12, dur: 1.2, bright: 0.35, wet: 0.2 });
-      pluck(midi(b), { t: 0.13, gain: 0.11, dur: 1.6, bright: 0.35, wet: 0.22 });
+      const [a, b] = [[76, 81], [74, 79], [76, 79], [79, 84]][pickV('bite', 4)];
+      pluck(midi(tr(a)), { t: 0.03, gain: 0.105, dur: 1.3, bright: 0.3, wet: 0.22 });
+      pluck(midi(tr(b)), { t: 0.14, gain: 0.095, dur: 1.7, bright: 0.29, wet: 0.24 });
     },
 
     escape() {
       splashFx(0.7);
       // the line going slack
       noise({ t: 0.04, type: 'bandpass', f: 1800, f1: 500, fTime: 0.3, q: 1.4, a: 0.01, d: 0.3, gain: 0.035, pan: 0.2, wet: 0.1 });
-      const [a, b, c] = [[67, 62, 55], [69, 64, 57], [67, 64, 55], [65, 62, 57]][pickV('escape', 4)];
-      pluck(midi(a), { t: 0.12, gain: 0.085, dur: 1.4, bright: 0.25, wet: 0.24 });
-      pluck(midi(b), { t: 0.36, gain: 0.08, dur: 1.8, bright: 0.24, wet: 0.27 });
-      pluck(midi(c), { t: 0.62, gain: 0.075, dur: 2.4, bright: 0.22, wet: 0.3 });
-      osc(midi(43), { t: 0.6, a: 0.25, d: 1.6, gain: 0.04, type: 'warm', lp: 600, wet: 0.3 });
+      const [a, b, c] = [[67, 62, 55], [69, 64, 57], [67, 64, 55], [64, 62, 57]][pickV('escape', 4)];
+      pluck(midi(tr(a)), { t: 0.12, gain: 0.078, dur: 1.5, bright: 0.23, wet: 0.26 });
+      pluck(midi(tr(b)), { t: 0.38, gain: 0.072, dur: 1.9, bright: 0.21, wet: 0.29 });
+      pluck(midi(tr(c)), { t: 0.66, gain: 0.068, dur: 2.5, bright: 0.19, wet: 0.32 });
+      glow(midi(fit(harmony().root, 40)), { t: 0.5, a: 0.5, hold: 0.2, d: 2.2, gain: 0.032, lp: 700, wet: 0.32 });
     },
 
+    /* A catch blooms out of the fight. The reel's drone and the water's own pad swell and open; a harp
+       runs up the water's scale, quickening a little as it climbs, and lands on a note of the pad's
+       chord; then that chord rings out, rolled on the harp over a soft glow. Rarer fish add a chime,
+       then a cascade of chimes and a low root, and the rarest a deep bell and a rumble of water. */
     landed(rarity) {
       splashFx(1.3);
-      const tier = RARITIES[rarity].tier;
-      const scale = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24], root = 67, n = 4 + tier * 2;
-      // the run up to the chord walks the scale a different way each time
-      const walk = [scale, [0, 4, 2, 7, 4, 9, 7, 12, 9, 14, 12], [0, 4, 7, 4, 9, 7, 12, 9, 14, 12, 16]][pickV('landed', 3)];
-      for (let i = 0; i < n; i++) {
-        pluck(midi(root + walk[i % walk.length]), { t: 0.15 + i * 0.08, gain: 0.095, dur: 1.6, bright: 0.34, pan: (i / n - 0.5) * 0.7, wet: 0.2 });
+      const tier = RARITIES[rarity].tier, H = harmony(), n = 4 + tier * 2;
+      bloomPad(tier, 1.2 + tier * 0.5);
+      const sc = H.scale(48, 108), from = sc.findIndex(x => x >= tr(64));
+      // straight up, up in turns (one back for every two forward), or skipping every third step
+      const walk = [i => i, i => Math.floor(i / 2) + (i % 2) * 2, i => i + Math.floor(i / 3)][pickV('landed', 3)];
+      const run = [];
+      for (let i = 0; i < n; i++) run.push(sc[Math.min(sc.length - 1, from + walk(i))]);
+      // the last note settles on the chord
+      let last = run[n - 1], j = sc.indexOf(last);
+      while (!H.tone(last) && j < sc.length - 1 && sc[j] - run[n - 1] < 7) last = sc[++j];
+      if (H.tone(last)) run[n - 1] = last;
+      let t = 0.14;
+      run.forEach((note, i) => {
+        const k = n > 1 ? i / (n - 1) : 1;
+        pluck(midi(note), { t, gain: 0.058 + 0.026 * k, dur: 1.5 + k * 0.6, bright: 0.24 + 0.04 * k, pan: (k - 0.5) * 0.7, wet: 0.24 + 0.06 * k });
+        t += 0.096 - 0.026 * k;
+      });
+      const at = t + 0.03, len = 2.6 + tier * 0.55;
+      // the chord, rolled upward on the harp
+      H.voicing(55, 5).forEach((note, i) => pluck(midi(note), { t: at + i * 0.028, gain: 0.044 - i * 0.003, dur: len, bright: 0.2, pan: (i / 4 - 0.5) * 0.5, wet: 0.3 }));
+      // and glowing underneath, swelling in and settling away without a pulse
+      H.voicing(50, 3).forEach((note, i) => glow(midi(note), { t: at - 0.12, a: 0.5, hold: 0.25 + tier * 0.2, d: len, gain: 0.013, lp: 1500, pan: (i - 1) * 0.3, wet: 0.34 }));
+      if (tier >= 1) {
+        const top = H.voicing(55, 9).filter(x => x >= tr(79));
+        bell(midi(top[0] + (top[0] < 84 ? 12 : 0)), { t: at + 0.12, a: 0.006, gain: 0.026, dur: 2.8, partials: GLASS, wet: 0.36 });
       }
-      const chordAt = 0.15 + n * 0.08, len = 2 + tier * 0.6;
-      // a warm resolving chord under the last notes
-      [0, 4, 7, 12].forEach((s, i) => osc(midi(root - 12 + s), { t: chordAt, a: 0.1, hold: 0.3, d: len, gain: 0.04, type: 'warm', lp: 2600, detune: rand(-4, 4), pan: (i - 1.5) * 0.25, dest: music, wet: 0.26 }));
-      if (tier >= 1) bell(midi(root + 24), { t: chordAt, gain: 0.038, dur: 2.6, wet: 0.3 });
+      if (tier >= 2) glow(midi(fit(H.root, 38)), { t: at - 0.1, a: 0.7, hold: 0.5, d: len + 0.6, gain: 0.019, lp: 500, wet: 0.26 });
       if (tier >= 3) {
-        for (let i = 0; i < 12; i++) bell(midi(root + 12 + scale[(i * 3) % scale.length]), { t: chordAt + 0.1 + i * 0.09, gain: 0.025, dur: 2.4, pan: Math.sin(i) * 0.6, wet: 0.34 });
-        osc(midi(root - 24), { t: chordAt, a: 0.4, hold: 0.6, d: 2.8, gain: 0.05, dest: music, wet: 0.22 });
-        osc(midi(root - 17), { t: chordAt, a: 0.4, hold: 0.6, d: 2.8, gain: 0.026, type: 'warm', lp: 900, dest: music, wet: 0.26 });
+        const hi = H.scale(tr(79), tr(100));
+        for (let i = 0; i < 10; i++) bell(midi(hi[Math.min(hi.length - 1, (i * 2) % hi.length)]), { t: at + 0.25 + i * 0.1, a: 0.006, gain: 0.02 - i * 0.0008, dur: 2.4, partials: GLASS, pan: Math.sin(i * 1.7) * 0.6, wet: 0.4 });
       }
       if (tier >= 4) {
-        noise({ kind: 'brown', type: 'lowpass', f: 260, f1: 60, t: chordAt, a: 0.03, d: 3, gain: 0.17, wet: 0.35 });
-        bell(midi(root - 12), { t: chordAt, gain: 0.065, dur: 5, wet: 0.36 });
-        for (let i = 0; i < 10; i++) bell(midi(root + 24 + scale[i % 6]), { t: chordAt + 0.8 + i * 0.12, gain: 0.02, dur: 2.6, pan: Math.cos(i) * 0.7, wet: 0.38 });
+        noise({ kind: 'brown', type: 'lowpass', f: 240, f1: 60, t: at - 0.1, a: 0.3, d: 3.2, gain: 0.13, wet: 0.35 });
+        bell(midi(fit(H.root, 40)), { t: at, a: 0.012, gain: 0.05, dur: 5.5, wet: 0.4 });
+        const hi = H.scale(tr(84), tr(103));
+        for (let i = 0; i < 8; i++) bell(midi(hi[(i * 3) % hi.length]), { t: at + 1.4 + i * 0.13, a: 0.006, gain: 0.016, dur: 2.6, partials: GLASS, pan: Math.cos(i) * 0.7, wet: 0.45 });
       }
     },
 
     levelUp() {
-      [[0, 4, 7, 12, 16], [0, 7, 12, 16, 19], [-5, 0, 4, 7, 12], [0, 4, 9, 12, 16]][pickV('levelUp', 4)].forEach((n, i) => bell(midi(72 + n), { t: i * 0.085, gain: 0.027, dur: 2, pan: (i - 2) * 0.2, wet: 0.3 }));
-      pluck(midi(60), { gain: 0.048, dur: 2, bright: 0.28, wet: 0.22 });
+      [[0, 4, 7, 12, 16], [0, 7, 12, 16, 19], [-5, 0, 4, 7, 12], [0, 4, 9, 12, 16]][pickV('levelUp', 4)].forEach((n, i) => bell(midi(tr(72 + n)), { t: i * 0.09, a: 0.005, gain: 0.025, dur: 2.2, pan: (i - 2) * 0.2, wet: 0.32 }));
+      pluck(midi(tr(60)), { gain: 0.046, dur: 2.2, bright: 0.24, wet: 0.24 });
+      glow(midi(tr(48)), { a: 0.4, hold: 0.3, d: 2, gain: 0.02, lp: 900, wet: 0.3 });
     },
 
     unlock() {
       const s = [[0, 2, 4, 7, 9, 12, 14, 16, 19], [0, 4, 7, 9, 12, 16, 19, 21, 24], [-3, 0, 2, 4, 7, 9, 12, 14, 16]][pickV('unlock', 3)];
-      s.forEach((n, i) => pluck(midi(79 + n), { t: i * 0.06, gain: 0.043, dur: 1.8, bright: 0.3, pan: i / 8 - 0.5, wet: 0.3 }));
-      bell(midi(91), { t: 0.55, gain: 0.028, dur: 2.6, wet: 0.34 });
-      osc(midi(55), { a: 0.5, hold: 0.5, d: 2.2, gain: 0.03, type: 'warm', lp: 900, dest: music, wet: 0.28 });
+      s.forEach((n, i) => pluck(midi(tr(72 + n)), { t: i * 0.064, gain: 0.034 + i * 0.0015, dur: 1.9, bright: 0.26, pan: i / 8 - 0.5, wet: 0.3 }));
+      bell(midi(tr(91)), { t: 0.6, a: 0.006, gain: 0.026, dur: 2.8, partials: GLASS, wet: 0.36 });
+      glow(midi(tr(48)), { a: 0.5, hold: 0.5, d: 2.2, gain: 0.026, lp: 900, wet: 0.3 });
     },
 
     /* A badge pressed into the scrapbook: a soft paper thwip, then a glassy chime that climbs higher and
@@ -596,9 +674,9 @@ const Sound = (() => {
       const g = clamp(grade | 0, 1, 5);
       noise({ type: 'bandpass', f: 2600, f1: 900, fTime: 0.12, q: 0.9, a: 0.004, d: 0.12, gain: 0.03, wet: 0.1 });
       const sets = [[0, 4, 7], [0, 4, 7, 12], [0, 4, 7, 11, 14], [0, 5, 9, 12, 16, 19], [0, 4, 7, 12, 16, 19, 24]];
-      const notes = sets[g - 1], root = 76 + [0, 2, -1][pickV('badge', 3)];
-      notes.forEach((n, i) => bell(midi(root + n), { t: 0.08 + i * 0.075, gain: 0.028, dur: 1.6 + g * 0.3, partials: GLASS, pan: (i / (notes.length - 1) - 0.5) * 0.6, wet: 0.35 }));
-      if (g >= 4) osc(midi(root - 12), { t: 0.1, a: 0.3, hold: 0.4, d: 1.8, gain: 0.02, type: 'warm', lp: 1200, dest: music, wet: 0.4 });
+      const notes = sets[g - 1], root = tr([72, 79, 77][pickV('badge', 3)]);
+      notes.forEach((n, i) => bell(midi(root + n), { t: 0.08 + i * 0.08, a: 0.005, gain: 0.027, dur: 1.7 + g * 0.3, partials: GLASS, pan: (i / (notes.length - 1) - 0.5) * 0.6, wet: 0.36 }));
+      if (g >= 4) glow(midi(root - 24), { t: 0.05, a: 0.45, hold: 0.4, d: 2, gain: 0.022, lp: 1000, wet: 0.4 });
     },
     /* the fishing meter sweeping up into place at a bite, and the bite mark landing in its ring */
     meterIn() {
@@ -606,10 +684,10 @@ const Sound = (() => {
       noise({ t: 0.05, type: 'highpass', f: 3800, q: 0.6, a: 0.04, d: 0.18, gain: 0.006, wet: 0.2 });
     },
     meterSet() {
-      const [a, b] = [[86, 93], [84, 91], [88, 95]][pickV('meterSet', 3)];
-      bell(midi(a), { gain: 0.02, dur: 1.1, partials: GLASS, wet: 0.3, beat: false });
-      bell(midi(b), { t: 0.06, gain: 0.014, dur: 1.3, partials: GLASS, wet: 0.35, beat: false });
-      pluck(midi(a - 24), { t: 0.01, gain: 0.02, dur: 0.5, wet: 0.2 });
+      const [a, b] = [[86, 93], [84, 91], [88, 93]][pickV('meterSet', 3)];
+      bell(midi(tr(a)), { a: 0.005, gain: 0.018, dur: 1.2, partials: GLASS, wet: 0.32, beat: false });
+      bell(midi(tr(b)), { t: 0.07, a: 0.005, gain: 0.013, dur: 1.4, partials: GLASS, wet: 0.36, beat: false });
+      pluck(midi(tr(a - 24)), { t: 0.01, gain: 0.019, dur: 0.6, bright: 0.24, wet: 0.22 });
     },
     /* turning a page of the scrapbook */
     page() { noise({ type: 'bandpass', f: 1700, f1: 3400, fTime: 0.2, q: 0.7, a: 0.03, d: 0.17, gain: 0.02, wet: 0.12 }); },
@@ -617,21 +695,21 @@ const Sound = (() => {
     coin(n = 1) {
       const sets = [[84, 88, 91, 96], [84, 86, 91, 93], [81, 84, 88, 93], [86, 91, 93, 98], [79, 84, 88, 91]];
       const notes = sets[pickV('coin', sets.length)], k = Math.min(4, 1 + Math.floor(Math.log2(n + 1))), gap = rand(0.06, 0.08);
-      for (let i = 0; i < k + 1; i++) bell(midi(notes[i % 4] + (i >= 4 ? 12 : 0)), { t: i * gap, gain: 0.038, dur: 1.3, partials: GLASS, pan: (i - k / 2) * 0.2, wet: 0.22 });
+      for (let i = 0; i < k + 1; i++) bell(midi(tr(notes[i % 4] + (i >= 4 ? 12 : 0))), { t: i * gap, gain: 0.038, dur: 1.3, partials: GLASS, pan: (i - k / 2) * 0.2, wet: 0.22 });
     },
 
     buy() {
       // a bright strum and a chime, in one of several shapes of the same chord (now and then strummed down)
       const V = [[[0, 4, 7, 12], 96], [[0, 2, 7, 9], 93], [[4, 7, 12, 16], 91], [[-5, 0, 4, 7], 96], [[0, 7, 12, 14], 100], [[2, 7, 9, 14], 93]];
       const [notes, chime] = V[pickV('buy', V.length)], gap = rand(0.05, 0.068), down = Math.random() < 0.25;
-      (down ? notes.slice().reverse() : notes).forEach((n, i) => pluck(midi(72 + n), { t: i * gap, gain: 0.075, dur: 1.2, bright: rand(0.28, 0.36), pan: (i - 1.5) * 0.08, wet: 0.2 }));
-      bell(midi(chime), { t: gap * 4 + 0.02, gain: 0.028, dur: 1.8, partials: GLASS, wet: 0.28 });
+      (down ? notes.slice().reverse() : notes).forEach((n, i) => pluck(midi(tr(72 + n)), { t: i * gap, gain: 0.075, dur: 1.2, bright: rand(0.28, 0.36), pan: (i - 1.5) * 0.08, wet: 0.2 }));
+      bell(midi(tr(chime)), { t: gap * 4 + 0.02, gain: 0.028, dur: 1.8, partials: GLASS, wet: 0.28 });
     },
 
     equip() {
       const [a, b] = [[76, 83], [74, 81], [77, 84], [79, 86], [72, 79]][pickV('equip', 5)];
-      wood(midi(a), { gain: 0.045, dur: rand(0.17, 0.23) });
-      pluck(midi(b), { t: rand(0.04, 0.06), gain: 0.046, dur: 0.9, wet: 0.18 });
+      wood(midi(tr(a)), { gain: 0.045, dur: rand(0.17, 0.23) });
+      pluck(midi(tr(b)), { t: rand(0.04, 0.06), gain: 0.046, dur: 0.9, wet: 0.18 });
     },
 
     deny() {
@@ -643,8 +721,8 @@ const Sound = (() => {
     release() {
       S.plop(1.1);
       const [a, b] = [[74, 79], [72, 79], [76, 81], [74, 81]][pickV('release', 4)];
-      pluck(midi(a), { t: 0.12, gain: 0.06, dur: 1.2, wet: 0.22 });
-      pluck(midi(b), { t: 0.22, gain: 0.05, dur: 1.6, wet: 0.26 });
+      pluck(midi(tr(a)), { t: 0.12, gain: 0.058, dur: 1.3, bright: 0.26, wet: 0.24 });
+      pluck(midi(tr(b)), { t: 0.22, gain: 0.05, dur: 1.7, bright: 0.25, wet: 0.27 });
     },
 
     /* ---- the aquarium ---- */
@@ -866,9 +944,10 @@ const Sound = (() => {
     const clickHP = filter('highpass', 700, 0.7), clickBus = gainNode(1), rP = panNode(0.22);
     clickBus.connect(clickHP); clickHP.connect(rP); rP.connect(sfx);
     const rs = gainNode(0.05); rP.connect(rs); rs.connect(verbIn);
-    // a soft drone that warms as the ring fills
-    const o1 = ctx.createOscillator(); o1.frequency.value = midi(55);
-    const o2 = ctx.createOscillator(); o2.setPeriodicWave(warmWave); o2.frequency.value = midi(62);
+    // a soft drone on the root and fifth of the water's chord that warms as the ring fills
+    const droot = fit(harmony().root, 53);
+    const o1 = ctx.createOscillator(); o1.frequency.value = midi(droot);
+    const o2 = ctx.createOscillator(); o2.setPeriodicWave(warmWave); o2.frequency.value = midi(droot + 7);
     const lp = filter('lowpass', 320, 0.4), dg = gainNode(0);
     o1.connect(dg); o2.connect(lp); lp.connect(dg); dg.connect(sfx);
     const ds = gainNode(0.4); dg.connect(ds); ds.connect(verbIn);
@@ -899,7 +978,8 @@ const Sound = (() => {
       r.creakT = rand(1.6, 2.8) / (0.6 + tire);
     }
     T(r.whir.g.gain, s.holding ? 0.016 : 0.0001, 0.06);
-    T(r.dg.gain, s.inBand ? 0.012 + s.progress * 0.018 : 0.005, 0.2);
+    // it leans in as the ring fills and eases back (never drops out) while the fish is out of the band
+    T(r.dg.gain, s.inBand ? 0.012 + s.progress * 0.018 : 0.008, s.inBand ? 0.35 : 0.7);
     T(r.lp.frequency, 300 + s.progress * 1300, 0.25);
 
     // the ratchet: spins up quickly while you wind and coasts down when you let go; when the fish
@@ -917,11 +997,11 @@ const Sound = (() => {
       }
     } else r.nextClick = 0;
     if (V && V.update) V.update(r, s, dt, now);
-    // a harp climbs the pentatonic scale as the ring fills
+    // a harp climbs the water's scale as the ring fills, a little fuller as it nears the top
     const step = Math.floor(s.progress / 0.07);
     if (s.inBand && step > r.step) {
-      const n = Math.max(0, step), note = 62 + REEL_SCALE[n % 5] + 12 * Math.floor(n / 5);
-      pluck(midi(Math.min(note, 98)), { gain: 0.07, dur: 1.3, bright: 0.34, pan: ((s.fishPos ?? 0.5) - 0.5) * 0.8, wet: 0.18 });
+      const n = Math.max(0, step) + 1, note = tr(60) + REEL_SCALE[n % 5] + 12 * Math.floor(n / 5);
+      pluck(midi(Math.min(note, 98)), { gain: 0.056 + 0.016 * Math.min(1, s.progress), dur: 1.5, bright: 0.28, pan: ((s.fishPos ?? 0.5) - 0.5) * 0.8, wet: 0.22 });
       r.step = step;
     } else if (step < r.step - 1) r.step = step + 1;
     // droplets flicked up when the fish thrashes
@@ -935,25 +1015,44 @@ const Sound = (() => {
     }
   }
 
-  function stopReel() {
+  /* how: 'land' lets the drone brighten and linger a moment, handing over to the catch's music; 'lost'
+     lets it sigh down a step as the line goes slack. */
+  function stopReel(how) {
     if (!reel || !ctx) { reel = null; return; }
     const now = ctx.currentTime, r = reel;
     reel = null;
-    for (const g of [r.churn.g, r.strain.g, r.whir.g, r.dg, r.clickBus, r.vbus]) g.gain.setTargetAtTime(0, now, 0.12);
-    setTimeout(() => { for (const x of [r.churn.src, r.strain.src, r.whir.src, r.o1, r.o2, ...r.vsrc]) { try { x.stop(); } catch (e) {} } }, 900);
+    for (const g of [r.churn.g, r.strain.g, r.whir.g, r.clickBus, r.vbus]) g.gain.setTargetAtTime(0, now, 0.12);
+    const dg = r.dg.gain;
+    let tail = 0.9;
+    dg.cancelScheduledValues(now); dg.setValueAtTime(dg.value, now);
+    if (how === 'land') {
+      dg.setTargetAtTime(0, now + 0.3, 0.6);
+      r.lp.frequency.cancelScheduledValues(now); r.lp.frequency.setValueAtTime(r.lp.frequency.value, now);
+      r.lp.frequency.setTargetAtTime(1300, now, 0.35);
+      tail = 5;
+    } else if (how === 'lost') {
+      for (const o of [r.o1, r.o2]) o.frequency.setTargetAtTime(o.frequency.value * 0.891, now, 0.35);
+      dg.setTargetAtTime(0, now + 0.1, 0.4);
+      tail = 3;
+    } else dg.setTargetAtTime(0, now, 0.12);
+    if (ambient && !ambient.dead) ambient.chordAt = Math.max(ambient.chordAt, now + 6);
+    setTimeout(() => { for (const x of [r.churn.src, r.strain.src, r.whir.src, r.o1, r.o2, ...r.vsrc]) { try { x.stop(); } catch (e) {} } }, tail * 1000);
   }
 
   /* ================= Ambience ================= */
   /* Each water: a slowly changing chord, a water bed with laps, wind, and its own creatures and moments.
+     key: how far the water's music sits from C (its chords use the notes of that key's pentatonic scale).
      events: name → [min, max] seconds between occurrences. */
   const LAKES = {
     mistwillow: {
+      key: 0,
       chords: [[48, 55, 64, 71], [45, 52, 60, 67], [41, 48, 57, 64]], pad: 0.012,
       water: { level: 0.05, cut: 520, laps: [0.5, 1.6], lap: 0.03 },
       wind: { level: 0.01, f: 700, q: 0.6 },
       events: { birds: [2.5, 6.5], dove: [12, 22], plink: [6, 14], rustle: [8, 16] },
     },
     lanternfen: {
+      key: 0,
       chords: [[45, 52, 60, 67], [41, 48, 57, 64], [43, 50, 59, 62]], pad: 0.011,
       water: { level: 0.045, cut: 420, laps: [0.8, 2.2], lap: 0.022 },
       wind: { level: 0.005, f: 500, q: 0.7 },
@@ -961,18 +1060,21 @@ const Sound = (() => {
       events: { frog: [4, 10], bubbles: [6, 13], plink: [8, 16] },
     },
     coralspire: {
+      key: 0,
       chords: [[53, 60, 64, 69], [50, 57, 62, 69], [48, 55, 64, 67]], pad: 0.0095,
       water: { level: 0.05, cut: 900, laps: [0.4, 1.2], lap: 0.032 },
       wind: { level: 0.014, f: 900, q: 0.5 },
       events: { surf: [5, 9], gull: [11, 22], rustle: [7, 13], plink: [9, 18] },
     },
     frostveil: {
+      key: 2,
       chords: [[50, 57, 62, 64, 69], [47, 54, 62, 66, 69], [45, 52, 57, 64, 69]], pad: 0.011,
       water: { level: 0.03, cut: 380, laps: [1.2, 3], lap: 0.018 },
       wind: { level: 0.03, f: 520, q: 4, howl: true },
       events: { icechime: [3.5, 8], icecreak: [12, 24], icesing: [18, 34], aurora: [16, 30] },
     },
     dragonmere: {
+      key: -2,
       chords: [[43, 50, 55, 58, 65], [39, 46, 55, 58, 63], [41, 48, 53, 60, 65]], pad: 0.012,
       water: { level: 0.04, cut: 450, laps: [0.9, 2.4], lap: 0.022 },
       wind: { level: 0.009, f: 600, q: 1.2 },
@@ -1102,6 +1204,7 @@ const Sound = (() => {
     lfo.connect(lfoG); lfoG.connect(lp.frequency); lfo.start(t0); h.nodes.push(lfo);
     const out = gainNode(L.pad); lp.connect(out); out.connect(h.in);
     const ps = gainNode(0.9); out.connect(ps); ps.connect(h.verb);
+    h.pad = { lp, out, base: L.pad, f: 820 };
     h.voices = [];
     for (let i = 0; i < n; i++) {
       const note = chord[i] ?? chord[0] + 12, base = i === 0 ? 1 : 0.5;
@@ -1227,6 +1330,8 @@ const Sound = (() => {
       c.lvl.gain.setTargetAtTime(Math.random() < 0.72 ? c.base * rand(0.7, 1) : 0, now, 1.2);
       c.next = now + rand(3, 8);
     }
+    // the chord holds while a fish is on the line, so the reel's drone and harp stay in harmony with it
+    if (reel) h.chordAt = Math.max(h.chordAt, now + 3);
     if (h.chordAt <= now) {
       // move to the next chord one voice at a time, each dipping out and back in on its new note
       h.chord = (h.chord + 1) % L.chords.length;
@@ -1254,7 +1359,9 @@ const Sound = (() => {
 
   /* How far (in cents) each effect's take may wander in pitch: most a little, small clicks and splashes
      more, and anything tuned to a melody (the singing geodes) not at all. */
-  const SPREAD = { geode: 0, blessing: 4, gate: 6, landed: 8, levelUp: 8, unlock: 8, click: 30, glass: 20, plop: 20, splashIn: 25, thud: 22, gulp: 30, boop: 25, flakes: 25, pebbles: 25 };
+  // the music that answers the water's pad (bites, the meter, landings, rewards) stays in tune with it
+  const SPREAD = { geode: 0, blessing: 4, gate: 6, landed: 0, levelUp: 0, unlock: 0, badge: 0, meterSet: 0, escape: 2, bite: 3, coin: 2, buy: 2, release: 3, open: 3, equip: 3,
+    click: 30, glass: 20, plop: 20, splashIn: 25, thud: 22, gulp: 30, boop: 25, flakes: 25, pebbles: 25 };
   const play = (name, ...args) => {
     if (!ctx || !enabled || !S[name]) return;
     const sp = SPREAD[name] ?? 14;
@@ -1268,6 +1375,6 @@ const Sound = (() => {
     get enabled() { return enabled; },
     get ready() { return !!ctx; },
     /* for offline rendering in tests */
-    _test: { S, EV, LAKES, GV, tick, lap, pluck, bell, reel: () => reel, offline(on) { offline = on; if (on && ticker) { clearInterval(ticker); ticker = null; } } },
+    _test: { S, EV, LAKES, GV, tick, lap, pluck, bell, glow, harmony, midi, reel: () => reel, offline(on) { offline = on; if (on && ticker) { clearInterval(ticker); ticker = null; } } },
   };
 })();
