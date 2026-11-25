@@ -27,6 +27,7 @@
   const fresh = () => ({
     v: 2, xp: 0, loc: 'mistwillow', caught: {}, total: 0, sound: true, intro: false,
     pearls: 0, net: [], netTier: 0, uid: 1, gifts: [],
+    fullWarned: 0, // the aquarium room the "full" reminder was last shown at (0: not full since)
     ach: null, // badges and the scrapbook (js/badges.js fills this in)
     // the aquariums: when they were last looked after, the pearls on each tank's sand, bonds between fish,
     // mates, each fish's unfinished pearl, when each tank was fed, and which tank was last looked at
@@ -76,6 +77,7 @@
     if (!Gear.LINE[s.equip.line] || !s.owned.lines.includes(s.equip.line)) s.equip.line = 'mono';
     if (s.equip.bait && !(s.bait[s.equip.bait] > 0)) s.equip.bait = null;
     s.netTier = clamp(s.netTier | 0, 0, TANKS.length - 1);
+    s.fullWarned = Math.max(0, s.fullWarned | 0);
     // From one tank to many: every tank bought is kept. Pearls on the old sand and the last feeding move
     // to the tank the fish were living in, and every fish is given a home tank.
     if (Array.isArray(s.tank.drops)) { if (s.tank.drops.length) s.tank.sands[s.netTier] = (s.tank.sands[s.netTier] || []).concat(s.tank.drops); delete s.tank.drops; }
@@ -116,7 +118,7 @@
     entry: { x: 0, y: 0 }, facing: 1,
     ripples: [], drops: [],
     rodBend: 0.08, swing: 0, pull: 0, spin: 0,
-    forced: null, rippleT: 0, baitRanOut: null, fullWarnAt: -99,
+    forced: null, rippleT: 0, baitRanOut: null,
     pend: { a: 0, v: 0 }, tipPrev: null, tipVel: { x: 0, y: 0 }, flex: 0, flexV: 0, bobDip: 0, prevFishV: 0,
   };
   const STEP = 1 / 120;
@@ -324,8 +326,14 @@
     Sound.play('cast', save.equip.line);
     setPrompt('');
     ui.prompt.classList.remove('breathe');
-    if (save.net.length >= netCap() && G.t - G.fullWarnAt > 25) {
-      G.fullWarnAt = G.t;
+    // The reminder that the tanks are full shows once, on the first cast after they fill. It comes back
+    // only at a new ceiling: after a new tank is bought and filled, or the tanks are emptied to three
+    // quarters and filled again. A player who keeps fishing at the ceiling, selling one to keep one,
+    // knows already.
+    const cap = netCap();
+    if (save.net.length <= cap * 0.75) save.fullWarned = 0;
+    else if (save.fullWarned !== cap) {
+      save.fullWarned = cap; persist();
       toast(`Your ${save.netTier ? 'aquariums are' : 'aquarium is'} full. Sell a few fish, or buy another tank, to keep new catches.`, '#ff8c7c', 3800);
     }
   }
@@ -884,12 +892,56 @@
     G.drops = G.drops.filter(d => !(d.vy > 0 && d.y > d.floor) && d.t < 2.5);
 
     if (!modalOpen() || G.phase === 'landing') updatePhase(dt);
+    nudges(dt);
     // the meter's entrance is over a second after it began
     if (G.enterAt != null && G.t - G.enterAt > 1.05 && ui.reel.classList.contains('enter')) ui.reel.classList.remove('enter');
     animateRod(dt);
     physics(dt);
     updateShoal(dt);
     Flourish.update(dt, L, G.t);
+  }
+
+  /* ================= Nudges =================
+     A notification left waiting (new badges in the scrapbook, new mates or pearls in the aquarium, new
+     waters on the map) now and then nudges its button with a small bounce and a soft sound from that
+     corner, so the eye goes there. Only while fishing calmly (idle, or waiting for a bite, with no menu
+     open), never two within three minutes, and each notification waits two and a half times
+     as long before its next nudge (up to fifteen minutes). Time counts only while playing, and a new or changed
+     notification starts its count again. */
+  const NUDGES = {
+    place: { btn: '#btn-place', on: () => $('#btn-place').classList.contains('pulse'), sig: () => 'new', first: () => 35 },
+    book: { btn: '#btn-book', on: () => !$('#book-dot').hidden, sig: () => $('#btn-book').getAttribute('aria-label'), first: () => 60 },
+    tank: {
+      btn: '#btn-net', on: () => !ui.tankDot.hidden,
+      sig: () => ui.tankDot.classList.contains('heart') ? 'mates' : ui.tankDot.classList.contains('full') ? 'full' : 'pearls',
+      // new mates and a full sand matter sooner than a few pearls lying about
+      first: sig => sig === 'pearls' ? 240 : 55,
+    },
+  };
+  const NUDGE_GAP = 180, NUDGE_MAX = 900;
+  let playT = 0, nudgeAt = -1e9, nudgeTick = 0;
+  function nudges(dt) {
+    if (modalOpen() || document.hidden) return;
+    playT += dt;
+    if ((nudgeTick -= dt) > 0) return;
+    nudgeTick = 0.5;
+    let due = null;
+    for (const [kind, N] of Object.entries(NUDGES)) {
+      const st = N.st || (N.st = { sig: null, since: 0, wait: 0 });
+      const sig = N.on() ? N.sig() : null;
+      if (sig !== st.sig) { st.sig = sig; st.since = playT; st.wait = sig ? N.first(sig) : 0; }
+      if (sig && playT - st.since >= st.wait && (!due || st.wait < due.st.wait)) due = { kind, N, st };
+    }
+    if (!due || !['idle', 'waiting'].includes(G.phase) || playT - nudgeAt < NUDGE_GAP) return;
+    nudgeAt = playT;
+    due.st.since = playT;
+    due.st.wait = Math.min(NUDGE_MAX, due.st.wait * 2.5);
+    const b = $(due.N.btn);
+    b.classList.remove('nudge');
+    void b.offsetWidth;
+    b.classList.add('nudge');
+    setTimeout(() => b.classList.remove('nudge'), 1300);
+    Sound.play('nudge', due.kind);
   }
 
   function updatePhase(dt) {
@@ -2128,6 +2180,7 @@
     unlockAll() { save.xp = Math.max(save.xp, xpToReach(Gear.TOP_LEVEL)); persist(); updateHUD(); },
     reset() { save = fresh(); persist(); location.reload(); },
     badges(ids) { Badges.grant(ids); return `${Object.keys(save.ach.got).length} badges earned`; },
+    nudgeNow(kind) { const N = NUDGES[kind]; if (N && N.st) { N.st.wait = 0; nudgeAt = -1e9; } },
     get state() { return { t: G.t, phase: G.phase, save: JSON.parse(JSON.stringify(save)), reel: G.reel && { progress: G.reel.progress, band: G.reel.band.x, width: G.reel.band.w, mods: G.reel.mods, fish: G.reel.fish.shown, inBand: G.reel.inBand, el: G.reel.el, best: G.reel.best, strain: G.reel.strain }, shadow: FS && { ...FS }, shoal: SHOAL.map(S => ({ x: S.x, y: S.y, k: +S.k.toFixed(3), mode: S.mode, alpha: +S.alpha.toFixed(3), taker: S.taker })), wait: G.wait && { eager: G.wait.eager, spooked: G.wait.spooked, taker: !!G.wait.taker, next: G.wait.next && { id: G.wait.next.id, cm: G.wait.next.fish.cm } }, lastBite: G.lastBite, bob: G.phase === 'reeling' ? { ...G.entry } : bobPos(), tip: rodTip(), cast: G.cast && { k: G.cast.k, struck: G.cast.obj ? G.cast.obj.kind : null, hit: G.cast.hit ? G.cast.hit.t : -1 } }; },
   };
   /* ================= Gifts =================

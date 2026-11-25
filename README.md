@@ -215,7 +215,20 @@ the catch screen or later from your aquarium, and spend them on:
 - **Aquariums:** six tanks, bought in order. Every tank you buy is kept and adds its room to the
   others, from 8 fish with the first up to 80 with all six, and each is more elaborate than the last
   (see [The aquarium](#the-aquarium)). When every tank is full, keeping a new fish means selling or
-  releasing one first.
+  releasing one first. A reminder that the tanks are full shows once, on the first cast after they
+  fill; it stays quiet while you keep fishing at the ceiling to sell or swap, and comes back only when
+  you reach a new one (after buying a tank, or emptying the tanks to three quarters and filling them
+  again).
+
+**Nudges.** New badges (a gold dot on the scrapbook), new mates or pearls in the aquarium (a dot on the
+tank button) and new waters (a green dot and ring on the map) wait quietly. If one is left unchecked
+for a while, its button now and then gives a small bounce and wiggle with a ring of light and a soft
+sound from that corner (a bubble and chime for the aquarium, a rustle and chime for the scrapbook, two
+rising notes for the map), in the water's key. Nudges come only while you are fishing calmly (idle or
+waiting for a bite, with no menu open), never within three minutes of each other, and each waiting
+notification leaves two and a half times longer before nudging again, up to fifteen minutes. New mates
+and a full sand nudge after about a minute, new badges after one, new waters after about half a
+minute, and a few pearls lying about only after four. With reduced motion the button glows instead.
 
 Star a fish to protect it from "Sell all unstarred". Legendary and Extreme catches are starred
 automatically.
