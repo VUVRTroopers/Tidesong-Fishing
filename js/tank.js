@@ -232,9 +232,82 @@ const Tank = (() => {
   /* How a mood reads, from its multiplier. */
   const MOODS = [[2.0, 'Joyful'], [1.55, 'Happy'], [1.1, 'Content'], [0.8, 'Restless'], [0, 'Unhappy']];
   const moodName = mult => MOODS.find(([v]) => mult >= v)[1];
-  const moodTag = mult => { const n = moodName(mult); return `<b class="mood-word" data-mood="${n.toLowerCase()}">${n}</b>`; };
-  const rateHTML = r => `<span class="pearl" aria-hidden="true"></span>${r < 10 ? r.toFixed(1).replace(/\.0$/, '') : Math.round(r).toLocaleString('en-US')} an hour`;
+  const moodKey = mult => moodName(mult).toLowerCase();
   const hungry = t => fishIn(t).length > 0 && satiety(t) < 0.3;
+  const foodKey = sat => sat > 0.6 ? 'full' : sat >= 0.3 ? 'peckish' : 'hungry';
+  const rateWord = r => r < 10 ? r.toFixed(1).replace(/\.0$/, '') : Math.round(r).toLocaleString('en-US');
+  const tipAttr = s => ` data-tip="${esc(s)}"`;
+  function foodTip(sat, who = 'it') {
+    const k = foodKey(sat), h = Math.round((sat - 0.3) * MOOD.fullH);
+    if (k === 'hungry') return `Hungry: tap Feed to cheer ${who === 'it' ? 'it' : 'them'} up`;
+    return `${k === 'full' ? 'Well fed' : 'Peckish'} · hungry ${h < 1 ? 'within the hour' : `in about ${h} ${h === 1 ? 'hour' : 'hours'}`}`;
+  }
+  /* Little pictures for how a fish is doing: a face for its mood, a bowl (or a knife and fork) for its
+     food, two fish for its friends, a heart for its mate and a row of pearls for how much it makes. */
+  const INK = '#22303a';
+  const FACE_FEATURES = {
+    joyful: `<path d="M7.1 10.9q1.7-2.5 3.4 0M13.5 10.9q1.7-2.5 3.4 0" fill="none" stroke="${INK}" stroke-width="1.7" stroke-linecap="round"/>
+      <path d="M6.9 13.3q5.1 1 10.2 0q-.9 5.6-5.1 5.6t-5.1-5.6z" fill="${INK}"/><path d="M9.5 17.3q2.5-1.6 5 0q-.9 1.5-2.5 1.5t-2.5-1.5z" fill="#ff8597"/>
+      <path d="M20.4 .9q.4 2.1 2.4 2.5q-2 .4-2.4 2.5q-.4-2.1-2.4-2.5q2-.4 2.4-2.5z" fill="#fff6cf"/>`,
+    happy: `<circle cx="8.7" cy="10.3" r="1.35" fill="${INK}"/><circle cx="15.3" cy="10.3" r="1.35" fill="${INK}"/>
+      <path d="M7.5 13.7q4.5 4.9 9 0" fill="none" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/>`,
+    content: `<circle cx="8.7" cy="10.7" r="1.25" fill="${INK}"/><circle cx="15.3" cy="10.7" r="1.25" fill="${INK}"/>
+      <path d="M9.2 14.7q2.8 1.9 5.6 0" fill="none" stroke="${INK}" stroke-width="1.6" stroke-linecap="round"/>`,
+    restless: `<path d="M6.8 8.7l3.3-1.2M17.2 8.7l-3.3-1.2" fill="none" stroke="${INK}" stroke-width="1.5" stroke-linecap="round"/>
+      <circle cx="8.7" cy="11.2" r="1.25" fill="${INK}"/><circle cx="15.3" cy="11.2" r="1.25" fill="${INK}"/>
+      <path d="M7.8 15.8q1.4-1.4 2.8 0t2.8 0t2.8 0" fill="none" stroke="${INK}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`,
+    unhappy: `<path d="M6.5 7.7l3.9 1.8M17.5 7.7l-3.9 1.8" fill="none" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/>
+      <circle cx="8.8" cy="11.6" r="1.25" fill="${INK}"/><circle cx="15.2" cy="11.6" r="1.25" fill="${INK}"/>
+      <path d="M8.1 17.3q3.9-3.7 7.8 0" fill="none" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/>`,
+  };
+  const CHEEKS = '<circle cx="5.3" cy="12.3" r="1.35" fill="#ff8a8a" opacity=".5"/><circle cx="18.7" cy="12.3" r="1.35" fill="#ff8a8a" opacity=".5"/>';
+  const faceSVG = mood => `<svg class="ico face" data-mood="${mood}" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12.4" r="9.6" class="face-base"/>
+      <path d="M2.6 13.6a9.6 9.6 0 0 0 18.8 0a9.6 7.4 0 0 1-18.8 0z" fill="#000" opacity=".13"/>
+      <ellipse cx="8.6" cy="7.4" rx="3.7" ry="2" transform="rotate(-28 8.6 7.4)" fill="#fff" opacity=".38"/>
+      ${mood === 'joyful' || mood === 'happy' ? CHEEKS : ''}${FACE_FEATURES[mood]}</svg>`;
+  const BOWL = `<path d="M2.8 11h18.4q-.2 7.8-9.2 8.6q-9-.8-9.2-8.6z" fill="#d6e6ef"/>
+      <path d="M3.5 14.2q8.5 1.7 17 0" fill="none" stroke="#6ea7c7" stroke-width="1.4"/>
+      <path d="M4.6 16.4q7.4 2.6 14.8 0q-2.2 2.9-7.4 3.2q-5.2-.3-7.4-3.2z" fill="#000" opacity=".12"/>
+      <path d="M2.8 11h18.4" stroke="#f6fbff" stroke-width="1.3" stroke-linecap="round"/>
+      <rect x="8.6" y="19.1" width="6.8" height="1.9" rx=".95" fill="#a9c2d2"/>`;
+  const FOOD = {
+    full: `<svg class="ico food" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4.6 11.2q.9-6.1 7.4-6.5q6.5.4 7.4 6.5z" fill="#f3a65c"/>
+      <path d="M7 8.9l1.9-.9.5 1.5zM11.2 6.6l1.8.3-.8 1.4zM14.4 9.1l1.9-.2-.6 1.6zM9.6 10.2l1.4-.9.7 1.3z" fill="#ff6f6f"/>
+      <path d="M12.6 9.6l1.6-.6.3 1.5zM8.8 6.9l1.5.1-.6 1.2zM15.6 7.1l1.2.8-1.3.7z" fill="#ffd35c"/>
+      <path d="M6 10.4l1.3-.3.1 1z M16.9 10.2l1.2.4-1 .7z" fill="#7fd38c"/>
+      ${BOWL}
+      <path d="M20.6 1.4q.4 1.9 2.2 2.3q-1.8.4-2.2 2.3q-.4-1.9-2.2-2.3q1.8-.4 2.2-2.3z" fill="#fff6cf"/></svg>`,
+    peckish: `<svg class="ico food" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M6 11.2q6-4.6 12 0z" fill="#f3a65c"/><path d="M9.6 9.9l1.5-.6.4 1.2zM13.4 9.6l1.4.2-.7 1.1z" fill="#ff6f6f"/><path d="M11.8 9.2l1.2.3-.9.8z" fill="#ffd35c"/>
+      ${BOWL}</svg>`,
+    hungry: `<svg class="ico food hungry" viewBox="0 0 24 24" aria-hidden="true">
+      <g fill="none" stroke="#ffb46e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5.6 3v5.1a2.4 2.4 0 0 0 4.8 0V3M8 3v18"/><path d="M16.8 21V3c2.5 1.5 3.3 5.2 2.6 9.7h-2.6"/></g></svg>`,
+  };
+  const FRIENDS_SVG = `<svg class="ico friends" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4.2 15.6l-3.5-3.3.1 6.6z" fill="#56ad9c"/><path d="M3.6 15.6q4.7-6.2 9.8-.4q-5.1 5.8-9.8.4z" fill="#7fd1c1"/>
+      <path d="M6.6 12.9q1.5-2.2 3.6-1.3" fill="none" stroke="#56ad9c" stroke-width="1.1" stroke-linecap="round"/>
+      <circle cx="10.7" cy="14.6" r="1" fill="${INK}"/>
+      <path d="M19.8 8.6l3.5-3.3-.1 6.6z" fill="#e6a35c"/><path d="M20.4 8.6q-4.7-6.2-9.8-.4q5.1 5.8 9.8.4z" fill="#ffc98a"/>
+      <path d="M17.4 5.9q-1.5-2.2-3.6-1.3" fill="none" stroke="#e6a35c" stroke-width="1.1" stroke-linecap="round"/>
+      <circle cx="13.3" cy="7.6" r="1" fill="${INK}"/></svg>`;
+  const HEART_PATH = 'M12 20.4C6 16.2 3 12.9 3 9.4 3 6.8 5 5 7.4 5c1.9 0 3.5 1 4.6 2.7C13.1 6 14.7 5 16.6 5 19 5 21 6.8 21 9.4c0 3.5-3 6.8-9 11z';
+  const heartSVG = away => `<svg class="ico heart${away ? ' away' : ''}" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="${HEART_PATH}" fill="${away ? '#a3788c' : '#ff7fb0'}"/>
+      <ellipse cx="7.7" cy="8.6" rx="1.9" ry="1.2" transform="rotate(-30 7.7 8.6)" fill="#fff" opacity="${away ? '.25' : '.55'}"/>
+      ${away ? '<path d="M12 7.6l-1.6 3.1 2.7 2.1-1.9 3.9" fill="none" stroke="#14212b" stroke-width="1.5" stroke-linejoin="round"/>' : ''}</svg>`;
+  /* Pearls an hour as a row of five pearls, on a scale that runs from a hungry, lonely Common (half a
+     pearl) to a joyful Extreme (all five), so a fish's row says at a glance how much it adds. */
+  const GAUGE_LO = 0.7, GAUGE_HI = 140;
+  const gaugeOf = rate => Math.max(1, Math.min(10, Math.round(10 * Math.log(Math.max(rate, GAUGE_LO) / GAUGE_LO) / Math.log(GAUGE_HI / GAUGE_LO))));
+  const gaugeHTML = rate => {
+    const h = gaugeOf(rate);
+    let s = '';
+    for (let i = 0; i < 5; i++) s += `<i class="pg${h >= 2 * i + 2 ? ' f' : h === 2 * i + 1 ? ' h' : ''}"></i>`;
+    return s;
+  };
   /* Every tank's fish make pearls for the `hours` up to `end`, up to what that tank's sand can hold, as
      fed as they were over that time (a meal wears off as the hours pass). */
   function accrue(hours, live = false, end = Date.now()) {
@@ -1740,7 +1813,7 @@ const Tank = (() => {
     for (const T of P.tanks) {
       const on = !all && T.t === here, name = TANKS[T.t].name;
       const hg = hungry(T.t), say = `${name}: ${T.fish} of ${T.cap} fish${hg ? ', hungry' : ''}${T.full ? ', its sand is full of pearls' : T.pearls ? ', pearls waiting' : ''}`;
-      h += `<button type="button" class="filter tank-tab${on ? ' on' : ''}${T.fish >= T.cap ? ' full-tank' : ''}" data-tab="${T.t}" aria-pressed="${on}" aria-label="${esc(say)}">${hg ? '<i class="tt-hungry" aria-hidden="true"></i>' : ''}${T.pearls ? `<i class="tt-dot${T.full ? ' full' : ''}" aria-hidden="true"></i>` : ''}${esc(name)} <small>${T.fish}/${T.cap}</small></button>`;
+      h += `<button type="button" class="filter tank-tab${on ? ' on' : ''}${T.fish >= T.cap ? ' full-tank' : ''}" data-tab="${T.t}" aria-pressed="${on}" aria-label="${esc(say)}">${hg ? `<i class="tt-hungry" aria-hidden="true">${FOOD.hungry}</i>` : ''}${T.pearls ? `<i class="tt-dot${T.full ? ' full' : ''}" aria-hidden="true"></i>` : ''}${esc(name)} <small>${T.fish}/${T.cap}</small></button>`;
     }
     el.innerHTML = h;
     el.hidden = false;
@@ -1791,17 +1864,54 @@ const Tank = (() => {
   function renderRate() {
     const el = $('#tank-rate'), all = view === 'list' && listAll, ts = all ? tanks() : [here];
     const recs = ts.flatMap(t => fishIn(t));
-    if (!recs.length) { el.hidden = true; el.innerHTML = ''; }
+    if (!recs.length) { el.hidden = true; el.innerHTML = ''; el.dataset.sig = ''; }
     else {
       let r = 0, m = 0;
       for (const rec of recs) { const md = moodOf(rec); r += (YIELD[rarityOf(rec)] || 0) * md.mult; m += md.mult; }
-      const html = `${moodTag(m / recs.length)}<span>·</span>${rateHTML(r)}`;
-      if (el.innerHTML !== html) el.innerHTML = html;
+      const avg = m / recs.length, full = ts.filter(t => fishIn(t).length);
+      const low = full.reduce((a, t) => satiety(t) < satiety(a) ? t : a, full[0]), sat = satiety(low);
+      const hungryIn = full.filter(hungry).map(t => TANKS[t].name);
+      const faceT = `${moodName(avg)} on the whole · about ${rateWord(r)} pearls an hour${all ? ' from every tank' : ''}`;
+      const foodT = all && hungryIn.length ? `Hungry in the ${hungryIn.join(', ')}` : foodTip(sat, 'they');
+      const html = `<span class="mood-icons sm" role="img" aria-label="${esc(`${faceT}. ${foodT}.`)}"><i class="mi"${tipAttr(faceT)}>${faceSVG(moodKey(avg))}</i><i class="mi"${tipAttr(foodT)}>${FOOD[foodKey(sat)]}</i></span>`;
+      if (el.dataset.sig !== html) { el.innerHTML = html; el.dataset.sig = html; dropTip(); }
       el.hidden = false;
     }
     const fb = $('#tank-feed'), hg = hungry(here);
     fb.classList.toggle('hungry', hg);
     fb.setAttribute('aria-label', hg ? 'Feed: your fish are hungry' : 'Feed');
+  }
+  /* The little pictures explain themselves: hover one with a mouse, or tap it, and a word or two
+     appears above it. */
+  let tipEl = null, tipOn = null, tipT = 0, tipPtr = 'mouse';
+  function showTip(el, linger) {
+    if (!tipEl) { tipEl = document.createElement('div'); tipEl.className = 'mood-tip'; tipEl.setAttribute('aria-hidden', 'true'); document.body.appendChild(tipEl); }
+    tipEl.textContent = el.dataset.tip;
+    tipOn = el;
+    const r = el.getBoundingClientRect(), w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+    const x = clamp(r.left + r.width / 2 - w / 2, 8, window.innerWidth - w - 8), y = r.top - h - 8 < 8 ? r.bottom + 8 : r.top - h - 8;
+    tipEl.style.left = `${Math.round(x)}px`; tipEl.style.top = `${Math.round(y)}px`;
+    tipEl.classList.add('on');
+    clearTimeout(tipT);
+    if (linger) tipT = setTimeout(hideTip, 2800);
+  }
+  function hideTip() { clearTimeout(tipT); tipOn = null; if (tipEl) tipEl.classList.remove('on'); }
+  // a redraw that took away what the tip points at takes the tip too
+  const dropTip = () => { if (tipOn && !tipOn.isConnected) hideTip(); };
+  function onTipOver(e) {
+    if (e.pointerType !== 'mouse') return;
+    const t = e.target.closest('[data-tip]');
+    if (t && t !== tipOn) showTip(t, false);
+  }
+  function onTipOut(e) {
+    if (e.pointerType !== 'mouse' || !tipOn) return;
+    const t = e.target.closest('[data-tip]');
+    if (t === tipOn && !(e.relatedTarget && t.contains(e.relatedTarget))) hideTip();
+  }
+  function onTipTap(e) {
+    const t = e.target.closest('[data-tip]'), touch = tipPtr !== 'mouse';
+    if (t) { if (tipOn === t && touch) hideTip(); else showTip(t, touch); }
+    else if (tipOn) hideTip();
   }
   /* The first few times pearls are waiting, a hint says how to gather them. */
   let pearlHinted = false;
@@ -1835,13 +1945,17 @@ const Tank = (() => {
     const miss = missing(rec);
     const missHTML = !miss ? '' : miss.mate ? `Misses its mate in the ${esc(TANKS[tankOf(miss.rec)].name)}. Mates make more pearls when they share a tank.`
       : `Misses its best friend, ${an(SPECIES[miss.rec.id].name)} ${esc(SPECIES[miss.rec.id].name)}, in the ${esc(TANKS[tankOf(miss.rec)].name)}.`;
-    const md = moodOf(rec), why = [];
-    why.push(md.sat > 0.6 ? 'well fed' : md.sat > 0.25 ? 'peckish' : 'hungry');
-    const nf = md.friends + md.best;
-    why.push(nf ? `${nf} ${nf === 1 ? 'friend' : 'friends'}` : 'no friends yet');
-    if (md.mate === 'here') why.push('mate here 💕'); else if (md.mate === 'away') why.push('misses its mate');
-    const rate = (YIELD[sp.rarity] || 0) * md.mult;
-    const happyHTML = `<p class="fc-happy">${moodTag(md.mult)}<span>· ${why.join(' · ')}</span><span class="fc-rate">${rateHTML(rate)}</span></p>`;
+    const md = moodOf(rec), nf = md.friends + md.best, rate = (YIELD[sp.rarity] || 0) * md.mult, tr = tankRate(tankOf(rec));
+    const share = Math.max(1, Math.round(100 * rate / (tr || rate || 1)));
+    const T = {
+      face: `${moodName(md.mult)} · pearls ×${md.mult.toFixed(1)}`,
+      food: foodTip(md.sat),
+      friends: nf ? `${nf} ${nf === 1 ? 'friend' : 'friends'} in this tank${md.best ? ` · ${md.best} best` : ''}` : 'No friends in this tank yet',
+      mate: md.mate === 'here' ? 'Its mate is here' : md.mate === 'away' ? `Misses its mate in the ${TANKS[tankOf(mateRec(rec))].name}` : '',
+      rate: `About ${rateWord(rate)} pearls an hour${share < 100 ? ` · ${share}% of this tank's` : ''}`,
+    };
+    const say = [T.face, T.food, T.friends, T.mate, T.rate].filter(Boolean).join('. ') + '.';
+    const happyHTML = `<p class="fc-status" role="img" aria-label="${esc(say)}"><span class="mood-icons"><i class="mi"${tipAttr(T.face)}>${faceSVG(moodKey(md.mult))}</i><i class="mi"${tipAttr(T.food)}>${FOOD[foodKey(md.sat)]}</i><i class="mi${nf ? '' : ' zero'}"${tipAttr(T.friends)}>${FRIENDS_SVG}${nf}</i>${md.mate ? `<i class="mi"${tipAttr(T.mate)}>${heartSVG(md.mate === 'away')}</i>` : ''}</span><span class="pgauge"${tipAttr(T.rate)}>${gaugeHTML(rate)}</span></p>`;
     const sig = [f.uid, rec.fav, armedS, armedR, bonds.map(b => b.uid + ':' + Math.floor(b.v / 10)).join(','), rec.pearls || 0, missHTML, multi(), happyHTML].join('|');
     if (!force && sig === cardSig) return;
     cardSig = sig;
@@ -1864,6 +1978,7 @@ const Tank = (() => {
         <button type="button" class="text-btn${armedR ? ' armed' : ''}" data-tk="release">${armedR ? 'Tap again to release' : 'Release'}</button>
       </div>`;
     el.hidden = false;
+    dropTip();
     if (force) placeCard();
   }
   /* The card sits at the bottom of the tank, or the top when the fish it describes swims beneath it. */
@@ -1880,13 +1995,13 @@ const Tank = (() => {
     const s = api.save, sp = SPECIES[f.id], R = RARITIES[sp.rarity], rec = s.caught[f.id] || {}, tags = [];
     if (rec.best && f.kg >= rec.best) tags.push('Heaviest');
     if (rec.len && f.cm >= rec.len) tags.push('Longest');
-    const mate = S.mates[f.uid] !== undefined, miss = mate && missing(f), md = moodOf(f);
+    const mate = S.mates[f.uid] !== undefined, miss = mate && missing(f), md = moodOf(f), rate = (YIELD[sp.rarity] || 0) * md.mult;
     return `
           <li class="fishrow" style="--rc:${R.color}">
             <canvas class="fr-art" data-fish="${f.id}" aria-hidden="true"></canvas>
             <div class="fr-main">
-              <button type="button" class="fr-name fr-link" data-tk="show" data-uid="${f.uid}">${esc(sp.name)}${mate ? `<span class="fr-heart" aria-label="${miss ? 'misses its mate' : 'has a mate'}">${miss ? '💔' : '💕'}</span>` : ''}${tags.map(t => `<em class="tag">${t}</em>`).join('')}</button>
-              <span class="fr-meta"><i class="dot"></i>${R.name} · ${f.kg.toFixed(2)} kg · ${Math.round(f.cm)} cm<span class="fr-mood">${moodTag(md.mult)} · ${rateHTML((YIELD[sp.rarity] || 0) * md.mult).replace(' an hour', '/h')}</span></span>
+              <button type="button" class="fr-name fr-link" data-tk="show" data-uid="${f.uid}">${esc(sp.name)}${mate ? `<span class="fr-heart" role="img" aria-label="${miss ? 'misses its mate' : 'has a mate'}">${heartSVG(!!miss)}</span>` : ''}${tags.map(t => `<em class="tag">${t}</em>`).join('')}</button>
+              <span class="fr-meta"><i class="dot"></i>${R.name} · ${f.kg.toFixed(2)} kg · ${Math.round(f.cm)} cm<span class="fr-mood" role="img" aria-label="${esc(`${moodName(md.mult)}, about ${rateWord(rate)} pearls an hour`)}"><i class="mi"${tipAttr(`${moodName(md.mult)} · pearls ×${md.mult.toFixed(1)}`)}>${faceSVG(moodKey(md.mult))}</i><span class="pgauge sm"${tipAttr(`About ${rateWord(rate)} pearls an hour`)}>${gaugeHTML(rate)}</span></span></span>
             </div>
             <span class="fr-val">${pearlsHTML(f.value)}</span>
             <div class="fr-act">
@@ -1916,6 +2031,7 @@ const Tank = (() => {
     }
     box.innerHTML = html;
     box.hidden = false;
+    dropTip();
     requestAnimationFrame(paintList);
   }
   function paintList() {
@@ -2056,6 +2172,7 @@ const Tank = (() => {
     fish = []; sel = null; down = null; drag = null; pearlHinted = false;
     $('#pearl-hint').hidden = true;
     here = S.at = t; drops = sandOf(t); dirty = true;
+    hideTip();
     materialize(t);
     sc = null;
     layout();
@@ -2277,6 +2394,7 @@ const Tank = (() => {
   function onClosed() {
     if (!isOpen) return;
     isOpen = false;
+    hideTip();
     sel = null; down = null; drag = null; moving = null;
     $('#move-menu').hidden = true;
     S.at = here;
@@ -2407,6 +2525,11 @@ const Tank = (() => {
     $('#fish-card').addEventListener('click', onCard);
     $('#tank-list').addEventListener('click', onList);
     $('#tank-tabs').addEventListener('click', onTabs);
+    const mt = $('#m-tank');
+    mt.addEventListener('pointerdown', e => { tipPtr = e.pointerType || 'mouse'; }, true);
+    mt.addEventListener('pointerover', onTipOver);
+    mt.addEventListener('pointerout', onTipOut);
+    mt.addEventListener('click', onTipTap);
     $('#move-menu').addEventListener('click', onMoveMenu);
     $('#empty-move').addEventListener('click', () => { listAll = true; view = 'list'; play('click'); UIFX.swap($('#m-tank .card'), $('#tank-stage'), renderUI, 1); });
     // Escape closes the move panel before it closes the aquarium

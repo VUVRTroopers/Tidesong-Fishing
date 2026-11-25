@@ -759,9 +759,10 @@
   .fr-name { font-family: var(--display); font-weight: 600; font-size: 16.5px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
   .tag { font-style: normal; font-family: var(--ui); font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--brass); }
   .fr-meta { font-size: 12.5px; color: var(--ink-soft); font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-  .fr-mood { display: inline-flex; align-items: center; gap: 4px; }
-  .fr-mood::before { content: "·"; margin-right: 2px; }
-  @media (max-width: 560px) { .fr-mood { flex-basis: 100%; } .fr-mood::before { display: none; } }
+  .fr-mood { display: inline-flex; align-items: center; gap: 6px; margin-left: 2px; }
+  .fr-mood .face { width: 18px; height: 18px; }
+  .pgauge.sm { margin-left: 0; gap: 2px; padding: 4px 7px; }
+  .pgauge.sm .pg { width: 7px; height: 7px; }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--rc); display: inline-block; flex: none; }
   .fr-val { font-weight: 800; font-size: 15px; display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; justify-self: end; }
   .fr-act { display: flex; gap: 6px; justify-content: flex-end; }
@@ -926,8 +927,6 @@
   .fc-close svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2.2; fill: none; stroke-linecap: round; }
   .fc-meta { margin: 0; font-size: 12.5px; color: var(--ink-soft); display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
   .fc-mood { margin: 0; font-family: var(--display); font-style: italic; font-size: 14.5px; color: var(--ink); }
-  .fc-happy { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 3px 6px; font-size: 12.5px; color: var(--ink-soft); }
-  .fc-happy .fc-rate { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .fc-bonds { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
   .fc-bond { border: 0; border-radius: 999px; padding: 4px 11px 4px 9px; font-size: 12px; font-weight: 800; color: var(--ink-soft); background: var(--well-fill); box-shadow: var(--well-edge); display: inline-flex; align-items: center; gap: 6px; }
   .fc-bond:hover { color: var(--ink); }
@@ -935,7 +934,7 @@
   .fc-bond.mates { color: #ffc6dc; box-shadow: var(--well-edge), inset 0 0 0 1px rgba(255, 138, 180, 0.42); }
   .fc-since { margin: 0; font-size: 12px; color: var(--ink-faint); display: flex; align-items: center; gap: 5px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
   .fc-act { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
-  .fc-act .sell-btn { display: inline-flex; align-items: center; gap: 6px; }
+  .fc-act .sell-btn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
   .fc-act .text-btn { padding: 8px 6px; font-size: 13px; }
   .sell-btn.armed { background: linear-gradient(180deg, #ffb6a8, var(--ember) 55%, #d8604f); color: #2a0d08; box-shadow: inset 0 1px 0 rgba(255, 240, 235, 0.7), 0 0 0 1px rgba(110, 30, 20, 0.5); }
   .text-btn.armed { color: var(--ember); text-decoration-color: rgba(255, 140, 124, 0.6); }
@@ -1007,20 +1006,41 @@
   .feed-btn.hungry:not(.cooling) { color: #ffd9a8; box-shadow: var(--pebble-edge), inset 0 0 0 1px rgba(255, 190, 120, 0.6), 0 0 14px rgba(255, 176, 100, 0.35); animation: feedHungry 2.4s ease-in-out infinite; }
   @keyframes feedHungry { 50% { box-shadow: var(--pebble-edge), inset 0 0 0 1px rgba(255, 200, 130, 0.85), 0 0 22px rgba(255, 176, 100, 0.55); } }
   @media (prefers-reduced-motion: reduce) { .feed-btn.hungry { animation: none; } }
-  /* how the tank's fish feel, and what they make an hour */
-  .tank-rate { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-soft); }
-  .tank-rate .pearl { font-size: 13px; }
-  .mood-word { font-weight: 800; letter-spacing: 0.02em; }
-  .mood-word[data-mood="joyful"] { color: #ffd46e; text-shadow: 0 0 10px rgba(255, 212, 110, 0.45); }
-  .mood-word[data-mood="happy"] { color: #9fe3b0; }
-  .mood-word[data-mood="content"] { color: #cfe6ff; }
-  .mood-word[data-mood="restless"] { color: #f3c17a; }
-  .mood-word[data-mood="unhappy"] { color: #ff9a8a; }
-  .tt-hungry { width: 8px; height: 8px; flex: none; border-radius: 2px; transform: rotate(45deg); background: linear-gradient(135deg, #ffd9a0, #f0913a); box-shadow: 0 0 6px rgba(255, 170, 90, 0.8); }
+  /* How a fish is doing, in pictures: a face for its mood, a bowl (or a knife and fork) for its food,
+     two fish for its friends, a heart for its mate, and a row of pearls for how much it makes. */
+  .ico { width: 22px; height: 22px; flex: none; display: block; overflow: visible; }
+  .face[data-mood="joyful"] { --mc: #ffd46e; filter: drop-shadow(0 0 4px rgba(255, 212, 110, 0.55)); }
+  .face[data-mood="happy"] { --mc: #8fdca3; }
+  .face[data-mood="content"] { --mc: #b9d7f2; }
+  .face[data-mood="restless"] { --mc: #f3c17a; }
+  .face[data-mood="unhappy"] { --mc: #ff8b78; }
+  .face-base { fill: var(--mc); stroke: rgba(0, 0, 0, 0.35); stroke-width: 0.9; }
+  .fc-status { margin: 0; display: flex; align-items: center; gap: 8px; }
+  .mood-icons { display: inline-flex; align-items: center; gap: 9px; padding: 4px 11px 4px 8px; border-radius: 999px; background: var(--well-fill); box-shadow: var(--well-edge); }
+  .mi { display: inline-flex; align-items: center; gap: 3px; font-style: normal; font-size: 12.5px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; cursor: help; }
+  .mi.zero { opacity: 0.42; filter: grayscale(0.7); }
+  .pgauge { margin-left: auto; display: inline-flex; align-items: center; gap: 3px; padding: 7px 10px; border-radius: 999px; background: var(--well-fill); box-shadow: var(--well-edge); cursor: help; }
+  .pg { position: relative; width: 10px; height: 10px; flex: none; border-radius: 50%; background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 0 1px rgba(214, 222, 255, 0.22); }
+  .pg.f, .pg.h::before { background: radial-gradient(circle at 34% 30%, #ffffff 0 14%, #f7ecff 28%, #d4ddff 60%, #8f9fc9 100%); box-shadow: 0 0 5px rgba(210, 220, 255, 0.55), inset -1px -1px 2px rgba(80, 90, 140, 0.45); }
+  .pg.h::before { content: ""; position: absolute; inset: 0; border-radius: 50%; clip-path: inset(0 50% 0 0); }
+  .mood-tip {
+    position: fixed; z-index: 80; left: 0; top: 0; max-width: min(260px, calc(100vw - 16px)); padding: 6px 11px; border-radius: 10px;
+    font-size: 12.5px; font-weight: 700; line-height: 1.35; color: var(--ink); background: rgba(8, 16, 24, 0.94);
+    box-shadow: var(--slab-edge), 0 8px 20px rgba(0, 0, 0, 0.45); pointer-events: none; opacity: 0; transform: translateY(4px);
+    transition: opacity 0.14s ease, transform 0.14s ease;
+  }
+  .mood-tip.on { opacity: 1; transform: none; }
+  .mood-icons.sm { gap: 7px; padding: 3px 9px 3px 6px; }
+  .mood-icons.sm .ico { width: 20px; height: 20px; }
+  .face { width: 24px; height: 24px; }
+  .tank-rate { display: flex; align-items: center; }
+  .tt-hungry { display: inline-flex; flex: none; }
+  .tt-hungry .ico { width: 13px; height: 13px; filter: drop-shadow(0 0 3px rgba(255, 170, 90, 0.7)); }
   .feed-btn.cooling::after { opacity: 0.85; }
   .fr-link { border: 0; background: none; padding: 0; text-align: left; color: inherit; cursor: pointer; }
   .fr-link:hover { color: var(--brass); }
-  .fr-heart { font-size: 12px; }
+  .fr-heart { display: inline-flex; margin-left: 5px; vertical-align: -2px; }
+  .fr-heart .ico { width: 14px; height: 14px; }
   .shop-wallet.flash { animation: flash 0.8s ease-out; }
   #btn-net { position: relative; }
   .tank-dot { position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff, #f2e8ff 45%, #c8b4f0); box-shadow: 0 0 0 2px rgba(8, 17, 28, 0.8), 0 0 10px rgba(220, 200, 255, 0.9); animation: dotPulse 2.4s ease-in-out infinite; }

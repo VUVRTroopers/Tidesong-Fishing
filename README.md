@@ -371,11 +371,22 @@ The game explains almost none of what follows; players find it by watching and t
 
   Friends and a mate add together, and food, company and comfort multiply, so a hungry, lonely fish in
   the bowl makes about 0.6 times its rate, a fed one with no friends 1.2 times, and a well-fed fish
-  with best friends and its mate in the Moon Palace about 2.6 times. A fish's mood (Unhappy,
-  Restless, Content, Happy or Joyful) and how much it makes an hour show on its card and in the list,
-  with what it is missing (hungry, no friends yet, misses its mate);
-  the bar under the tank shows the tank's mood and pearls an hour. When a tank's fish get hungry
-  (about seven hours after a feed) its Feed button glows and its tab is marked.
+  with best friends and its mate in the Moon Palace about 2.6 times.
+
+  A fish's card shows how it is doing in little pictures rather than words:
+  - **A face** for its mood: a red, grumpy face when it is Unhappy, amber when Restless, pale blue
+    when Content, green and smiling when Happy, and a glowing gold grin when Joyful.
+  - **Its food:** a heaped bowl when it is well fed, a half-empty one when it is peckish, and a knife
+    and fork when it is hungry.
+  - **Two fish** with the number of friends it has in its tank, faded when it has none yet.
+  - **A heart** when its mate shares its tank, cracked when its mate lives in another.
+  - **A row of five pearls** for how much it makes, from half a pearl for a hungry, lonely Common to
+    all five for a joyful Extreme, each pearl about three times the last.
+
+  Hover over or tap any of them for a word or two, such as how many hours until it is hungry, or its
+  pearls an hour and its share of its tank's. The list shows each fish's face and pearls, and the
+  bar under the tank shows the tank's mood and food. When a tank's fish get hungry (about seven hours
+  after a feed) its Feed button glows and its tab shows a knife and fork.
 
   While you watch, a fish now and then lets a pearl go and it sinks, drifting to the strip of sand
   nearest the glass, where pearls rest in front of every rock, plant and wreck, so none is ever
