@@ -2207,6 +2207,7 @@
      that forwards here. Unknown gifts are ignored; `until` (a date) closes a gift. */
   const GIFTS = {
     playtest500: { pearls: 500, note: 'Thank you for playtesting Tidesong! 500 Moonpearls are in your purse.' },
+    decor300: { pearls: 300, note: 'NEW: decorations for your tanks! 300 Moonpearls are in your purse: find the decorations in the market\'s Decor tab.' },
   };
   (function claimGift() {
     const q = new URLSearchParams(location.search), id = q.get('gift');

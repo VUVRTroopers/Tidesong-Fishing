@@ -1001,6 +1001,11 @@ its page, grade, glyph, what it measures and its goal. `GLYPH` holds the engrave
 a preview card ("Come Back and Claim your 500 FREE Moon-Pearls!", `docs/claim-preview.jpg`) where links
 are shared, and sends whoever opens it to the game with `?gift=playtest500`. The game adds the gift's
 pearls once per save and remembers it, so opening the link again only says it was already claimed.
+`decor/` is the same for the decorations update:
+https://vuvrtroopers.github.io/tidesong-fishing/decor/ shows "NEW: Decorate your tanks! Claim 300 FREE
+Moon-Pearls" over a decorated Coral Reef (`docs/decor-preview.jpg`) and sends players to the game with
+`?gift=decor300`, which adds 300 Moonpearls and points them to the market's Decor tab. Each gift is
+claimed separately, so a player who took the first can still take this one.
 Gifts are listed in `GIFTS` in `js/game.js`; give one an `until` date to close it. The game runs in
 the browser with no server, so a gift is once per player's save rather than once in the world: someone
 could claim it again in another browser or after clearing their save.
