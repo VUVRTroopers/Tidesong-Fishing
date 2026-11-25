@@ -77,7 +77,12 @@ Then visit `http://localhost:8000`.
 3. **Fight.** A slider appears with a gold line (the fish) and a green band (your control). Hold to
    push the band right and release to let it drift left. While the gold line is inside the band, the
    ring fills. When it is outside, the ring drains. Fill the ring to land the fish. If it drops
-   below the red mark, the fish gets away. The gold line moves like something alive: it leaves a short
+   below the red mark, the fish gets away. A fight can't stall for minutes: after the first minute,
+   if the ring hasn't reached a new high for 20 seconds, your line starts to tire. While it's tired,
+   the ring drains faster whenever the fish is outside your band: twice as fast after 30 seconds of
+   stalling, three times after a minute, and so on. An ember glow creeps into the meter, the red mark
+   pulses and the line creaks. Push the ring to a new high and the line relaxes at once. The gold line
+   moves like something alive: it leaves a short
    wake when it darts, leans into a dash and swings back as it brakes, sends a faint ripple from
    where it kicks off hard, and breathes when it holds still. Inside your band it warms, glowing and
    giving off sparks, with a pulse of light on each step the ring fills; outside it cools back to plain
@@ -99,6 +104,25 @@ more often, dart across the slider and thrash in place.
 | Extreme | 1,200 | 5,000 | Relentless |
 
 The first catch of each species earns a discovery bonus.
+
+### Why fights tire
+
+Before the tiring line, a legendary or extreme fish fought with gear just short of what it needed
+could drift for minutes. The ring wandered around one level and only tipped one way by chance.
+Measured over thousands of simulated fights, with casual, steady and focused players at each gear
+tier:
+
+- **Normal fights never feel it.** Every common and rare fight, and any fight your gear has the
+  beating of, ends within a minute. These are untouched.
+- **The worst fights no longer drag.** In the cases that dragged, the longest 1% of fights went
+  from 3 to 9 minutes down to about 2 to 3 minutes.
+- **A plain clock would have been worse.** Raising the drain after a fixed time also ended long
+  fights, but it turned many slow, steady catches into losses (for example 93% → 54% for a casual
+  player against a legendary on Tier IV gear). Strain only builds while the ring has stopped
+  reaching new highs, so a player who keeps edging closer never feels it. The same case keeps about
+  72%.
+- **The economy barely moves.** Over a simulated 60-day career, milestones such as the first Tier V
+  kit or each Heirloom arrive about 3–7% later, partly offset by fights ending sooner.
 
 ### Shadows and where you cast
 
@@ -790,6 +814,7 @@ Most balance lives in `js/data.js`:
 | Fish prices | `VALUE` (base price per rarity) and each species' `worth`, `kg` and `cm` ranges |
 | Bait | `BAITS`: pack size, price, odds boost per rarity, bite speed-up |
 | Aquarium sizes and prices | `TANKS` |
+| Tiring line in stalled fights | `REEL_STRAIN`: grace before it can start, seconds without a new high, seconds per extra 100% drain |
 
 The gear tier ladder (boost, price and level for each tier) is `TIERS` at the top of `js/gear.js`.
 Each piece in the catalogue below it names its theme and tier and takes everything else from the

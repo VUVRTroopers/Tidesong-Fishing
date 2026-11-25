@@ -883,14 +883,21 @@ const Sound = (() => {
   }
 
   function updateReel(dt, s) {
-    // s: { inBand, progress, holding, danger, speed, fishPos }
+    // s: { inBand, progress, holding, danger, speed, fishPos, tire (0-1: how tired the line is) }
     if (!reel || !ctx) return;
-    const now = ctx.currentTime, r = reel, T = (p, v, tc) => p.setTargetAtTime(v, now, tc), sp = Math.min(1, s.speed || 0);
+    const now = ctx.currentTime, r = reel, T = (p, v, tc) => p.setTargetAtTime(v, now, tc), sp = Math.min(1, s.speed || 0), tire = Math.min(1, s.tire || 0);
     T(r.churn.g.gain, 0.012 + sp * 0.055, 0.12);
     T(r.churn.fl.frequency, 450 + sp * 900, 0.15);
     if (r.churnP.pan) T(r.churnP.pan, ((s.fishPos ?? 0.5) - 0.5) * 0.9, 0.1);
-    T(r.strain.g.gain, s.inBand ? 0.0001 : 0.03 + s.danger * 0.05, 0.12);
-    T(r.strain.fl.frequency, 420 + s.danger * 360 + sp * 180, 0.15);
+    T(r.strain.g.gain, s.inBand ? 0.0001 + tire * 0.008 : 0.03 + s.danger * 0.05 + tire * 0.03, 0.12);
+    T(r.strain.fl.frequency, 420 + s.danger * 360 + sp * 180 + tire * 140, 0.15);
+    // a tiring line creaks now and then, more often as it tires
+    r.creakT = (r.creakT ?? 0) - dt;
+    if (tire > 0.04 && r.creakT <= 0) {
+      noise({ type: 'bandpass', f: 1100 + rand(-150, 150), f1: 640, fTime: 0.22, q: 9, a: 0.01, hold: 0.08, d: 0.18, gain: 0.012 + tire * 0.02, pan: ((s.fishPos ?? 0.5) - 0.5) * 0.6, wet: 0.15 });
+      wood(midi(rand(46, 50)), { t: 0.02, gain: 0.012 + tire * 0.015, dur: 0.16 });
+      r.creakT = rand(1.6, 2.8) / (0.6 + tire);
+    }
     T(r.whir.g.gain, s.holding ? 0.016 : 0.0001, 0.06);
     T(r.dg.gain, s.inBand ? 0.012 + s.progress * 0.018 : 0.005, 0.2);
     T(r.lp.frequency, 300 + s.progress * 1300, 0.25);

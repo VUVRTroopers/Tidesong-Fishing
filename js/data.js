@@ -36,6 +36,14 @@ const BAND_PHYS = { up: 5.6, down: 4.6, drag: 3.2, bounce: 0.25 };
 const REEL_START = 0.3;      // meter starts here
 const REEL_ESCAPE = 0.1;     // dropping below this frees the fish
 const REEL_GRACE = 1.0;      // seconds at the start before the meter can fall
+/* The line tires in a fight that has stalled, so no fight drags on for minutes. For the first `after`
+   seconds nothing changes. After that, whenever the ring hasn't reached a new high for `stall` seconds,
+   the drain while the fish is outside the band grows by a further 100% for every `per` seconds of
+   stalling (twice as fast, then three times...). Pushing the ring to a new high relaxes the line
+   completely. Tuned in simulation: fights that used to drift for three to nine minutes now settle
+   within about two and a half, and anything won inside a minute (all commons and rares, and every fight
+   your gear has the beating of) is untouched. */
+const REEL_STRAIN = { after: 60, stall: 20, per: 30 };
 
 /* kg / cm: size ranges. measure: what the cm figure describes. worth: sale-price multiplier. */
 const SPECIES = {

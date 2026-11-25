@@ -435,7 +435,8 @@
     ui.reel.classList.toggle('perk-band', P.heir.rod);
     ui.reel.classList.toggle('perk-meter', P.heir.bobber || P.heir.line);
     clearTimeout(G.reelHideT);
-    ui.reel.classList.remove('won', 'lost', 'danger');
+    ui.reel.classList.remove('won', 'lost', 'danger', 'straining');
+    ui.reel.style.setProperty('--strain', '0');
     ui.reel.classList.add('in');
     ui.ring.classList.remove('draining');
     ui.ring.style.transform = '';
@@ -463,7 +464,7 @@
       mods: P,
       band: { x: 0.5, v: 0, w: D.band * P.band },
       fish: { p: 0.5, v: 0, target: 0.5, k: D.stiff[0], timer: 0.45, mode: 'move', ph1: rand(0, TAU), ph2: rand(0, TAU), shown: 0.5, tt: 0, anchor: 0.5 },
-      progress: REEL_START, inBand: true, el: 0, splashT: 0,
+      progress: REEL_START, inBand: true, el: 0, splashT: 0, best: REEL_START, stall: 0, strain: 0, strainShown: 0, toldStrain: false,
     };
     G.acc = 0;
     G.entry = bobPos();
@@ -516,8 +517,11 @@
     f.shown = clamp(f.p + D.wiggle * (Math.sin(R.el * 7.3 + f.ph1) + Math.sin(R.el * 12.9 + f.ph2)) * 0.5, 0.01, 0.99);
     // meter
     R.inBand = Math.abs(f.shown - b.x) <= half;
+    // the line tires in a stalled fight (REEL_STRAIN in data.js); a new high on the ring relaxes it
+    if (R.progress > R.best + 0.01) { R.best = R.progress; R.stall = 0; } else R.stall += dt;
+    R.strain = Math.max(0, Math.min(R.el - REEL_STRAIN.after, R.stall - REEL_STRAIN.stall)) / REEL_STRAIN.per;
     if (R.inBand) R.progress += D.fill * R.mods.fill * dt;
-    else if (R.el > REEL_GRACE) { R.progress -= D.drain * R.mods.drain * dt; R.slip = true; }
+    else if (R.el > REEL_GRACE) { R.progress -= D.drain * R.mods.drain * (1 + R.strain) * dt; R.slip = true; }
     if (R.el > REEL_GRACE) R.low = Math.min(R.low ?? 1, R.progress);
   }
 
@@ -948,7 +952,9 @@
           R.splashT = rand(0.25, 0.5);
         }
         if (holding()) G.spin += dt * 16;
+        lineStrain(R, dt);
         Sound.updateReel(dt, {
+          tire: R.strainShown,
           inBand: R.inBand, progress: R.progress, holding: holding(),
           danger: clamp(1 - (R.progress - REEL_ESCAPE) / 0.18, 0, 1),
           speed: clamp(Math.abs(R.fish.v), 0, 1), fishPos: R.fish.shown,
@@ -1377,6 +1383,20 @@
     ui.reel.classList.toggle('in', R.inBand);
     ui.reel.classList.toggle('danger', !R.inBand && R.progress < REEL_ESCAPE + 0.09);
     if (R.fx) ringFx(R, p, dt);
+  }
+  /* A tiring line shows: an ember glow creeps into the meter as the strain builds (full at three times the
+     usual drain) and eases away when the ring reaches a new high. The first time in a fight, a short note
+     says what is happening and how to ease it. */
+  function lineStrain(R, dt) {
+    // shows clearly from the moment it starts (a third), then builds to full at three times the usual drain
+    const target = R.strain > 0 ? 0.35 + 0.65 * clamp(R.strain / 2, 0, 1) : 0;
+    R.strainShown += (target - R.strainShown) * (1 - Math.exp(-dt * (target > R.strainShown ? 3 : 6)));
+    ui.reel.style.setProperty('--strain', R.strainShown.toFixed(3));
+    ui.reel.classList.toggle('straining', R.strainShown > 0.02);
+    if (R.strain > 0 && !R.toldStrain) {
+      R.toldStrain = true;
+      toast('Your line is tiring! Push the ring higher to ease it.', '#ff9a6a', 4200);
+    }
   }
   function setRingFill(p) {
     ui.ringFill.style.strokeDashoffset = (RING_C * (1 - p)).toFixed(2);
@@ -2107,7 +2127,7 @@
     unlockAll() { save.xp = Math.max(save.xp, xpToReach(Gear.TOP_LEVEL)); persist(); updateHUD(); },
     reset() { save = fresh(); persist(); location.reload(); },
     badges(ids) { Badges.grant(ids); return `${Object.keys(save.ach.got).length} badges earned`; },
-    get state() { return { t: G.t, phase: G.phase, save: JSON.parse(JSON.stringify(save)), reel: G.reel && { progress: G.reel.progress, band: G.reel.band.x, width: G.reel.band.w, mods: G.reel.mods, fish: G.reel.fish.shown, inBand: G.reel.inBand }, shadow: FS && { ...FS }, shoal: SHOAL.map(S => ({ x: S.x, y: S.y, k: +S.k.toFixed(3), mode: S.mode, alpha: +S.alpha.toFixed(3), taker: S.taker })), wait: G.wait && { eager: G.wait.eager, spooked: G.wait.spooked, taker: !!G.wait.taker, next: G.wait.next && { id: G.wait.next.id, cm: G.wait.next.fish.cm } }, lastBite: G.lastBite, bob: G.phase === 'reeling' ? { ...G.entry } : bobPos(), tip: rodTip(), cast: G.cast && { k: G.cast.k, struck: G.cast.obj ? G.cast.obj.kind : null, hit: G.cast.hit ? G.cast.hit.t : -1 } }; },
+    get state() { return { t: G.t, phase: G.phase, save: JSON.parse(JSON.stringify(save)), reel: G.reel && { progress: G.reel.progress, band: G.reel.band.x, width: G.reel.band.w, mods: G.reel.mods, fish: G.reel.fish.shown, inBand: G.reel.inBand, el: G.reel.el, best: G.reel.best, strain: G.reel.strain }, shadow: FS && { ...FS }, shoal: SHOAL.map(S => ({ x: S.x, y: S.y, k: +S.k.toFixed(3), mode: S.mode, alpha: +S.alpha.toFixed(3), taker: S.taker })), wait: G.wait && { eager: G.wait.eager, spooked: G.wait.spooked, taker: !!G.wait.taker, next: G.wait.next && { id: G.wait.next.id, cm: G.wait.next.fish.cm } }, lastBite: G.lastBite, bob: G.phase === 'reeling' ? { ...G.entry } : bobPos(), tip: rodTip(), cast: G.cast && { k: G.cast.k, struck: G.cast.obj ? G.cast.obj.kind : null, hit: G.cast.hit ? G.cast.hit.t : -1 } }; },
   };
   /* ================= Gifts =================
      A link to the game with ?gift=<id> grants that gift once per save: the claim is written into the

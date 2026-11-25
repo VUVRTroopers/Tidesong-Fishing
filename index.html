@@ -294,8 +294,14 @@
     background: var(--grain), linear-gradient(180deg, rgba(1, 6, 11, 0.74), rgba(9, 22, 32, 0.6));
     -webkit-backdrop-filter: blur(12px) saturate(1.25); backdrop-filter: blur(12px) saturate(1.25);
     box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.55), inset 0 1px 1px rgba(0, 0, 0, 0.6), inset 0 -1px 0 rgba(255, 255, 255, 0.09),
-      0 1px 0 rgba(255, 255, 255, 0.07), 0 0 0 5px rgba(20, 34, 46, 0.34), 0 0 0 6px rgba(255, 255, 255, 0.05), 0 14px 30px rgba(0, 0, 0, 0.24);
+      0 1px 0 rgba(255, 255, 255, 0.07), 0 0 0 5px rgba(20, 34, 46, 0.34), 0 0 0 6px rgba(255, 255, 255, 0.05), 0 14px 30px rgba(0, 0, 0, 0.24),
+      inset 0 0 calc(6px + 22px * var(--strain, 0)) rgba(255, 112, 72, calc(0.62 * var(--strain, 0))), inset 0 0 0 1.5px rgba(255, 140, 100, calc(0.55 * var(--strain, 0))),
+      0 0 calc(22px * var(--strain, 0)) rgba(255, 120, 80, calc(0.4 * var(--strain, 0)));
   }
+  /* a tiring line: the ember in the groove (above) and a slow pulse on the ring's red mark */
+  .reel.straining .ring-notch { animation: notchStrain 1.1s ease-in-out infinite; }
+  @keyframes notchStrain { 50% { stroke-width: 4.5; filter: drop-shadow(0 0 6px rgba(255, 140, 124, 0.95)); } }
+  @media (prefers-reduced-motion: reduce) { .reel.straining .ring-notch { animation: none; } }
   .track::before {
     content: ""; position: absolute; inset: 7px 22px; pointer-events: none;
     background: repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.5) 0 1px, rgba(255, 255, 255, 0.07) 1px 2px, transparent 2px 10%);
