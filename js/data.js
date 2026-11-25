@@ -344,13 +344,13 @@ const TANKS = [
     blurb: 'A round glass bowl on the windowsill, with coloured pebbles and a sprig of green.' },
   { id: 'reed',   name: 'Reed Tank',      cap: 10, price: 250,
     blurb: 'A proper little tank: reeds, a mossy log, and an air stone that keeps the water fizzing.' },
-  { id: 'lily',   name: 'Lily Garden',    cap: 12, price: 750,
+  { id: 'lily',   name: 'Lily Garden',    cap: 12, price: 800,
     blurb: 'An oak-framed water garden with lily pads overhead, a driftwood arch and soft green moss balls.' },
-  { id: 'reef',   name: 'Coral Reef',     cap: 14, price: 2000,
+  { id: 'reef',   name: 'Coral Reef',     cap: 14, price: 2500,
     blurb: 'A brass-trimmed reef of corals and swaying anemone, with a giant clam and a chest that remembers treasure.' },
-  { id: 'wreck',  name: 'Shipwreck Cove', cap: 16, price: 5000,
+  { id: 'wreck',  name: 'Shipwreck Cove', cap: 16, price: 7000,
     blurb: 'A sunken ship in a kelp forest, sunbeams slanting down through blue water. A diver\'s helmet still breathes bubbles.' },
-  { id: 'palace', name: 'Moon Palace',    cap: 20, price: 12000,
+  { id: 'palace', name: 'Moon Palace',    cap: 20, price: 18000,
     blurb: 'A moonlit underwater palace: a moon gate, a stone dragon blowing rings of bubbles, lantern plants that glow at a touch.' },
 ];
 

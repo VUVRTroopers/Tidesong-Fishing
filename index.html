@@ -759,6 +759,9 @@
   .fr-name { font-family: var(--display); font-weight: 600; font-size: 16.5px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
   .tag { font-style: normal; font-family: var(--ui); font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--brass); }
   .fr-meta { font-size: 12.5px; color: var(--ink-soft); font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .fr-mood { display: inline-flex; align-items: center; gap: 4px; }
+  .fr-mood::before { content: "·"; margin-right: 2px; }
+  @media (max-width: 560px) { .fr-mood { flex-basis: 100%; } .fr-mood::before { display: none; } }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--rc); display: inline-block; flex: none; }
   .fr-val { font-weight: 800; font-size: 15px; display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; justify-self: end; }
   .fr-act { display: flex; gap: 6px; justify-content: flex-end; }
@@ -899,7 +902,7 @@
   .tank-stage:not(.gl) #tank-gl { display: none; }
   /* with the GPU lighting it, the painted tank is drawn but not shown, and still takes every touch */
   .tank-stage.gl #tank-canvas { opacity: 0; }
-  .tank-stage.listing #tank-canvas, .tank-stage.listing #tank-gl { visibility: hidden; }
+  .tank-stage.listing #tank-canvas, .tank-stage.listing #tank-gl, .tank-stage.listing .tank-hint { visibility: hidden; }
   .tank-list { position: absolute; inset: 0; overflow: auto; overscroll-behavior: contain; padding: 12px; background: var(--grain), var(--slab-deep); }
   .tank-hint {
     position: absolute; left: 50%; top: 14%; transform: translateX(-50%); margin: 0; padding: 8px 15px; border-radius: 999px; white-space: nowrap;
@@ -923,6 +926,8 @@
   .fc-close svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2.2; fill: none; stroke-linecap: round; }
   .fc-meta { margin: 0; font-size: 12.5px; color: var(--ink-soft); display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
   .fc-mood { margin: 0; font-family: var(--display); font-style: italic; font-size: 14.5px; color: var(--ink); }
+  .fc-happy { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 3px 6px; font-size: 12.5px; color: var(--ink-soft); }
+  .fc-happy .fc-rate { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .fc-bonds { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
   .fc-bond { border: 0; border-radius: 999px; padding: 4px 11px 4px 9px; font-size: 12px; font-weight: 800; color: var(--ink-soft); background: var(--well-fill); box-shadow: var(--well-edge); display: inline-flex; align-items: center; gap: 6px; }
   .fc-bond:hover { color: var(--ink); }
@@ -998,6 +1003,20 @@
   .feed-btn { position: relative; overflow: hidden; }
   .feed-btn::after { content: ""; position: absolute; left: 14px; right: 14px; bottom: 4px; height: 2px; border-radius: 2px; transform-origin: left; transform: scaleX(var(--cool, 1)); background: var(--reed); opacity: 0; transition: opacity 0.4s ease; }
   .feed-btn.cooling { color: var(--ink-faint); }
+  /* hungry fish: the Feed button glows warm */
+  .feed-btn.hungry:not(.cooling) { color: #ffd9a8; box-shadow: var(--pebble-edge), inset 0 0 0 1px rgba(255, 190, 120, 0.6), 0 0 14px rgba(255, 176, 100, 0.35); animation: feedHungry 2.4s ease-in-out infinite; }
+  @keyframes feedHungry { 50% { box-shadow: var(--pebble-edge), inset 0 0 0 1px rgba(255, 200, 130, 0.85), 0 0 22px rgba(255, 176, 100, 0.55); } }
+  @media (prefers-reduced-motion: reduce) { .feed-btn.hungry { animation: none; } }
+  /* how the tank's fish feel, and what they make an hour */
+  .tank-rate { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-soft); }
+  .tank-rate .pearl { font-size: 13px; }
+  .mood-word { font-weight: 800; letter-spacing: 0.02em; }
+  .mood-word[data-mood="joyful"] { color: #ffd46e; text-shadow: 0 0 10px rgba(255, 212, 110, 0.45); }
+  .mood-word[data-mood="happy"] { color: #9fe3b0; }
+  .mood-word[data-mood="content"] { color: #cfe6ff; }
+  .mood-word[data-mood="restless"] { color: #f3c17a; }
+  .mood-word[data-mood="unhappy"] { color: #ff9a8a; }
+  .tt-hungry { width: 8px; height: 8px; flex: none; border-radius: 2px; transform: rotate(45deg); background: linear-gradient(135deg, #ffd9a0, #f0913a); box-shadow: 0 0 6px rgba(255, 170, 90, 0.8); }
   .feed-btn.cooling::after { opacity: 0.85; }
   .fr-link { border: 0; background: none; padding: 0; text-align: left; color: inherit; cursor: pointer; }
   .fr-link:hover { color: var(--brass); }
@@ -1246,7 +1265,7 @@
         <div class="move-menu" id="move-menu" hidden role="dialog" aria-modal="false"></div>
       </div>
       <div class="tank-bar">
-        <div class="tank-cap" id="tank-cap"><span id="tank-count"></span><span class="netbar"><i id="tank-capbar"></i></span></div>
+        <div class="tank-cap" id="tank-cap"><span id="tank-count"></span><span class="netbar"><i id="tank-capbar"></i></span><span class="tank-rate" id="tank-rate" hidden></span></div>
         <div class="tank-btns">
           <button class="secondary-btn feed-btn" id="tank-feed" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 9.5h7l1 10.5h-9z"/><path d="M9 9.5V6.5h6v3"/><path d="M10 4.5h4"/><circle cx="10.6" cy="14" r=".5"/><circle cx="13.4" cy="15.6" r=".5"/><circle cx="11.6" cy="17.2" r=".5"/></svg>Feed</button>
           <button class="secondary-btn" id="tank-view" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7h11M9 12h11M9 17h11"/><circle cx="5" cy="7" r=".6"/><circle cx="5" cy="12" r=".6"/><circle cx="5" cy="17" r=".6"/></svg><span>List</span></button>

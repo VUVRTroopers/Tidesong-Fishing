@@ -199,7 +199,7 @@ const Shop = (() => {
 
   function renderTanks() {
     const s = api.save, cur = s.netTier, room = tanksRoom(cur), inTank = i => s.net.filter(f => (f.t | 0) === i).length;
-    let html = `<p class="tab-note">Fish you keep live in your aquariums. Every tank you buy is yours to keep: each one adds its room to the tanks you already have, and is more elaborate than the last. Move fish between tanks whenever you like. Tanks are bought in order.</p>
+    let html = `<p class="tab-note">Fish you keep live in your aquariums. Every tank you buy is yours to keep: each one adds its room to the tanks you already have, and is more elaborate than the last. Move fish between tanks whenever you like. Tanks are bought in order. <b>Happy fish make the most Moonpearls:</b> feed them, give them time to make friends, keep pairs of a kind together, and they will make about twice what hungry, lonely fish do; finer tanks please them a little more.</p>
       <div class="tank-visit"><span>${cur ? `Your <b>${cur + 1} tanks</b> hold` : `Your <b>${esc(TANKS[0].name)}</b> holds`} ${s.net.length} of ${room} fish.</span><button type="button" class="secondary-btn" data-action="visit">Visit your ${cur ? 'tanks' : 'tank'}</button></div>
       <div class="items tank-grid">`;
     TANKS.forEach((T, i) => {
