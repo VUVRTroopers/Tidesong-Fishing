@@ -2095,6 +2095,8 @@
 
   let last = performance.now();
   function frame(now) {
+    // the next frame is queued first, so an error anywhere below can never stop the game
+    requestAnimationFrame(frame);
     const raw = Math.max(0, (now - last) / 1000);
     const dt = Math.min(0.05, raw);
     governQuality(raw);
@@ -2109,7 +2111,6 @@
     if (revealState && !$('#m-reveal').hidden) drawReveal();
     if (Shop.isOpen()) Shop.paint(G.t);
     Tank.frame(dt);
-    requestAnimationFrame(frame);
   }
 
   /* ================= Dev helpers (console or #dev) ================= */

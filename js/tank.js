@@ -519,8 +519,10 @@ const Tank = (() => {
         break;
       }
       case 'surface':
+        // a leap waits until the fish is right up at the surface (or its time there is nearly over)
+        if (f.wantLeap && (f.y < sc.surf + f.hh * 2.2 || f.st > f.dur * 0.85)) { f.wantLeap = false; leap(f); break; }
         if (near(f, f.len * 0.5) || f.y < sc.surf + f.hh * 1.2) {
-          if (f.wantLeap) { f.wantLeap = false; leap(f); break; }
+          if (f.wantLeap) break;
           if (!f.gulpedAir) { f.gulpedAir = true; ripple(f.x + f.face * f.len * 0.4, sc.surf, 0.6); TankEnv.bubble(sc, f.x + f.face * f.len * 0.4, f.y, U * 0.4, { z: f.z }); }
         }
         if (f.st > f.dur) { f.gulpedAir = false; pickNext(f); }
@@ -582,9 +584,16 @@ const Tank = (() => {
     const base = f.tr.spd * U * 4.4;
     if (f.free) {
       f.vy += U * (f.above ? 52 : 30) * dt; f.x += f.vx * dt; f.y += f.vy * dt;
+      f.freeT = (f.freeT || 0) + dt;
+      // it can't fly through the glass
+      const s = sc.swim, mx = Math.min(f.len * 0.45, (s.x1 - s.x0) * 0.2);
+      if (f.x < s.x0 + mx || f.x > s.x1 - mx) { f.x = clamp(f.x, s.x0 + mx, s.x1 - mx); f.vx *= -0.35; }
       if (f.y < sc.surf) f.above = true;
       if (f.above && f.vy > 0 && f.y > sc.surf + f.hh * 0.3) { f.above = false; f.free = false; splash(f.x, f.len); if (f.state !== 'enter') pickNext(f); }
       else if (!f.above && f.vy > 0 && f.y >= (f.hopY ?? Infinity)) { f.free = false; f.hopY = undefined; puffSand(f.x, floorAt(f.x), 0.6); clampPos(f); }
+      // a leap that never broke the surface, a fall through the sand, or anything airborne far too long:
+      // it just carries on swimming from where it is
+      else if ((!f.above && f.vy > 0 && f.hopY === undefined) || f.y > floorAt(f.x) || f.freeT > 4) settleFree(f);
       f.tilt = clamp(Math.atan2(f.vy, Math.abs(f.vx) + 1) * 0.9, -1, 1);
       f.effort = 1; f.wave += dt * TAU * 1.8;
       return;
@@ -639,8 +648,14 @@ const Tank = (() => {
     // swimming through plants leans them gently aside, the way the fish is going
     if (sr > 0.35 && (f.brushT = (f.brushT || 0) - dt) <= 0) { f.brushT = 0.2; TankEnv.brush(sc, f.x, f.y, f.len * 0.4, 0.06 * Math.min(sr, 1.6), Math.sign(f.vx)); }
   }
+  function settleFree(f) {
+    f.free = false; f.above = false; f.hopY = undefined; f.vy *= 0.2; f.vx *= 0.5;
+    clampPos(f);
+    if (f.state !== 'enter') pickNext(f);
+  }
   function leap(f) {
-    f.free = true; f.vy = -U * rand(17, 22); f.vx = f.face * U * rand(7, 11); f.above = false;
+    const depth = Math.max(0, f.y - sc.surf), clear = Math.sqrt(2 * 30 * U * (depth + U * rand(4, 7)));
+    f.free = true; f.freeT = 0; f.vy = -Math.max(U * rand(17, 22), clear); f.vx = f.face * U * rand(7, 11); f.above = false;
     splash(f.x, f.len * 0.8);
   }
 
@@ -812,7 +827,7 @@ const Tank = (() => {
       case 'flash': f.flash = 1; f.face = -f.face; f.faceLock = 0.7; sparkle(f.x, f.y, '#ffffff', 3); break;
       case 'gulp': f.gulp = 1; setTimeout(() => { if (!f.leaving) TankEnv.bubble(sc, f.x + f.face * f.len * 0.5, f.y - f.hh * 0.3, U * 0.5, { z: f.z }); }, 300); break;
       case 'nuzzle': go(f, 'nuzzle', 3.6, clamp(x, sc.swim.x0, sc.swim.x1), clamp(y, sc.swim.y0, floorAt(x) - f.hh), 1.4); f.tz = 0.02; f.nuzzled = false; break;
-      case 'hop': f.free = true; f.vy = -U * 13; f.vx = f.face * U * 4; f.above = f.y < sc.surf; f.hopY = f.y; puffSand(f.x, floorAt(f.x), 1); break;
+      case 'hop': f.free = true; f.freeT = 0; f.vy = -U * 13; f.vx = f.face * U * 4; f.above = f.y < sc.surf; f.hopY = f.y; puffSand(f.x, floorAt(f.x), 1); break;
       case 'glow': f.glow = 1; break;
       case 'wiggle': f.wobble = 1; TankEnv.bubble(sc, f.x, f.y - f.hh, U * 0.3, { z: f.z }); break;
       case 'glide': { f.lc = [f.x + f.face * f.len * 0.8, f.y - f.len * 0.2]; f.lr = f.len * 0.9; go(f, 'loop', 2.8, f.x, f.y, 0.9); f.glidePrev = true; break; }
@@ -1228,8 +1243,8 @@ const Tank = (() => {
     ctx.save();
     ctx.clip(sc.sandPath);
     for (const f of fish) {
-      const fy = floorAt(f.x), h = fy - f.y, reach = sc.ih * 0.4;
-      if (h > reach || f.alpha < 0.3) continue;
+      const fy = floorAt(f.x), h = Math.max(0, fy - f.y), reach = sc.ih * 0.4;
+      if (h > reach || f.alpha < 0.3 || !Number.isFinite(f.x)) continue;
       const a = 0.22 * (1 - h / reach) * f.alpha, rx = f.dw * 0.32 * (1 - f.z * 0.2) * (1 + h / reach * 0.4);
       ctx.beginPath(); ctx.ellipse(f.x, fy + U * 0.4, rx, Math.max(U * 0.5, rx * 0.16), 0, 0, TAU);
       ctx.fillStyle = `rgba(0,0,0,${a})`; ctx.fill();
@@ -2127,7 +2142,7 @@ const Tank = (() => {
         if (!rec.seen) {
           rec.seen = true; dirty = true;
           const cx = sc.ell ? sc.ell.cx : (sc.swim.x0 + sc.swim.x1) / 2, half = sc.ell ? sc.ell.rx * 0.45 : (sc.swim.x1 - sc.swim.x0) * 0.4;
-          f.x = cx + rand(-1, 1) * half; f.y = sc.surf - f.dh - entering * U * 10; f.free = true; f.vy = U * 2; f.vx = 0; f.above = true;
+          f.x = cx + rand(-1, 1) * half; f.y = sc.surf - f.dh - entering * U * 10; f.free = true; f.freeT = 0; f.vy = U * 2; f.vx = 0; f.above = true;
           f.z = f.tz = 0.3; go(f, 'enter', 2, f.x, sc.surf + f.len * 1.5);
           entering += 1;
         } else {
@@ -2185,7 +2200,25 @@ const Tank = (() => {
     dirty = false;
     api.refresh();
   }
+  /* If anything in the aquarium goes wrong, say so once in the console, put every fish back somewhere
+     sensible in its tank, and carry on: a bug here must never stop the game. */
+  let failedOnce = false;
   function frame(dt) {
+    try { frameInner(dt); } catch (e) {
+      if (!failedOnce) { failedOnce = true; console.error('Aquarium recovered from an error:', e); }
+      rescueFish();
+    }
+  }
+  function rescueFish() {
+    if (!sc) return;
+    for (const f of fish) {
+      if (!Number.isFinite(f.x) || !Number.isFinite(f.y)) { f.x = (sc.swim.x0 + sc.swim.x1) / 2; f.y = (sc.swim.y0 + floorAt(f.x)) / 2; }
+      f.vx = Number.isFinite(f.vx) ? f.vx : 0; f.vy = Number.isFinite(f.vy) ? f.vy : 0;
+      if (f.free) { f.free = false; f.above = false; f.hopY = undefined; }
+      clampPos(f);
+    }
+  }
+  function frameInner(dt) {
     if (!api) return;
     if (!isOpen) {
       if ((idleT += dt) > 30) {
