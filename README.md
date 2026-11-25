@@ -69,7 +69,11 @@ Then visit `http://localhost:8000`.
    lands, fish nearby turn to look and circle it, while one right under it bolts. The fish that bites
    circles closest and noses in on nibbles before it strikes; it might be one of the lookers, or one
    that rises from the deep to join them. Bites come on a rolling chance that grows the longer the line
-   sits, once that fish has arrived.
+   sits, once that fish has arrived. On the bite, a brass medallion with an engraved "!" springs up
+   over the float with a burst of light. The meter sweeps into place beneath it: the ring spins up,
+   the track opens out from the middle, the band grows in and the gold line drops into place. Then the
+   medallion flies down into the ring, so the meter has settled by the time you take control. The
+   timing of the fight is unchanged.
 3. **Fight.** A slider appears with a gold line (the fish) and a green band (your control). Hold to
    push the band right and release to let it drift left. While the gold line is inside the band, the
    ring fills. When it is outside, the ring drains. Fill the ring to land the fish. If it drops

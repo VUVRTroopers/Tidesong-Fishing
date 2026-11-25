@@ -600,6 +600,17 @@ const Sound = (() => {
       notes.forEach((n, i) => bell(midi(root + n), { t: 0.08 + i * 0.075, gain: 0.028, dur: 1.6 + g * 0.3, partials: GLASS, pan: (i / (notes.length - 1) - 0.5) * 0.6, wet: 0.35 }));
       if (g >= 4) osc(midi(root - 12), { t: 0.1, a: 0.3, hold: 0.4, d: 1.8, gain: 0.02, type: 'warm', lp: 1200, dest: music, wet: 0.4 });
     },
+    /* the fishing meter sweeping up into place at a bite, and the bite mark landing in its ring */
+    meterIn() {
+      noise({ type: 'bandpass', f: 520, f1: 2300, fTime: 0.28, q: 0.9, a: 0.05, d: 0.26, gain: 0.022, wet: 0.18 });
+      noise({ t: 0.05, type: 'highpass', f: 3800, q: 0.6, a: 0.04, d: 0.18, gain: 0.006, wet: 0.2 });
+    },
+    meterSet() {
+      const [a, b] = [[86, 93], [84, 91], [88, 95]][pickV('meterSet', 3)];
+      bell(midi(a), { gain: 0.02, dur: 1.1, partials: GLASS, wet: 0.3, beat: false });
+      bell(midi(b), { t: 0.06, gain: 0.014, dur: 1.3, partials: GLASS, wet: 0.35, beat: false });
+      pluck(midi(a - 24), { t: 0.01, gain: 0.02, dur: 0.5, wet: 0.2 });
+    },
     /* turning a page of the scrapbook */
     page() { noise({ type: 'bandpass', f: 1700, f1: 3400, fTime: 0.2, q: 0.7, a: 0.03, d: 0.17, gain: 0.02, wet: 0.12 }); },
 

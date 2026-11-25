@@ -410,6 +410,8 @@
       if (LOOKING.has(S.mode) || S.mode === 'leave' || plane(S.x, S.y, b.x, b.y) < 0.3) { if (Math.random() < 0.6) flee(S, b); else leave(S); }
     }
     G.lastBite = { pt: G.pt, eager: !!Wt.eager, spooked: Wt.spooked || 0, rarity: next.rarity };
+    G.biteFx = { t0: G.t, home: null, fly: null, trail: [] };
+    G.staged = false;
     setPhase('bite');
     ui.reelIn.hidden = true;
     splash(bobPos(), 1);
@@ -418,10 +420,44 @@
     buzz(40);
     G.flexV += L.m * 1.4;
     setPrompt('Fish on!');
+    ui.prompt.classList.remove('alert'); void ui.prompt.offsetWidth; ui.prompt.classList.add('alert');
   }
+
+  /* The meter flows in while the fish strikes, so it has settled by the time you take control: the ring
+     spins up from its centre, the track opens out from the middle with light running along it, the band
+     grows into place and the gold line drops in; the ring's fish arrives with the bite mark (.reel.enter
+     in the page's styles). The ring fills up to its starting point as it comes. */
+  function stageReel() {
+    if (G.staged) return;
+    G.staged = true;
+    const D = REEL[G.hooked.rarity], P = gearPerks(), w = D.band * P.band;
+    ui.reelHint.hidden = save.total >= 3;
+    ui.reel.classList.toggle('perk-band', P.heir.rod);
+    ui.reel.classList.toggle('perk-meter', P.heir.bobber || P.heir.line);
+    clearTimeout(G.reelHideT);
+    ui.reel.classList.remove('won', 'lost', 'danger');
+    ui.reel.classList.add('in');
+    ui.ring.classList.remove('draining');
+    ui.ring.style.transform = '';
+    ui.ring.style.setProperty('--glow', '0.1');
+    ui.ring.style.setProperty('--halo', '0');
+    ui.band.style.left = `${((0.5 - w / 2) * 100).toFixed(3)}%`;
+    ui.band.style.width = `${(w * 100).toFixed(3)}%`;
+    ui.marker.style.left = '50%';
+    resetMarker();
+    setRingFill(0);
+    ui.reel.hidden = false;
+    G.enterAt = G.t;
+    ui.reel.classList.remove('enter');
+    if (!UIFX.reduced()) { void ui.reel.offsetWidth; ui.reel.classList.add('enter'); }
+    Sound.play('meterIn');
+  }
+  // how far the ring's fill has risen toward the meter's real level as it arrives (0 to 1)
+  const enterFill = () => (G.enterAt == null ? 1 : easeOut(clamp((G.t - G.enterAt - 0.1) / 0.5, 0, 1)));
 
   function startReel() {
     const D = REEL[G.hooked.rarity], P = gearPerks();
+    stageReel();
     setPhase('reeling');
     G.reel = {
       mods: P,
@@ -432,15 +468,7 @@
     G.acc = 0;
     G.entry = bobPos();
     setPrompt('');
-    ui.reelHint.hidden = save.total >= 3;
-    ui.reel.classList.toggle('perk-band', P.heir.rod);
-    ui.reel.classList.toggle('perk-meter', P.heir.bobber || P.heir.line);
-    clearTimeout(G.reelHideT);
-    ui.reel.classList.remove('won', 'lost');
     G.reel.fx = { s: 1, v: 0, step: -1, flash: 0, d: 0, beat: 0, t: 0 };
-    ui.ring.style.transform = '';
-    ui.reel.hidden = false;
-    resetMarker();
     updateReelUI(0);
     Sound.startReel(save.equip.rod);
   }
@@ -566,6 +594,8 @@
     setPhase('idle');
     if (FS) { FS.mode = 'sink'; FS.gone = true; FS = null; }
     G.hooked = null; G.reel = null; G.land = null; G.cast = null; G.wait = null;
+    G.biteFx = null; G.staged = false; G.enterAt = null;
+    ui.prompt.classList.remove('alert');
     ui.reel.hidden = true;
     ui.reelIn.hidden = true;
     setPrompt(CAST_TEXT);
@@ -850,6 +880,8 @@
     G.drops = G.drops.filter(d => !(d.vy > 0 && d.y > d.floor) && d.t < 2.5);
 
     if (!modalOpen() || G.phase === 'landing') updatePhase(dt);
+    // the meter's entrance is over a second after it began
+    if (G.enterAt != null && G.t - G.enterAt > 1.05 && ui.reel.classList.contains('enter')) ui.reel.classList.remove('enter');
     animateRod(dt);
     physics(dt);
     updateShoal(dt);
@@ -896,6 +928,8 @@
         break;
       }
       case 'bite':
+        if (G.pt >= 0.3) stageReel();
+        if (G.staged) setRingFill(REEL_START * enterFill());
         if (G.pt >= 0.7) startReel();
         break;
       case 'reeling': {
@@ -1002,7 +1036,7 @@
     Gear.paintRod(ctx, save.equip.rod, L.rodBase, rodTip(), G.rodBend, G.t, L.m, G.spin, { light: lit, line: save.equip.line });
     Scenes.drawAir(ctx, L, G.t);
     Flourish.draw(ctx, 'front', L, G.t);
-    if (G.phase === 'bite') drawBiteMark();
+    if (G.biteFx) drawBiteMark();
   }
 
   /* Ripples and the bobber, in the GPU water's units. */
@@ -1178,20 +1212,150 @@
     ctx.restore();
   }
 
+  /* The bite mark: a brass medallion with an engraved "!". It springs up over the float with a shock ring
+     and a burst of light, swings and settles, catches the light once, then flies in an arc down into the
+     meter's ring as the meter arrives, where the ring's fish takes its place. */
+  const BITE = { pop: 0.2, fly0: 0.42, fly1: 0.74 };
+  function ringCenter() {
+    const r = ui.ring.getBoundingClientRect();
+    return r.width ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : { x: W / 2, y: H * 0.85 };
+  }
   function drawBiteMark() {
-    const p = bobPos();
-    const k = clamp(G.pt / 0.25, 0, 1), s = easeOutBack(k);
-    const r = Math.max(13, L.m * 0.028) * s;
-    const y = p.y - L.m * 0.09;
+    const B = G.biteFx, age = G.t - B.t0, reduced = UIFX.reduced();
+    const r0 = Math.max(17, L.m * 0.032);
+    if (G.phase === 'bite' || !B.home) { const b = bobPos(); B.home = { x: b.x, y: b.y - L.m * 0.1 }; }
+    let x = B.home.x, y = B.home.y, s = 1, rot = 0, alpha = 1, fly = 0;
+    if (reduced) {
+      // no springing or flying: it simply shows, then fades as the meter takes over
+      alpha = clamp(1 - (age - 0.55) / 0.2, 0, 1);
+      if (alpha <= 0) { G.biteFx = null; return; }
+    } else if (age < BITE.fly0) {
+      const k = clamp(age / BITE.pop, 0, 1);
+      s = easeOutBack(k);
+      rot = -0.34 * Math.cos(age * 17) * Math.exp(-age * 7);
+      y += (1 - easeOut(k)) * r0 * 0.7 + Math.sin(age * 7.5) * r0 * 0.05;
+    } else {
+      if (!B.fly) B.fly = { from: { x, y }, to: ringCenter() };
+      const k = clamp((age - BITE.fly0) / (BITE.fly1 - BITE.fly0), 0, 1);
+      if (k >= 1) { G.biteFx = null; ringWave(0.55); Sound.play('meterSet'); return; }
+      const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+      const F = B.fly.from, T = B.fly.to, C = { x: lerp(F.x, T.x, 0.3), y: Math.min(F.y, T.y) - L.m * 0.1 };
+      x = (1 - e) * (1 - e) * F.x + 2 * (1 - e) * e * C.x + e * e * T.x;
+      y = (1 - e) * (1 - e) * F.y + 2 * (1 - e) * e * C.y + e * e * T.y;
+      s = lerp(1, 0.4, e);
+      rot = Math.sign(T.x - F.x || 1) * 0.5 * Math.sin(e * Math.PI);
+      alpha = k > 0.8 ? 1 - (k - 0.8) / 0.2 * 0.75 : 1;
+      fly = 1;
+      B.trail.push({ x, y, t: G.t });
+    }
+    // a wake of sparkles behind it in flight
+    if (B.trail.length) {
+      B.trail = B.trail.filter(p => G.t - p.t < 0.18);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (const p of B.trail) {
+        const a = 1 - (G.t - p.t) / 0.18;
+        ctx.fillStyle = `rgba(255,226,150,${(a * 0.55).toFixed(3)})`;
+        ctx.beginPath(); ctx.arc(p.x, p.y, r0 * 0.22 * a + 1, 0, TAU); ctx.fill();
+      }
+      ctx.restore();
+    }
+    paintBiteMark(x, y, r0 * s, rot, alpha, reduced ? 1 : age, fly);
+  }
+  function paintBiteMark(x, y, r, rot, alpha, age, fly) {
+    if (r < 0.5) return;
     ctx.save();
-    ctx.translate(p.x, y);
-    ctx.fillStyle = 'rgba(232,196,108,0.25)';
-    ctx.beginPath(); ctx.arc(0, 0, r * 1.6, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#e8c46c';
+    ctx.translate(x, y); ctx.rotate(rot);
+    ctx.globalAlpha = alpha;
+    // glow behind it, gently pulsing
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const pulse = 0.8 + 0.2 * Math.sin(age * 10);
+    const halo = ctx.createRadialGradient(0, 0, r * 0.4, 0, 0, r * 2.4);
+    halo.addColorStop(0, `rgba(255,214,120,${(0.34 * pulse * (1 - 0.6 * fly)).toFixed(3)})`);
+    halo.addColorStop(1, 'rgba(255,214,120,0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath(); ctx.arc(0, 0, r * 2.4, 0, TAU); ctx.fill();
+    // the burst as it springs up: rays of light, and a shock ring
+    if (age < 0.5 && !fly) {
+      const ra = Math.pow(1 - age / 0.5, 1.5) * 0.85, len = 0.45 + 1.25 * easeOut(clamp(age / 0.32, 0, 1));
+      ctx.fillStyle = `rgba(255,238,185,${ra.toFixed(3)})`;
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * TAU + age * 0.8, l = len * (i % 2 ? 0.62 : 1), w = 0.05;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a - w) * r * 1.12, Math.sin(a - w) * r * 1.12);
+        ctx.lineTo(Math.cos(a) * r * (1.12 + l), Math.sin(a) * r * (1.12 + l));
+        ctx.lineTo(Math.cos(a + w) * r * 1.12, Math.sin(a + w) * r * 1.12);
+        ctx.fill();
+      }
+    }
+    if (age < 0.42 && !fly) {
+      const e = easeOut(age / 0.42);
+      ctx.strokeStyle = `rgba(255,242,205,${(0.75 * (1 - e)).toFixed(3)})`;
+      ctx.lineWidth = Math.max(0.5, r * 0.16 * (1 - e));
+      ctx.beginPath(); ctx.arc(0, 0, r * (1 + 1.9 * e), 0, TAU); ctx.stroke();
+    }
+    ctx.restore();
+    // the medallion: polished brass, a darker rim, a bevel catching the light
+    ctx.save();
+    ctx.shadowColor = 'rgba(12,8,0,0.42)'; ctx.shadowBlur = r * 0.55 * DPR; ctx.shadowOffsetY = r * 0.14 * DPR;
+    const body = ctx.createRadialGradient(-r * 0.35, -r * 0.42, r * 0.05, 0, 0, r);
+    body.addColorStop(0, '#fffbe8'); body.addColorStop(0.22, '#f9e3a2'); body.addColorStop(0.58, '#e8c46c');
+    body.addColorStop(0.86, '#c8943a'); body.addColorStop(1, '#94631c');
+    ctx.fillStyle = body;
     ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#16202c';
-    ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(-r * 0.13, -r * 0.62, r * 0.26, r * 0.78, r * 0.13); else ctx.rect(-r * 0.13, -r * 0.62, r * 0.26, r * 0.78); ctx.fill();
-    ctx.beginPath(); ctx.arc(0, r * 0.4, r * 0.15, 0, TAU); ctx.fill();
+    ctx.restore();
+    ctx.lineWidth = r * 0.085; ctx.strokeStyle = 'rgba(110,70,14,0.75)';
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.955, 0, TAU); ctx.stroke();
+    ctx.lineWidth = r * 0.05;
+    ctx.strokeStyle = 'rgba(255,250,225,0.75)';
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.82, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke();
+    ctx.strokeStyle = 'rgba(96,58,10,0.4)';
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.82, Math.PI * 0.12, Math.PI * 0.88); ctx.stroke();
+    // the "!": a tapered stroke and a dot, engraved (a light edge under the dark cut)
+    const glyph = () => {
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.16, -r * 0.56);
+      ctx.quadraticCurveTo(0, -r * 0.7, r * 0.16, -r * 0.56);
+      ctx.lineTo(r * 0.07, r * 0.15);
+      ctx.quadraticCurveTo(0, r * 0.23, -r * 0.07, r * 0.15);
+      ctx.closePath();
+      ctx.moveTo(r * 0.125, r * 0.41);
+      ctx.arc(0, r * 0.41, r * 0.125, 0, TAU);
+    };
+    ctx.save();
+    ctx.translate(0, r * 0.045); glyph(); ctx.fillStyle = 'rgba(255,244,210,0.65)'; ctx.fill();
+    ctx.restore();
+    glyph(); ctx.fillStyle = '#1e160a'; ctx.fill();
+    // light sweeping across it once, just after it lands in place
+    if (age > 0.14 && age < 0.48 && !fly) {
+      const k = (age - 0.14) / 0.34;
+      ctx.save();
+      ctx.beginPath(); ctx.arc(0, 0, r * 0.93, 0, TAU); ctx.clip();
+      ctx.rotate(0.55);
+      const sx = lerp(-1.7, 1.7, easeOut(k)) * r;
+      const sh = ctx.createLinearGradient(sx - r * 0.35, 0, sx + r * 0.35, 0);
+      sh.addColorStop(0, 'rgba(255,255,255,0)'); sh.addColorStop(0.5, 'rgba(255,255,245,0.6)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = sh;
+      ctx.fillRect(sx - r * 0.35, -r * 1.5, r * 0.7, r * 3);
+      ctx.restore();
+    }
+    // three small twinkles circling it
+    if (!fly) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 3; i++) {
+        const a = 0.9 + i * 2.1 + age * 1.3, tw = Math.max(0, Math.sin(age * 13 + i * 2.2)), sz = r * 0.17 * tw * clamp(age / 0.2, 0, 1);
+        if (sz < 0.3) continue;
+        const px = Math.cos(a) * r * 1.6, py = Math.sin(a) * r * 1.6;
+        ctx.fillStyle = `rgba(255,246,220,${(0.9 * tw).toFixed(3)})`;
+        ctx.beginPath();
+        ctx.moveTo(px, py - sz); ctx.quadraticCurveTo(px, py, px + sz, py); ctx.quadraticCurveTo(px, py, px, py + sz);
+        ctx.quadraticCurveTo(px, py, px - sz, py); ctx.quadraticCurveTo(px, py, px, py - sz);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
     ctx.restore();
   }
 
@@ -1209,14 +1373,17 @@
     ui.marker.style.left = (R.fish.shown * 100).toFixed(3) + '%';
     markerFx(R, dt);
     const p = clamp(R.progress, 0, 1);
-    ui.ringFill.style.strokeDashoffset = (RING_C * (1 - p)).toFixed(2);
+    setRingFill(p * enterFill());
     ui.reel.classList.toggle('in', R.inBand);
     ui.reel.classList.toggle('danger', !R.inBand && R.progress < REEL_ESCAPE + 0.09);
+    if (R.fx) ringFx(R, p, dt);
+  }
+  function setRingFill(p) {
+    ui.ringFill.style.strokeDashoffset = (RING_C * (1 - p)).toFixed(2);
     // the head of the fill: bright while it grows, an ember while it drains
     const a = (p * 360 - 90) * Math.PI / 180;
     ui.ringHead.setAttribute('cx', (60 + 50 * Math.cos(a)).toFixed(2));
     ui.ringHead.setAttribute('cy', (60 + 50 * Math.sin(a)).toFixed(2));
-    if (R.fx) ringFx(R, p, dt);
   }
 
   /* The gold line is the fish, and it should feel alive. It leaves a short wake when it darts, leans

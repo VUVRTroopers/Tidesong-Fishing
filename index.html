@@ -199,9 +199,15 @@
   }
   .prompt {
     font-family: var(--display); font-style: italic; font-size: 17px; letter-spacing: 0.01em;
-    padding: 11px 24px; border-radius: 999px; transition: opacity 0.35s ease, transform 0.35s ease;
+    padding: 11px 24px; border-radius: 999px; transition: opacity 0.35s ease, transform 0.35s ease, color 0.35s ease, box-shadow 0.35s ease;
   }
   .prompt.empty { opacity: 0; transform: translateY(8px); }
+  /* "Fish on!": the prompt jumps and lights up in brass */
+  .prompt.alert {
+    color: #fff3d0; animation: promptAlert 0.5s cubic-bezier(.3, 1.6, .5, 1);
+    box-shadow: var(--slab-edge), var(--slab-lift), inset 0 0 0 1px rgba(232, 196, 108, 0.6), 0 0 24px rgba(232, 196, 108, 0.38);
+  }
+  @keyframes promptAlert { from { transform: scale(0.8); } 45% { transform: scale(1.1); } to { transform: scale(1); } }
   .prompt.breathe { animation: breathe 3.4s ease-in-out infinite; }
   @keyframes breathe { 0%, 100% { opacity: 0.78; } 50% { opacity: 1; } }
   .ghost-btn { pointer-events: auto; font-weight: 700; font-size: 13px; letter-spacing: 0.06em; padding: 8px 16px; border-radius: 999px; color: var(--ink-soft); }
@@ -253,6 +259,30 @@
   .reel.danger .ring-fill { stroke: var(--ember); filter: drop-shadow(0 0 5px rgba(255, 140, 124, 0.7)); }
   .ring-notch { stroke: var(--ember); stroke-width: 3; stroke-linecap: round; filter: drop-shadow(0 0 3px rgba(255, 140, 124, 0.6)); }
   .ring-core { position: absolute; inset: 22px; display: grid; place-items: center; color: var(--brass); }
+
+  /* The meter arriving at a bite (script adds .enter for about a second): the ring spins up from its centre,
+     the track opens out from the middle with light running along it, the band grows into place, the gold
+     line drops in, and the ring's fish pops in as the bite mark lands in it. Each animation runs to the
+     element's own resting state, so nothing jumps when it ends. */
+  .reel.enter .ring { animation: meterRing 0.46s cubic-bezier(.2, .9, .3, 1.25) backwards; }
+  @keyframes meterRing { from { transform: scale(0.35) rotate(-80deg); opacity: 0; } 55% { opacity: 1; } }
+  .reel.enter .ring-core { animation: meterCore 0.36s 0.42s cubic-bezier(.3, 1.7, .5, 1) backwards; }
+  @keyframes meterCore { from { transform: scale(0.15); opacity: 0; } }
+  .reel.enter .track { animation: meterTrack 0.42s 0.04s cubic-bezier(.2, .85, .25, 1.06) backwards; }
+  @keyframes meterTrack { from { transform: translateY(10px) scaleX(0.22) scaleY(0.75); opacity: 0; } 55% { opacity: 1; } }
+  .reel.enter .track::before, .reel.enter .reel-hint { animation: meterFade 0.32s 0.26s ease-out backwards; }
+  @keyframes meterFade { from { opacity: 0; } }
+  .reel.enter .band { animation: meterBand 0.34s 0.14s cubic-bezier(.2, .9, .3, 1.15) backwards; }
+  @keyframes meterBand { from { transform: scaleX(0.15); opacity: 0; } }
+  .reel.enter .marker { animation: meterMarker 0.42s 0.24s cubic-bezier(.3, 1.5, .5, 1) backwards; }
+  @keyframes meterMarker { from { transform: translateY(-28px) scaleY(0.6); opacity: 0; } 50% { opacity: 1; } }
+  .track::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0;
+    background: linear-gradient(100deg, transparent 38%, rgba(255, 246, 215, 0.26) 50%, transparent 62%) 130% 0 / 250% 100% no-repeat;
+  }
+  .reel.enter .track::after { animation: meterSheen 0.62s 0.12s ease-out; }
+  @keyframes meterSheen { from { opacity: 1; background-position: 130% 0; } 75% { opacity: 1; } to { opacity: 0; background-position: -30% 0; } }
+  @media (prefers-reduced-motion: reduce) { .reel.enter *, .reel.enter .track::before, .reel.enter .track::after, .prompt.alert { animation: none !important; } }
   .ring-core svg { width: 30px; height: 30px; fill: currentColor; filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.55)) drop-shadow(0 -0.5px 0 rgba(255, 244, 210, 0.35)); animation: wriggle 0.5s ease-in-out infinite alternate; }
   .reel:not(.in) .ring-core svg { animation-duration: 0.18s; }
   @keyframes wriggle { from { transform: rotate(-8deg); } to { transform: rotate(8deg); } }
