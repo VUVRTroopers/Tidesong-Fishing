@@ -1880,7 +1880,8 @@ const Tank = (() => {
     // the new tank (or this tank's list) slides in from its side of the tabs
     const dir = was ? -1 : Math.sign(t - here);
     if (view === 'list') staggerList = true;
-    UIFX.swap($('#m-tank .card'), $('#tank-stage'), () => { if (t !== here) switchTank(t); renderUI(); }, dir);
+    if (t !== here && !was && view === 'tank') visitTank(t, null, dir);
+    else UIFX.swap($('#m-tank .card'), $('#tank-stage'), () => { if (t !== here) switchTank(t); renderUI(); }, dir);
   }
   function renderBar() {
     const s = api.save, all = view === 'list' && listAll, room = tanksRoom(s.netTier), cap = TANKS[here].cap, n = fishIn(here).length;
@@ -2483,7 +2484,7 @@ const Tank = (() => {
     if (b.dataset.tk === 'visit') {
       const t = +b.dataset.t;
       listAll = false; view = 'tank';
-      UIFX.swap($('#m-tank .card'), $('#tank-stage'), () => { switchTank(t); renderUI(); }, -1);
+      visitTank(t, null, -1);
       return;
     }
     const uid = +b.dataset.uid, rec = fishRec(uid);
@@ -2494,7 +2495,7 @@ const Tank = (() => {
     else if (b.dataset.tk === 'show') {
       const t = tankOf(rec);
       view = 'tank'; listAll = false;
-      UIFX.swap($('#m-tank .card'), $('#tank-stage'), () => { switchTank(t); renderUI(); const f = byUid(uid); if (f) { sel = f; reactTo(f, f.x, f.y); renderCard(true); } }, -1);
+      visitTank(t, () => { const f = byUid(uid); if (f) { sel = f; reactTo(f, f.x, f.y); renderCard(true); } });
     }
   }
 
@@ -2601,12 +2602,28 @@ const Tank = (() => {
     layout();
     popBorn();
     renderUI();
+    arrive();
     renderMove();
     $('#tank-hint').hidden = !!S.hinted || view === 'list';
     if (!S.hinted) { S.hinted = true; dirty = true; }
     greet();
     api.refresh();
   }
+  /* Visiting a tank: you walk up to the glass and it comes into focus, a glint runs across it, and the
+     water stirs with a rush of bubbles from the sand. */
+  function arrive() {
+    const st = $('#tank-stage');
+    if (!UIFX.reduced()) { st.classList.remove('arrive'); void st.offsetWidth; st.classList.add('arrive'); clearTimeout(st._arT); st._arT = setTimeout(() => st.classList.remove('arrive'), 1500); }
+    if (!sc || view !== 'tank') return;
+    for (let i = 0; i < 22; i++) {
+      const x = sc.ix0 + sc.iw * (0.05 + 0.9 * Math.random());
+      TankEnv.bubble(sc, x, Math.min(sc.floor(x), sc.iy1) - U * rand(0.5, 3), U * rand(0.15, 0.5), { z: rand(0.2, 0.9) });
+    }
+  }
+  // walking along to another of your tanks
+  const visitTank = (t, after, dir = Math.sign(t - here) || 1) => {
+    UIFX.visit($('#m-tank .card'), $('#tank-stage'), () => { if (t !== here) switchTank(t); renderUI(); if (after) after(); arrive(); play('glass'); }, dir, [$('#tank-title'), $('#tank-sub')]);
+  };
   function onClosed() {
     if (!isOpen) return;
     isOpen = false;

@@ -1673,6 +1673,7 @@
 
   function flashWallet() {
     updateHUD();
+    bump(ui.pearlBtn);
     ui.pearlBtn.classList.remove('flash');
     void ui.pearlBtn.offsetWidth;
     ui.pearlBtn.classList.add('flash');
@@ -1694,12 +1695,59 @@
 
   /* Menus stack: a menu opened over another sends the one beneath back a little, and closing the top
      one brings the one beneath forward again, with focus back where it was. Menus fade and settle both
-     in and out. */
+     in and out.
+     A menu opened by a press grows out of the spot that was pressed (the button, or the pearls in the
+     wallet), and when it closes it gathers itself back into that button, so every menu feels like part
+     of the same scene rather than something laid over it. A catch's card rises from where the fish
+     left the water. */
+  let lastPress = null;
+  document.addEventListener('pointerdown', e => {
+    lastPress = { x: e.clientX, y: e.clientY, at: Date.now(), el: e.target.closest && e.target.closest('button, [role="button"], a') };
+  }, true);
+  // the point a menu grows from: one given, or a lastPress in the last moment
+  function originOf(from) {
+    if (from && from.getBoundingClientRect) { const r = from.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, el: from }; }
+    if (from && typeof from.x === 'number') return { x: from.x, y: from.y, el: null };
+    if (lastPress && Date.now() - lastPress.at < 900) return { x: lastPress.x, y: lastPress.y, el: lastPress.el && lastPress.el.isConnected && !lastPress.el.closest('.modal') ? lastPress.el : null };
+    return null;
+  }
+  const GROW = 'cubic-bezier(.18, .9, .22, 1.04)';
+  function growFrom(m, o) {
+    const card = m.querySelector('.card');
+    if (!card || !o || UIFX.reduced() || !card.animate) return;
+    const r = card.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const dx = o.x - (r.left + r.width / 2), dy = o.y - (r.top + r.height / 2), s = clamp(56 / Math.max(r.width, r.height), 0.06, 0.4);
+    card.animate([
+      { transform: `translate(${dx}px, ${dy}px) scale(${s})`, opacity: 0, borderRadius: '40px' },
+      { opacity: 1, offset: 0.35 },
+      { transform: 'none', opacity: 1, borderRadius: getComputedStyle(card).borderRadius },
+    ], { duration: 460, easing: GROW });
+    const bd = m.animate ? m.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, easing: 'ease-out' }) : null;
+    void bd;
+  }
+  function shrinkTo(m, o) {
+    const card = m.querySelector('.card');
+    if (!card || !o || UIFX.reduced() || !card.animate) return false;
+    // back into the button it came from, wherever that is now
+    if (o.el && o.el.isConnected) { const b = o.el.getBoundingClientRect(); if (b.width) o = { x: b.left + b.width / 2, y: b.top + b.height / 2, el: o.el }; }
+    const r = card.getBoundingClientRect();
+    if (!r.width) return false;
+    const dx = o.x - (r.left + r.width / 2), dy = o.y - (r.top + r.height / 2), s = clamp(56 / Math.max(r.width, r.height), 0.06, 0.4);
+    card.animate([
+      { transform: getComputedStyle(card).transform === 'none' ? 'none' : getComputedStyle(card).transform, opacity: 1 },
+      { opacity: 1, offset: 0.55 },
+      { transform: `translate(${dx}px, ${dy}px) scale(${s})`, opacity: 0, borderRadius: '40px' },
+    ], { duration: 300, easing: 'cubic-bezier(.5, 0, .75, .4)', fill: 'forwards' });
+    return true;
+  }
   const modalStack = [];
-  function openModal(sel) {
+  function openModal(sel, from) {
     const m = typeof sel === 'string' ? $(sel) : sel;
     clearTimeout(m._closeT);
     m.classList.remove('closing');
+    m.getAnimations && m.querySelector('.card') && m.querySelector('.card').getAnimations().forEach(a => a.cancel());
+    m._origin = originOf(from);
     const i = modalStack.indexOf(m);
     if (i >= 0) modalStack.splice(i, 1);
     const under = modalStack[modalStack.length - 1];
@@ -1708,6 +1756,8 @@
     modalStack.push(m);
     m.style.zIndex = String(20 + modalStack.length);
     m.hidden = false;
+    m.classList.toggle('grown', !!m._origin && !UIFX.reduced());
+    growFrom(m, m._origin);
     requestAnimationFrame(() => requestAnimationFrame(() => m.classList.add('open')));
     const focusEl = m.querySelector('[data-autofocus]') || m.querySelector('button');
     if (focusEl) setTimeout(() => focusEl.focus({ preventScroll: true }), 60);
@@ -1722,7 +1772,12 @@
     if (top) top.classList.remove('behind');
     m.classList.remove('open', 'behind');
     m.classList.add('closing');
-    m._closeT = setTimeout(() => { m.hidden = true; m.classList.remove('closing'); m.style.zIndex = ''; }, UIFX.reduced() ? 0 : 280);
+    // back where it came from (or, for a catch, into where it went: the aquarium, the wallet, the water)
+    const to = m._closeTo !== undefined ? m._closeTo : m._origin;
+    m._closeTo = undefined;
+    m.classList.toggle('shrunk', shrinkTo(m, to ? Object.assign({}, to) : null));
+    const card = m.querySelector('.card');
+    m._closeT = setTimeout(() => { m.hidden = true; m.classList.remove('closing', 'shrunk'); m.style.zIndex = ''; if (card) card.getAnimations().forEach(a => a.cancel()); }, UIFX.reduced() ? 0 : 300);
     const back = m._returnFocus;
     if (top && back && top.contains(back)) back.focus({ preventScroll: true });
     else if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
@@ -1777,7 +1832,8 @@
     }
     revealState = { id: data.id, t0: G.t, mode, from };
     renderRevealActions();
-    openModal('#m-reveal');
+    // a catch's card rises from where the fish came out of the water
+    openModal('#m-reveal', mode === 'catch' && G.land ? onScreen(G.land.from) : undefined);
   }
 
   function renderRevealActions() {
@@ -1838,9 +1894,36 @@
     }
     Ld.decided = act;
     persist();
+    // the card goes where the fish went: into the aquarium, into the wallet as pearls, or back to the water
+    const rv = $('#m-reveal');
+    rv._closeTo = act === 'keep' ? originOf(ui.netBtn) : act === 'sell' ? originOf(ui.pearlBtn) : onScreen(Ld.from);
     closeModal('#m-reveal', true);
-    if (act === 'sell') flashWallet();
+    const arrive = UIFX.reduced() ? 0 : 290;
+    if (act === 'sell') setTimeout(flashWallet, arrive);
+    if (act === 'keep') setTimeout(() => { updateHUD(); bump(ui.netBtn); if (!save.aquaShown) { save.aquaShown = true; persist(); callout(ui.netBtn, 'Your fish live here', 'Tap to visit them', 4200); } }, arrive);
   });
+  // a little note under a button, for a few seconds
+  function callout(btn, text, sub, ms) {
+    const r = btn.getBoundingClientRect(), el = document.createElement('div');
+    el.className = 'callout';
+    el.innerHTML = `${text}${sub ? `<small>${sub}</small>` : ''}`;
+    document.body.appendChild(el);
+    const x = Math.max(8, Math.min(window.innerWidth - el.offsetWidth - 8, r.left));
+    el.style.left = `${x}px`; el.style.top = `${r.bottom + 10}px`;
+    el.style.setProperty('--ax', `${Math.round(r.left + r.width / 2 - x)}px`);
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('on')));
+    const gone = () => { el.classList.remove('on'); setTimeout(() => el.remove(), 400); document.removeEventListener('pointerdown', gone, true); };
+    setTimeout(gone, ms);
+    document.addEventListener('pointerdown', gone, true);
+  }
+  // a point on the lake, as a point on the screen
+  function onScreen(p) { if (!p) return null; const r = canvas.getBoundingClientRect(); return { x: r.left + p.x, y: r.top + p.y, el: null }; }
+  // a button takes something in: a little swell and a flash of its glow
+  function bump(b) {
+    if (!b || UIFX.reduced()) return;
+    b.classList.remove('takes'); void b.offsetWidth; b.classList.add('takes');
+    clearTimeout(b._takeT); b._takeT = setTimeout(() => b.classList.remove('takes'), 700);
+  }
 
   function drawReveal() {
     const c = ui.rvCanvas;
@@ -1887,7 +1970,7 @@
       }, delay);
       delay += 1200;
     }
-    if (save.total === 1) setTimeout(() => toast('Fish you keep swim in your aquarium. Tap the bowl up top to visit them.', '#e8c46c', 5000), delay);
+    // (the first fish kept shows where it went with a note pointing at the aquarium; see the catch card)
   }
 
   /* ---------- map ---------- */

@@ -591,6 +591,7 @@ const Badges = (() => {
       const firstNew = A.fresh.find(x => BY[x]);
       if (firstNew) page = BY[firstNew].p;
     }
+    openedAt = Date.now();
     render();
     api.openModal('#m-book');
     api.play('open');
@@ -614,11 +615,35 @@ const Badges = (() => {
     body.innerHTML = detail ? detailHTML(BY[detail]) : pageHTML(page);
     body.style.setProperty('--pc', PAGE[page].color);
     if (detail) wireDetail();
-    else for (const id of A.fresh) if (BY[id] && BY[id].p === page) seenOnPage.add(id);
+    else { for (const id of A.fresh) if (BY[id] && BY[id].p === page) seenOnPage.add(id); placeNew(body); }
     const on = $('#book-tabs .tab.on');
     if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
 
+  /* The first time a new badge is seen, it is placed into the book: lowered onto its spot, pressed
+     down with a little puff of glitter, and its "New" tag set beside it, one after another. */
+  const placed = new Set();
+  let openedAt = 0;
+  function placeNew(body) {
+    if (typeof UIFX !== 'undefined' && UIFX.reduced()) return;
+    const cells = [...body.querySelectorAll('.bk-cell.new')].filter(c => !placed.has(c.dataset.id));
+    if (!cells.length) return;
+    // after the book has opened (or the page has turned)
+    const start = Math.max(260, 420 - (Date.now() - openedAt));
+    cells.forEach((c, i) => {
+      placed.add(c.dataset.id);
+      const d = start + Math.min(i, 8) * 260;
+      c.style.setProperty('--pd', `${d}ms`);
+      c.classList.add('placing');
+      let sp = '';
+      for (let k = 0; k < 7; k++) { const a = (k / 7) * Math.PI * 2 + Math.random() * 0.5, r = 34 + Math.random() * 18; sp += `<i class="bk-spark" style="--dx:${(Math.cos(a) * r).toFixed(0)}px;--dy:${(Math.sin(a) * r * 0.8).toFixed(0)}px;--sd:${d + 380}ms"></i>`; }
+      c.insertAdjacentHTML('beforeend', sp);
+      if (i < 5) setTimeout(() => { if (c.isConnected) api.play('decoPlace'); }, d + 380);
+      setTimeout(() => { c.classList.remove('placing'); c.querySelectorAll('.bk-spark').forEach(x => x.remove()); }, d + 1300);
+    });
+    // the first of them in view
+    setTimeout(() => { if (cells[0].isConnected) cells[0].scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, Math.max(0, start - 200));
+  }
   function cellHTML(b, M) {
     const A = state(), got = A.got[b.id], fresh = A.fresh.includes(b.id);
     const rot = got ? ((hash(b.id) % 9) - 4) * 0.8 : 0;

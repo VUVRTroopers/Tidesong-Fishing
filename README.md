@@ -239,6 +239,13 @@ the catch screen or later from your aquarium, and spend them on:
   you reach a new one (after buying a tank, or emptying the tanks to three quarters and filling them
   again).
 
+**One scene, not windows over it.** Every menu grows out of the spot you pressed (the market from its
+button, or from your pearls; the scrapbook, the journal, the map, the aquarium from theirs) and
+gathers itself back into that button when it closes. A catch's card rises out of the water where the
+fish came up, and when you decide, it goes where the fish went: into the Aquarium button if you keep
+it (the button swells to take it in), into the pearls in your wallet if you sell it, or back into the
+water if you let it go. With reduced motion, menus simply fade.
+
 **Notifications glow, and now and then nudge.** A notification waiting behind a button lights a soft
 glow around it that breathes slowly: gold on the scrapbook for new badges, moonlight on the aquarium
 button for pearls waiting (gold when a tank's sand is full, pink for new mates), and green on the place
@@ -331,7 +338,13 @@ outrun it.
 
 ## The aquarium
 
-Fish you keep live in your aquariums, opened from the bowl button under the place name. Tap a fish to
+Fish you keep live in your aquariums, opened from the **Aquarium** button under the place name (a
+goldfish in a bowl, with how many fish you keep). The first fish you keep shows the way: its card
+gathers itself into that button, which swells to take it in, and a note points at it ("Your fish live
+here"). Opening it is a visit: the card grows out of the button, and the tank comes into focus as you
+reach the glass, a glint runs across it and the water stirs with a rush of bubbles; walking to another
+tank (a tab, a fish's friend or mate, a tank in the list) sends this one back and aside while the next
+comes forward from its side, its name sliding in. Tap a fish to
 follow it with a card showing its weight, length, temperament and friendships, and to star, sell,
 move or release it. The card never hops about: it keeps its place (the bottom corner, or across the
 top of a phone screen over a low-sitting bowl, and slimmer in a short tank, such as a phone held
@@ -572,6 +585,9 @@ after the tanks, not taps on Feed.
 chime that grows richer with the grade. Tap it to open the scrapbook at that badge. Badges wait while a
 fish is on the line. Several at once come one after another, and a crowd is gathered into one note. A
 glow around the scrapbook button and a dot on the page tabs mark new badges until you have seen them.
+The first time you see a new badge it is placed into the book: lowered onto its spot from above with a
+long shadow, pressed down with a ring and a puff of glitter and a little chime, and its "New" tag set
+beside it, one after another when there are several.
 
 **Saves from before the scrapbook** are credited quietly on first load, with one note ("Your scrapbook
 is ready: 61 badges from your adventures so far"). Credit comes from everything the save already shows:
@@ -955,7 +971,7 @@ js/
   water-gl.js       WebGL sky and water, underwater fish shadow, bloom, god rays, haze
   gear.js           Rod, bobber and line catalogue, and the code that draws and lights bobbers and lines
   rods.js           Rod modelling: materials, baked surfaces, lighting, guides, reels, ornaments, effects
-  ui.js             Interface motion: cards glide to new sizes and new sections slide in
+  ui.js             Interface motion: cards glide to new sizes, new sections slide in, panels come and go, places are visited
   badges.js         Badges and the scrapbook: the catalogue, counters, medal art, unlock moment, the book
   shop.js           The Driftwood Market: bait, gear, aquariums and decorations
   tank-env.js       The six aquariums: glass, water, sand, plants and decor that can be touched

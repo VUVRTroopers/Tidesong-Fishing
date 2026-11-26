@@ -198,6 +198,14 @@
     font-weight: 800; font-size: 13.5px; font-variant-numeric: tabular-nums;
   }
   .chip-btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; stroke-linecap: round; color: var(--ink-soft); }
+  /* the aquarium: a bowl with a goldfish in it, and its name, so it reads at a glance */
+  .chip-btn .aqua-ico { width: 23px; height: 23px; margin: -3px -1px -3px -4px; color: #d6ecf7; }
+  .aqua-ico .aq-water { fill: rgba(120, 200, 240, 0.35); stroke: none; }
+  .aqua-ico .aq-fish { fill: #ffa94d; stroke: #c96a1c; stroke-width: 0.6; }
+  .aqua-ico .aq-eye { fill: #2a1a10; stroke: none; }
+  .chip-label { font-size: 12.5px; font-weight: 700; color: var(--ink-soft); letter-spacing: 0.01em; }
+  .chip-label + #net-count { margin-left: -2px; }
+  @media (max-width: 335px) { .chip-label { display: none; } }
   .chip-btn.full { color: var(--ember); box-shadow: var(--slab-edge), inset 0 0 0 1px rgba(255, 140, 124, 0.5), var(--slab-lift); }
   .chip-btn.full svg { color: var(--ember); }
   .chip-btn.flash { animation: flash 0.8s ease-out; }
@@ -434,6 +442,23 @@
   /* a menu with another opened over it steps back */
   .modal.open.behind .card { transform: translateY(-6px) scale(0.965); filter: brightness(0.68) saturate(0.85); transition: transform 0.45s var(--ease), filter 0.4s ease; }
   /* section changes inside a card: the old content fades, the new slides in from the side it came from */
+  /* a menu grown from a press settles without the usual lift (its growth is animated from the script),
+     and one gathered back into its button leaves without the usual drop */
+  .modal.grown .card { transition: filter 0.4s ease; }
+  .modal.closing.shrunk .card { transition: none; }
+  /* a button taking something in (a kept fish, a sale's pearls): a little swell and a flash */
+  .takes { animation: takeIn 0.62s cubic-bezier(.2, .9, .3, 1.3); }
+  /* a little note pointing at a button, the first time it matters */
+  .callout {
+    position: fixed; z-index: 30; max-width: 220px; padding: 8px 13px; border-radius: 12px; font-size: 13px; font-weight: 800; line-height: 1.35; color: var(--ink);
+    background: rgba(8, 16, 24, 0.92); box-shadow: var(--slab-edge), 0 10px 24px rgba(0, 0, 0, 0.4); pointer-events: none;
+    opacity: 0; transform: translateY(6px) scale(0.96); transition: opacity 0.3s ease, transform 0.4s cubic-bezier(.2, .9, .3, 1.2);
+  }
+  .callout.on { opacity: 1; transform: none; }
+  .callout::before { content: ""; position: absolute; top: -6px; left: var(--ax, 24px); width: 12px; height: 12px; margin-left: -6px; transform: rotate(45deg); background: inherit; border-radius: 2px; }
+  .callout small { display: block; font-weight: 700; color: var(--ink-soft); }
+  @keyframes takeIn { 0% { transform: none; } 30% { transform: scale(1.16); filter: brightness(1.45) drop-shadow(0 0 10px rgba(255, 230, 170, 0.75)); } 65% { transform: scale(0.97); } 100% { transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .takes { animation: none; } }
   .swap-out { opacity: 0; transform: translateY(3px); transition: opacity 0.11s ease, transform 0.11s ease; }
   .swap-in { animation: swapIn 0.34s var(--ease) both; }
   .swap-in-r { animation: swapInR 0.36s var(--ease) both; }
@@ -610,6 +635,29 @@
   .bk-medal { width: 76px; height: 76px; display: block; transform: rotate(var(--rot, 0deg)); transition: transform 0.3s var(--ease), filter 0.3s ease; }
   .bk-cell.got .bk-medal { filter: drop-shadow(0 1.5px 1px rgba(60, 35, 10, 0.4)) drop-shadow(0 6px 8px rgba(60, 35, 10, 0.22)); }
   .bk-cell.got:hover .bk-medal { transform: rotate(0deg) scale(1.07) translateY(-2px); }
+  /* a new badge placed into the book: lowered from above with a long shadow, pressed down onto the
+     page, a ring of pressure and a puff of glitter, then its "New" tag set beside it */
+  .bk-cell.placing .bk-medal, .bk-cell.new.placing .bk-medal { animation: bkPlace 0.8s cubic-bezier(.3, .7, .3, 1) var(--pd, 0ms) both; }
+  @keyframes bkPlace {
+    0% { opacity: 0; transform: translate(-10px, -64px) rotate(calc(var(--rot, 0deg) - 22deg)) scale(1.75); filter: drop-shadow(0 34px 16px rgba(60, 35, 10, 0.2)); }
+    30% { opacity: 1; }
+    55% { transform: translate(0, 3px) rotate(var(--rot, 0deg)) scale(0.9); filter: drop-shadow(0 1px 1px rgba(60, 35, 10, 0.5)); }
+    72% { transform: rotate(var(--rot, 0deg)) scale(1.06); }
+    100% { transform: rotate(var(--rot, 0deg)); }
+  }
+  .bk-cell.placing::after {
+    content: ""; position: absolute; left: 50%; top: 48px; width: 76px; height: 76px; margin: -38px 0 0 -38px; border-radius: 50%; pointer-events: none;
+    border: 2px solid rgba(190, 140, 50, 0.7); opacity: 0; animation: bkPress 0.6s ease-out calc(var(--pd, 0ms) + 0.4s) both;
+  }
+  @keyframes bkPress { 0% { opacity: 0.85; transform: scale(0.7); } 100% { opacity: 0; transform: scale(1.5); } }
+  .bk-spark {
+    position: absolute; left: 50%; top: 48px; width: 6px; height: 6px; margin: -3px; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle, #fffbe8, #f2c75a 60%, rgba(242, 199, 90, 0)); opacity: 0;
+    animation: bkSpark 0.7s ease-out var(--sd, 0ms) both;
+  }
+  @keyframes bkSpark { 0% { opacity: 0; transform: translate(0, 0) scale(0.4); } 15% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1); } }
+  .bk-cell.placing .bk-new { animation: bkNew 0.45s cubic-bezier(.2, .9, .3, 1.4) calc(var(--pd, 0ms) + 0.6s) both; }
+  @keyframes bkNew { from { opacity: 0; transform: rotate(7deg) scale(0.3); } }
   .bk-medal svg { display: block; width: 100%; height: 100%; overflow: visible; }
   .bk-name { font-family: var(--display); font-weight: 600; font-size: 14px; line-height: 1.2; color: #30241a; text-wrap: balance; overflow-wrap: anywhere; }
   .bk-cell.lock .bk-name { color: var(--pencil); font-weight: 500; }
@@ -935,6 +983,20 @@
     box-shadow: 0 0 0 1px rgba(2, 7, 12, 0.6), 0 12px 30px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
   #tank-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: pointer; -webkit-user-select: none; user-select: none; }
+  /* visiting a tank: you walk up to the glass and it comes into focus, with a glint across it */
+  .tank-stage.arrive { animation: tankArrive 1s cubic-bezier(.2, .7, .2, 1) both; }
+  @keyframes tankArrive { from { transform: scale(1.14); filter: blur(6px) brightness(0.72) saturate(0.85); } 55% { filter: blur(0) brightness(1) saturate(1); } }
+  .tank-stage.arrive::after {
+    content: ""; position: absolute; inset: 0; z-index: 7; pointer-events: none; border-radius: inherit;
+    background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.16) 47%, rgba(255, 255, 255, 0.05) 51%, transparent 60%);
+    background-size: 260% 100%; animation: glassGlint 1.1s ease-out 0.3s both;
+  }
+  @keyframes glassGlint { from { background-position: 115% 0; opacity: 1; } to { background-position: -55% 0; opacity: 0.6; } }
+  /* walking along to another tank: this one drifts back and aside, the next comes forward from the other side */
+  .tank-stage.visit-out { transform: translateX(calc(var(--vd, 1) * -7%)) scale(0.92); filter: blur(3px) brightness(0.78); opacity: 0; transition: transform 0.21s ease-in, filter 0.21s ease-in, opacity 0.21s ease-in; }
+  .tank-stage.visit-in { animation: tankVisitIn 0.62s cubic-bezier(.2, .8, .2, 1) both; }
+  @keyframes tankVisitIn { from { transform: translateX(calc(var(--vd, 1) * 10%)) scale(0.9); filter: blur(4px) brightness(0.75); opacity: 0; } 55% { opacity: 1; filter: blur(0) brightness(1); } }
+  @media (prefers-reduced-motion: reduce) { .tank-stage.arrive, .tank-stage.visit-in { animation: none; } .tank-stage.arrive::after { display: none; } }
   #tank-gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
   .tank-stage:not(.gl) #tank-gl { display: none; }
   /* with the GPU lighting it, the painted tank is drawn but not shown, and still takes every touch */
@@ -1281,8 +1343,9 @@
     </button>
     <div class="wallet">
       <button class="chip-btn glass" id="btn-pearls" type="button" aria-label="Moonpearls. Open the market"><span class="pearl" aria-hidden="true"></span><span id="pearl-count">0</span></button>
-      <button class="chip-btn glass" id="btn-net" type="button" aria-label="Your aquarium">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.2 4.5h9.6"/><path d="M8 4.5C5 6.6 3.6 9.3 3.6 12.3c0 4.6 3.8 7.7 8.4 7.7s8.4-3.1 8.4-7.7c0-3-1.4-5.7-4.4-7.8"/><path d="M4.4 10.6c2.6 1 5 1 7.6 0s5-1 7.6 0"/><path d="M9.6 15.4c1.2-1.3 2.9-1.3 4.1 0-1.2 1.3-2.9 1.3-4.1 0zM13.7 15.4l1.4-.9v1.8z"/></svg>
+      <button class="chip-btn glass aqua-btn" id="btn-net" type="button" aria-label="Your aquarium">
+        <svg class="aqua-ico" viewBox="0 0 24 24" aria-hidden="true"><path class="aq-water" d="M4.2 11.4c2.6.9 5.2.9 7.8 0s5.2-.9 7.8 0c.1.3.1.7.1 1 0 4.4-3.6 7.6-7.9 7.6s-7.9-3.2-7.9-7.6c0-.3 0-.7.1-1z"/><path d="M7.2 4.2h9.6"/><path d="M8 4.2C5 6.3 3.6 9.1 3.6 12.3c0 4.6 3.8 7.9 8.4 7.9s8.4-3.3 8.4-7.9c0-3.2-1.4-6-4.4-8.1"/><path class="aq-fish" d="M7.3 15.4c1.9-2.6 5-3 7.3-.1-2.3 2.9-5.4 2.5-7.3.1zM14.2 15.3l3.4-2.2v4.4z"/><circle class="aq-eye" cx="9.4" cy="14.9" r=".65"/><circle cx="15.6" cy="10.2" r=".75"/><circle cx="14.4" cy="8.3" r=".5"/></svg>
+        <span class="chip-label">Aquarium</span>
         <span id="net-count">0/8</span>
         <i class="tank-dot" id="tank-dot" hidden></i>
       </button>

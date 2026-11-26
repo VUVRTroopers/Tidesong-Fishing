@@ -79,5 +79,24 @@ const UIFX = (() => {
   }
   const leaving = el => !!el && el.classList.contains('ov-out');
 
-  return { morph, swap, glide, overlay, leaving, reduced };
+  /* Walk over to another place (another tank): the one you are leaving drifts back and aside, and the
+     next comes forward from the other side into focus, the card gliding to its new height. `also`
+     (the heading) slides in with it. */
+  function visit(card, region, mutate, dir = 1, also) {
+    if (!card || card.closest('[hidden]') || reduced()) { mutate(); return; }
+    clearTimeout(region._visitT);
+    region.style.setProperty('--vd', dir < 0 ? -1 : 1);
+    region.classList.remove('visit-in');
+    region.classList.add('visit-out');
+    region._visitT = setTimeout(() => {
+      region.classList.remove('visit-out');
+      morph(card, mutate);
+      void region.offsetWidth;
+      region.classList.add('visit-in');
+      for (const el of also || []) { el.classList.remove('swap-in', 'swap-in-l', 'swap-in-r'); void el.offsetWidth; el.classList.add(dir < 0 ? 'swap-in-l' : 'swap-in-r'); }
+      region._visitT = setTimeout(() => region.classList.remove('visit-in'), 700);
+    }, 210);
+  }
+
+  return { morph, swap, glide, overlay, leaving, visit, reduced };
 })();
