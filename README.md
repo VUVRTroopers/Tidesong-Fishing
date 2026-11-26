@@ -291,33 +291,35 @@ careers, with three models of human play (casual, steady and focused):
   Tier V kit and two thirds of the time with Heirloom I. Only a full Heirloom III kit makes it close
   to certain, and a casual player still finds it a challenge even then.
 
-The aquariums' pearls, sizes and prices were tuned the same way, over 45 days of real time for
-players who fish for 30 minutes, an hour or two hours a day and look in two to four times a day, and
-whose fish are fed, make friends and pair up hour by hour. Four kinds of player were compared: one
-who sells everything, one who keeps their best fish and feeds them, the same player who never feeds
-them, and a hobbyist who keeps nearly everything and sells only to make room:
+The aquariums' pearls were tuned the same way, over 30-day careers for players who fish for 30
+minutes, an hour or two hours a day and look in two to four times a day, keep their best fish, feed
+them, buy decorations when they pay, and whose fish make friends and pair up hour by hour. The goal:
+the tanks matter from the very first day, and at the top they keep pace with fishing rather than
+outrun it.
 
-- **Happy fish earn about twice what neglected ones do.** Fish that are fed and have time to make
-  friends average about 2.3 times their species' rate a month in, against about 1.1 for fish nobody
-  feeds (and about 0.7 in their first week, while they are still strangers).
-- **Looking after your fish is the faster road up the gear ladder.** A player who keeps and feeds
-  their best fish reaches each Heirloom tier sooner than before: a casual player about a fifth sooner
-  (Heirloom III on day 36 instead of 44), a steady one about an eighth (day 21.5 instead of 25) and a
-  focused one a little sooner. A hobbyist gets there sooner still (a steady one on day 18.5). One who
-  keeps fish but never feeds them gets there about as fast as before or up to two days later, and one
-  who sells everything exactly as before.
-- **Selling still pays the bills early on.** Through the first week a steady player's catch brings in
-  more than their tanks. As rarer fish, more tanks and old friendships add up, the tanks take over:
-  about 2,600 pearls a day for the first three days, 6,000 for the rest of the first week, 20,000 in
-  the second and 34,000 a day after that, against 8,000 to 11,000 a day from an hour of fishing. An hour at the water still pays far more than
-  an hour of the tanks, and each tank's sand holds about eight hours of pearls, so a night's pearls
-  are worth about an hour's fishing.
-- **Tanks cost more, so the sixth tank is something to work towards** (day 8 instead of day 5 for a
-  steady player). Each tank pays for itself in about the same time it did before. Gear prices are
-  unchanged, so selling is as good as it ever was.
-- Rarer fish earn more for their slot, but commoner fish earn back their sale price sooner. Selling a
-  trophy for an upgrade now and keeping it for its pearls are both good choices, and which is better
-  depends on what you are saving for.
+- **A beginner's bowl pays its way.** Six commons and two rares, fed and making friends, make about
+  50 pearls an hour (was about 20): a pack of Glow Worms every hour and a half, a Tier I upgrade or a
+  trinket from the tank alone in an afternoon, and about 560 pearls overnight (was 217). A Teacup
+  Nook in that bowl pays for itself in about three days (was nearly a month).
+- **Selling stays the way to get rich.** Pearls grow only gently with what a fish is worth (about 5
+  an hour for a Common, 6 for a Rare, 7 for an Epic, 9 for a Legendary and 10 for an Extreme, before
+  its mood), so a cheap fish earns back its sale price within hours, while a Legendary takes about
+  three days and an Extreme nearly two weeks of happy pearls to match theirs.
+- **The tanks' share of a player's pearls**, before and after:
+
+  | Player | Days 2-3 | Days 4-7 | Days 8-14 | Days 15-30 |
+  | --- | --- | --- | --- | --- |
+  | Fishes 30 minutes a day | 33% → 51% | 54% → 75% | 78% → 82% | 83% → 78% |
+  | Fishes an hour a day | 22% → 41% | 47% → 61% | 65% → 61% | 79% → 60% |
+  | Fishes two hours a day | 24% → 30% | 40% → 40% | 51% → 41% | 80% → 38% |
+
+  The tanks used to out-earn an hour's fishing nearly four to one by the third week; now it is about
+  three to two, and for a player who fishes two hours a day fishing stays well ahead. A player who
+  fishes only half an hour a day lives mostly on their tanks, as you would expect.
+- **The climb is quicker early and a little longer at the very end.** A casual player reaches
+  Heirloom I two days sooner (day 16.8 instead of 18.8), a steady one Tier V and Heirloom I a little
+  sooner and the last Heirloom about two days later (day 22.3 instead of 19.9), a focused one
+  Heirloom I sooner (day 5.3 instead of 5.9) and the last half a day later.
 
 <p>
   <img src="docs/screenshots/rods.jpg" alt="Every rod by tier, lit by the dusk light of Lanternfen Marsh" width="49%">
@@ -402,21 +404,23 @@ The game explains almost none of what follows; players find it by watching and t
   each fish spends its hours with the few in its tank it gets on with best. Bonds show on a fish's card as Acquainted (20), Friends (50) and Best
   friends (80); friends seek each other out. Two of the same species who reach 100, both free,
   become **mates 💕** for life.
-- **Moonpearls.** Every kept fish slowly makes pearls, more the rarer it is. Its base rate is 1.75 an
-  hour for a Common, 3.5 for a Rare, 6 for an Epic, 18 for a Legendary and 55 for an Extreme, and how
-  happy it is scales that up or down:
+- **Moonpearls.** Every kept fish slowly makes pearls, a little more the more it is worth: its base
+  rate is 3.8 x its sale price to the power 0.12 an hour, about 5 for a Common, 6 for a Rare, 7 for an
+  Epic, 9 for a Legendary and 10 for an Extreme (a big one of its kind a little more), and how happy it
+  is scales that up or down:
   - **Food.** A fish fed just now makes 1.2 times as much, and that slowly falls to 0.6 over the next
     ten hours, so a feed or two a day keeps a tank well fed.
   - **Friends.** Each friend in the same tank adds a tenth, and each best friend three twentieths,
-    up to about a third more in all.
-  - **Mates.** A fish whose mate shares its tank makes nearly half as much again; one whose mate lives
+    up to a fifth more in all. Fish warm to each other quickly: a fed tank's fish make friends within
+    about half a day.
+  - **Mates.** A fish whose mate shares its tank makes a quarter as much again; one whose mate lives
     in another tank pines and makes a tenth less.
-  - **Comfort.** Each finer tank pleases its fish a little more, from nothing extra in the bowl to a
-    fifth more in the Moon Palace.
+  - **Decorations.** A tank's decorations please its fish (see Decorations below).
 
-  Friends and a mate add together, and food, company and comfort multiply, so a hungry, lonely fish in
-  the bowl makes about 0.6 times its rate, a fed one with no friends 1.2 times, and a well-fed fish
-  with best friends and its mate in the Moon Palace about 2.6 times.
+  Friends and a mate add together, and food, company and decorations multiply, so a hungry, lonely
+  fish makes about 0.6 times its rate, a fed one with no friends 1.2 times, and a well-fed fish with
+  best friends and its mate in a well-decorated tank about twice. Moods read Unhappy below 0.75,
+  Restless, Content from 1, Happy from 1.35 and Joyful from 1.75.
 
   A fish's card shows how it is doing in little pictures rather than words:
   - **A face** for its mood: a red, grumpy face when it is Unhappy, amber when Restless, pale blue
@@ -426,7 +430,7 @@ The game explains almost none of what follows; players find it by watching and t
   - **Two fish** with the number of friends it has in its tank, faded when it has none yet.
   - **A heart** when its mate shares its tank, cracked when its mate lives in another.
   - **A row of five pearls** for how much it makes, from half a pearl for a hungry, lonely Common to
-    all five for a joyful Extreme, each pearl about three times the last.
+    all five for a joyful Extreme, each pearl about one and a half times the last.
 
   Hover over or tap any of them for a word or two, such as how many hours until it is hungry, or its
   pearls an hour and its share of its tank's. The list shows each fish's face and pearls, and the
@@ -437,9 +441,11 @@ The game explains almost none of what follows; players find it by watching and t
   nearest the glass, where pearls rest in front of every rock, plant and wreck, so none is ever
   hidden. While you are away the pearls pile up and glint into view as a few big ones when you come
   back. Bigger pearls are worth more.
-  - **Each tank's sand holds about eight hours of that tank's making** while its fish are well fed.
-    When it is full its fish stop until you gather what is there, so coming back once or twice a day
-    collects nearly everything, and nobody out-earns play by leaving the game open.
+  - **Each tank's sand holds a stretch of that tank's making** while its fish are well fed: ten hours
+    in the Glass Bowl (a whole night), nine in the Reed Tank, seven and a half in the Lily Garden, six
+    and a half in the Coral Reef, five and a half in Shipwreck Cove and five in the Moon Palace, whose
+    busy fish want tending more often. When it is full its fish stop until you gather what is there,
+    and nobody out-earns play by leaving the game open.
   - **Gathering:** tap a pearl, sweep a finger (or the mouse) across the row to gather everything it
     passes over, or press and hold to open a moonlit eddy that draws nearby pearls in. Each pearl in a
     quick run rings a note higher, and the run's total counts up beside your finger.
@@ -472,10 +478,12 @@ The game explains almost none of what follows; players find it by watching and t
 ### Decorations
 
 The market's **Decor** tab sells twelve decorations, each painted, animated and alive in its own way.
-A decoration pleases the fish of the tank it stands in, adding to their comfort, so they make more
-pearls. Grander pieces please them more, and since the bonus scales a tank's whole output, a piece is
-worth most in a tank full of rare fish. Fish love variety: a second copy of the same piece in one tank
-pleases them half as much.
+A decoration pleases the fish of the tank it stands in, so they make more pearls: a trinket about 7%
+more, a centrepiece about 10% and a grand piece about 14%. Since the bonus scales a tank's whole
+output, a piece is worth most in a tank full of fish. Fish love variety: a second copy of the same
+piece in one tank pleases them half as much, and a tank's pieces together please a little less than
+their sum (its joy J counts as J / (1 + J)), so two trinkets lift a bowl about 13% and a Moon Palace
+full of grand pieces about half again.
 
 - **Shown, not told:** the market's Decor tab is pictures and icons. A card has the piece's portrait,
   one to three hearts for how much it pleases fish, a row of icons for what fish do with it (an arched
@@ -520,15 +528,11 @@ pleases them half as much.
 | Carousel | Grand | 4,200 | Fish circle it, and seahorses love it | It spins up to a music-box waltz and the fish around it twirl |
 | Sleeping Stone Giant | Grand | 4,600 | Shy fish hide behind it, foragers graze its moss; it breathes slow bubbles | It opens its eyes, yawns, and blows a ring for playful fish to chase |
 
-Prices follow what a piece can earn: tuned in the same 45-day career simulation as the rest of the
-economy, with a player who buys whichever piece would pay for itself soonest (within about six days)
-in whichever tank, moving the pieces it replaces down to lesser tanks. Against the same caring player
-who never decorates, decorating barely matters in the first week, and then lifts the tanks' earnings
-by about a tenth for a casual player and about a fifth for steady and focused ones (a steady player's
-tanks bring in about 41,000 pearls a day in days 14 to 30 instead of 34,500), and each reaches the
-last Heirloom tier a little sooner (a casual player two days sooner, a steady one a day and a half),
-even with the decorations bought on the way. Trinkets suit the first tanks, centrepieces the middle
-ones, and the grand pieces a finer tank full of rare fish.
+Prices follow what a piece can earn, tuned in the same career simulation as the rest of the economy,
+with a player who buys whichever piece would pay for itself soonest (within about six days) in
+whichever tank. A trinket pays for itself in about three days in a happy beginner's bowl, so one is a
+sensible first purchase alongside a Tier I upgrade; centrepieces suit the middle tanks, and the grand
+pieces a grand tank full of fish, where the first of them pays back in about a week.
 
 ## Badges and the scrapbook
 
@@ -996,8 +1000,10 @@ Each piece in the catalogue below it names its theme and tier and takes everythi
 ladder. If you change the ladder, retune the Legendary and Extreme rows of `REEL` with it. Each water's colours and light are in `PAL` in
 `js/scenes.js`.
 
-In `js/tank.js`, `TR` holds each species' temperament, `YIELD` the pearls each rarity makes an hour,
-`DROP` the usual size of a pearl dropped while you watch, `BED_HOURS` how much the sand holds, and
+In `js/tank.js`, `TR` holds each species' temperament, `PEARL_K` and `PEARL_EXP` the pearls a fish
+makes an hour from its sale price, `MOOD` how food, company and decorations scale that, `BOND_PACE` how
+fast friendships grow, `DROP` the usual size of a pearl dropped while you watch, `BED_HOURS` how much
+each tank's sand holds, and
 `affinity()` how readily two fish bond.
 
 The badge catalogue is built at the top of `js/badges.js` with `add()` and `ladder()`. Each badge names

@@ -145,30 +145,36 @@ const Tank = (() => {
   }
 
   /* ================= Moonpearls =================
-     Every kept fish slowly makes Moonpearls: YIELD pearls an hour by rarity, times how content it is
-     (MOOD below). Tuned in a simulation of 45-day careers (fishing, keeping or selling, buying gear and
-     tanks, checking in a few times a day, and fish that are fed, make friends and pair up hour by hour):
-     well-kept fish make about twice what neglected ones do (about 2.3x their YIELD against 1.1x by a
-     month in); a player who feeds and pairs their fish reaches each Heirloom 6-19% sooner than before
-     (more for players who fish less), one who neglects them about as soon as before or a little later,
-     and one who sells everything exactly as before. Selling stays the bigger earner through the first
-     week, and the tanks grow into the bigger one as rarer fish, more tanks and old friendships add up.
-     Commoner fish earn back their price sooner and rarer ones earn more for their slot, so selling a
-     trophy for an upgrade and keeping it for its pearls are both good choices.
+     Every kept fish slowly makes Moonpearls: PEARL_K x (its sale price)^PEARL_EXP an hour, times how
+     content it is (MOOD below). Pearls grow only gently with a fish's worth, so a happy bowl of commons
+     and a couple of rares pays its way from the first day (about 50 an hour: a pack of Glow Worms every
+     hour and a half, a Tier I upgrade or a trinket in an afternoon or overnight), while a legendary or
+     extreme catch is worth more sold than kept for a few days (it takes about 3 and 12 days of a happy
+     fish's pearls to match its price). Bigger fish of a kind make a little more.
+     Tuned in a simulation of 30-day careers (fishing, keeping or selling, buying gear, tanks and
+     decorations, checking in a few times a day, fish fed, making friends and pairing up hour by hour):
+     a player who fishes an hour a day and keeps their fish happy now earns about 40% of their pearls
+     from the tanks in days 2-3 (was 22%) and about 60% later (was 79%: the tanks out-earned fishing
+     nearly four to one); one who fishes two hours a day, about 30% and then under 40% (was 80%). The
+     tanks matter from the start, and at the top they keep pace with fishing rather than outrun it.
      While you watch, a fish drops a pearl of about DROP pearls now and then; while you are away its
      pearls pile up and appear as a few big ones when you come back. Each tank's sand holds BED_HOURS
-     of what that tank's fish make when well fed; when it is full its fish stop until you gather it. */
-  const YIELD = { common: 1.75, rare: 3.5, epic: 6, legendary: 18, extreme: 55 };
-  const DROP = { common: 1, rare: 2, epic: 3.5, legendary: 8, extreme: 20 };
-  const BED_HOURS = 8, MAX_LYING = 60;
+     of what that tank's fish make when well fed (a whole night in the bowl, less in the grander, busier
+     tanks, which want tending more often); when it is full its fish stop until you gather it. */
+  const PEARL_K = 3.8, PEARL_EXP = 0.12;
+  const baseYield = rec => PEARL_K * Math.pow(Math.max(1, rec.value || VALUE[rarityOf(rec)] || 1), PEARL_EXP);
+  const DROP = { common: 2.5, rare: 3, epic: 3.5, legendary: 4.5, extreme: 5.5 };
+  const BED_HOURS = [10, 9, 7.5, 6.5, 5.5, 5], MAX_LYING = 60;
   /* How content a fish is, as a multiplier on its pearls:
      - food: a meal keeps a tank's fish content for about fullH hours, wearing off steadily, from `fed`
        just after a meal down to `hungry`;
      - company: each friend (bond 50+) adds `friend` and each best friend (80+) `best`, up to `socialCap`;
        a mate in the same tank adds `mate`, and a fish pining for a mate in another tank loses `pine`;
-     - home: each finer tank is a little more comfortable (`comfort` per tank up the line).
+     - home: its tank's decorations (js/deco.js), each piece a little less once a tank has several.
      Well-fed fish are more sociable too: friendships grow faster in a fed tank (0.6x hungry, 1.2x fed). */
-  const MOOD = { hungry: 0.6, fed: 1.2, fullH: 10, friend: 0.1, best: 0.15, socialCap: 0.35, mate: 0.45, pine: 0.1, comfort: 0.04 };
+  const MOOD = { hungry: 0.6, fed: 1.2, fullH: 10, friend: 0.1, best: 0.15, socialCap: 0.2, mate: 0.25, pine: 0.1, comfort: 0 };
+  // how quickly fish warm to each other: friends within half a day of sharing a fed tank
+  const BOND_PACE = 1.6;
   // how much a fish makes before it lets a pearl go: never less than one whole pearl, so no pearl is worth nothing
   const nextPearlAt = (r, lo, hi) => Math.max(1, DROP[r] * rand(lo, hi));
   const fedRecently = (t = here) => Date.now() - (S.fedAt[t] || 0) < 15 * 60e3;
@@ -220,7 +226,7 @@ const Tank = (() => {
       const ids = {};
       for (const d of S.decos || []) if (d.t >= 0) (ids[d.t] = ids[d.t] || []).push(d.id);
       joyCache = {};
-      for (const k in ids) joyCache[k] = Deco.joyOf(ids[k]);
+      for (const k in ids) { const j = Deco.joyOf(ids[k]); joyCache[k] = j / (1 + j); }
     }
     return joyCache[t] || 0;
   }
@@ -229,10 +235,10 @@ const Tank = (() => {
     const food = MOOD.hungry + (MOOD.fed - MOOD.hungry) * sat, comfort = 1 + MOOD.comfort * tankOf(rec) + decoJoy(tankOf(rec));
     return { food, sat, social: C.social, comfort, friends: C.friends, best: C.best, mate: C.mate, mult: food * C.social * comfort };
   }
-  const yieldOf = (rec, sat) => (YIELD[rarityOf(rec)] || 0) * moodOf(rec, sat).mult;
+  const yieldOf = (rec, sat) => baseYield(rec) * moodOf(rec, sat).mult;
   const tankRate = (t = here, sat = satiety(t)) => fishIn(t).reduce((a, r) => a + yieldOf(r, sat), 0);
-  // the sand holds BED_HOURS of what the tank's fish make when well fed
-  const bedCap = (t = here) => fishIn(t).reduce((a, r) => a + yieldOf(r, 1), 0) * BED_HOURS;
+  // the sand holds BED_HOURS (for this tank) of what its fish make when well fed
+  const bedCap = (t = here) => fishIn(t).reduce((a, r) => a + yieldOf(r, 1), 0) * (BED_HOURS[t] ?? BED_HOURS[BED_HOURS.length - 1]);
   // what lies on a tank's sand, plus what its fish have made and not yet let go
   function bedValue(t = here) {
     let v = 0;
@@ -242,7 +248,7 @@ const Tank = (() => {
   }
   const bedFull = (t = here) => { const c = bedCap(t); return c > 0 && bedValue(t) >= c - 0.01; };
   /* How a mood reads, from its multiplier. */
-  const MOODS = [[2.0, 'Joyful'], [1.55, 'Happy'], [1.1, 'Content'], [0.8, 'Restless'], [0, 'Unhappy']];
+  const MOODS = [[1.75, 'Joyful'], [1.35, 'Happy'], [1.0, 'Content'], [0.75, 'Restless'], [0, 'Unhappy']];
   const moodName = mult => MOODS.find(([v]) => mult >= v)[1];
   const moodKey = mult => moodName(mult).toLowerCase();
   const hungry = t => fishIn(t).length > 0 && satiety(t) < 0.3;
@@ -312,7 +318,7 @@ const Tank = (() => {
       ${away ? '<path d="M12 7.6l-1.6 3.1 2.7 2.1-1.9 3.9" fill="none" stroke="#14212b" stroke-width="1.5" stroke-linejoin="round"/>' : ''}</svg>`;
   /* Pearls an hour as a row of five pearls, on a scale that runs from a hungry, lonely Common (half a
      pearl) to a joyful Extreme (all five), so a fish's row says at a glance how much it adds. */
-  const GAUGE_LO = 0.7, GAUGE_HI = 140;
+  const GAUGE_LO = 2.5, GAUGE_HI = 30;
   const gaugeOf = rate => Math.max(1, Math.min(10, Math.round(10 * Math.log(Math.max(rate, GAUGE_LO) / GAUGE_LO) / Math.log(GAUGE_HI / GAUGE_LO))));
   const gaugeHTML = rate => {
     const h = gaugeOf(rate);
@@ -403,7 +409,7 @@ const Tank = (() => {
             const key = bkey(a.uid, b.uid);
             if (done.has(key)) continue;
             done.add(key);
-            addBond(a, b, h * 2.2 * k * soc * rand(0.6, 1.2), false);
+            addBond(a, b, h * 2.2 * k * soc * BOND_PACE * rand(0.6, 1.2), false);
           }
         }
       }
@@ -960,7 +966,7 @@ const Tank = (() => {
         const dx = Math.abs(a.x - b.x), dy = Math.abs(a.y - b.y), R = (a.len + b.len) * 0.7;
         if (dx > R * 2.2 || dy > R * 2.2) continue;
         const d = Math.hypot(dx, dy), dz = Math.abs(a.z - b.z);
-        if (d < R * 2.2 && dz < 0.5) addBond(a, b, 0.03 * dt * aff(a, b) * fed, true);
+        if (d < R * 2.2 && dz < 0.5) addBond(a, b, 0.03 * dt * aff(a, b) * fed * BOND_PACE, true);
         if (d < R && dz < 0.4 && a.social <= 0 && b.social <= 0 && isFree(a) && isFree(b) && T - (met.get(bkey(a.uid, b.uid)) ?? -99) > 25 && Math.random() < 0.45) startInteraction(a, b);
       }
     }
@@ -1906,7 +1912,7 @@ const Tank = (() => {
     if (!recs.length) { el.hidden = true; el.innerHTML = ''; el.dataset.sig = ''; }
     else {
       let r = 0, m = 0;
-      for (const rec of recs) { const md = moodOf(rec); r += (YIELD[rarityOf(rec)] || 0) * md.mult; m += md.mult; }
+      for (const rec of recs) { const md = moodOf(rec); r += baseYield(rec) * md.mult; m += md.mult; }
       const avg = m / recs.length, full = ts.filter(t => fishIn(t).length);
       const low = full.reduce((a, t) => satiety(t) < satiety(a) ? t : a, full[0]), sat = satiety(low);
       const hungryIn = full.filter(hungry).map(t => TANKS[t].name);
@@ -1993,7 +1999,7 @@ const Tank = (() => {
     const miss = missing(rec);
     const missHTML = !miss ? '' : miss.mate ? `Misses its mate in the ${esc(TANKS[tankOf(miss.rec)].name)}. Mates make more pearls when they share a tank.`
       : `Misses its best friend, ${an(SPECIES[miss.rec.id].name)} ${esc(SPECIES[miss.rec.id].name)}, in the ${esc(TANKS[tankOf(miss.rec)].name)}.`;
-    const md = moodOf(rec), nf = md.friends + md.best, rate = (YIELD[sp.rarity] || 0) * md.mult, tr = tankRate(tankOf(rec));
+    const md = moodOf(rec), nf = md.friends + md.best, rate = baseYield(rec) * md.mult, tr = tankRate(tankOf(rec));
     const share = Math.max(1, Math.round(100 * rate / (tr || rate || 1)));
     const T = {
       face: `${moodName(md.mult)} · pearls ×${md.mult.toFixed(1)}`,
@@ -2079,7 +2085,7 @@ const Tank = (() => {
     const s = api.save, sp = SPECIES[f.id], R = RARITIES[sp.rarity], rec = s.caught[f.id] || {}, tags = [];
     if (rec.best && f.kg >= rec.best) tags.push('Heaviest');
     if (rec.len && f.cm >= rec.len) tags.push('Longest');
-    const mate = S.mates[f.uid] !== undefined, miss = mate && missing(f), md = moodOf(f), rate = (YIELD[sp.rarity] || 0) * md.mult;
+    const mate = S.mates[f.uid] !== undefined, miss = mate && missing(f), md = moodOf(f), rate = baseYield(f) * md.mult;
     return `
           <li class="fishrow" style="--rc:${R.color}">
             <canvas class="fr-art" data-fish="${f.id}" aria-hidden="true"></canvas>
@@ -2756,6 +2762,6 @@ const Tank = (() => {
     decosIn: t => decosIn(t),
     get isOpen() { return isOpen; },
     /* for tests and the console */
-    _debug: { get fish() { return fish; }, get sel() { return sel; }, get zone() { return cardZone; }, get sc() { return sc; }, get parts() { return parts; }, reactTo, startInteraction, select, feed, tapAt, collect, settle, pearlPos, sweep, accrue, bedValue, bedCap, tankRate, pending, YIELD, pearlSprite, moveFish, swapFish, switchTank, fishIn, placeDecor, decoJoy, get decor() { return sc && sc.decos; }, get here() { return here; }, get falling() { return falling.size; }, get lifted() { return lifted.size; } },
+    _debug: { get fish() { return fish; }, get sel() { return sel; }, get zone() { return cardZone; }, get sc() { return sc; }, get parts() { return parts; }, reactTo, startInteraction, select, feed, tapAt, collect, settle, pearlPos, sweep, accrue, bedValue, bedCap, tankRate, pending, baseYield, pearlSprite, moveFish, swapFish, switchTank, fishIn, placeDecor, decoJoy, get decor() { return sc && sc.decos; }, get here() { return here; }, get falling() { return falling.size; }, get lifted() { return lifted.size; } },
   };
 })();

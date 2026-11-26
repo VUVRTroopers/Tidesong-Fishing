@@ -50,8 +50,10 @@ const Deco = (() => {
 
   /* ======================================================================
      The catalogue. tier: 1 trinket, 2 centrepiece, 3 grand. joy: how much it pleases a tank's fish
-     (added to their comfort). w, h: its size in units. Prices follow what each can earn: a piece pays
-     for itself in a few days in the kind of tank it suits.
+     (added to their comfort: a trinket about +7%, a grand piece about +14%; a tank's pieces together
+     count a little less than their sum, see tank.js). w, h: its size in units. Prices follow what each
+     can earn: a trinket pays for itself in about three days in a beginner's bowl, a grand piece in a
+     week or so in a grand tank full of fish.
      ====================================================================== */
   const DEF = {};
   const LIST = [];
@@ -59,7 +61,7 @@ const Deco = (() => {
 
   /* ---------------- Teacup ---------------- */
   def({
-    id: 'teacup', name: 'Teacup Nook', tier: 1, joy: 0.02, price: 240, w: 11, h: 7.5,
+    id: 'teacup', name: 'Teacup Nook', tier: 1, joy: 0.07, price: 240, w: 11, h: 7.5,
     blurb: 'A porcelain teacup tipped on its saucer. Sleepy fish curl up inside it for a nap. Tap it and it rocks, puffing out a little tea-coloured fizz.',
     paint(c) {
       contact(c, 11);
@@ -118,7 +120,7 @@ const Deco = (() => {
 
   /* ---------------- Snow Globe ---------------- */
   def({
-    id: 'globe', name: 'Snow Globe', tier: 1, joy: 0.024, price: 280, w: 8, h: 10.5,
+    id: 'globe', name: 'Snow Globe', tier: 1, joy: 0.075, price: 280, w: 8, h: 10.5,
     blurb: 'A little winter in a glass: a snowy cottage and a fir tree under a dome. Curious fish gather to peer in. Tap it to shake up a flurry.',
     paint(c) {
       contact(c, 8);
@@ -169,7 +171,7 @@ const Deco = (() => {
 
   /* ---------------- Mushroom Cottage ---------------- */
   def({
-    id: 'mushroom', name: 'Mushroom Cottage', tier: 1, joy: 0.028, price: 320, w: 10, h: 11,
+    id: 'mushroom', name: 'Mushroom Cottage', tier: 1, joy: 0.08, price: 320, w: 10, h: 11,
     blurb: 'A toadstool with a round front door and a lamp in the window. Shy fish slip inside to hide. Tap the door and it swings open, and anyone hiding darts out.',
     paint(c) {
       contact(c, 10);
@@ -233,7 +235,7 @@ const Deco = (() => {
 
   /* ---------------- Jelly Lantern ---------------- */
   def({
-    id: 'jelly', name: 'Jelly Lantern', tier: 1, joy: 0.032, price: 360, w: 7, h: 14,
+    id: 'jelly', name: 'Jelly Lantern', tier: 1, joy: 0.085, price: 360, w: 7, h: 14,
     blurb: 'A paper lantern shaped like a jellyfish, glowing on a tether from a stone. Fish that glow come to keep it company. Tap it and it pulses bright and bobs up on its string.',
     paint(c) {
       contact(c, 5);
@@ -275,7 +277,7 @@ const Deco = (() => {
   const STEEL = [[0, '#f2f6fa'], [0.35, '#b8c4ce'], [0.7, '#6e7a86'], [1, '#2e363e']];
   /* ---------------- Medieval Knight ---------------- */
   def({
-    id: 'knight', name: 'Medieval Knight', tier: 2, joy: 0.036, price: 980, w: 10, h: 18,
+    id: 'knight', name: 'Medieval Knight', tier: 2, joy: 0.1, price: 980, w: 10, h: 18,
     blurb: 'A suit of armour standing guard on a mossy plinth, sword at rest and a fish on its shield. Shy fish shelter behind the shield. Tap it and it lifts its visor in a gust of bubbles and raises its sword in salute.',
     paint(c) {
       contact(c, 9);
@@ -377,7 +379,7 @@ const Deco = (() => {
 
   /* ---------------- Bubble Volcano ---------------- */
   def({
-    id: 'volcano', name: 'Bubble Volcano', tier: 2, joy: 0.04, price: 1080, w: 13, h: 10,
+    id: 'volcano', name: 'Bubble Volcano', tier: 2, joy: 0.105, price: 1080, w: 13, h: 10,
     blurb: 'A little volcano of dark stone, glowing in its cracks, that breathes a stream of bubbles. Playful fish ride its bubbles to the surface. Tap it and it erupts, lifting every fish nearby.',
     paint(c) {
       contact(c, 13, 0.5);
@@ -422,7 +424,7 @@ const Deco = (() => {
 
   /* ---------------- Tin Rocket ---------------- */
   def({
-    id: 'rocket', name: 'Tin Rocket', tier: 2, joy: 0.04, price: 1160, w: 8, h: 17,
+    id: 'rocket', name: 'Tin Rocket', tier: 2, joy: 0.11, price: 1160, w: 8, h: 17,
     blurb: 'A clockwork tin rocket on its launch stand, portholes lit. Curious fish peek in at the windows. Tap it for a countdown and a roaring blast of bubbles (it never quite leaves the ground).',
     paint(c) {
       contact(c, 8);
@@ -501,7 +503,7 @@ const Deco = (() => {
 
   /* ---------------- Windmill ---------------- */
   def({
-    id: 'windmill', name: 'Windmill', tier: 2, joy: 0.044, price: 1240, w: 12, h: 18,
+    id: 'windmill', name: 'Windmill', tier: 2, joy: 0.115, price: 1240, w: 12, h: 18,
     blurb: 'A cosy windmill on a grassy knoll, its sails turned by a stream of bubbles. Playful fish ride the bubbles up through its sails. Tap it and the sails whirl.',
     paint(c) {
       contact(c, 12);
@@ -566,7 +568,7 @@ const Deco = (() => {
   }
   /* ---------------- Castle Keep ---------------- */
   def({
-    id: 'castle', name: 'Castle Keep', tier: 3, joy: 0.06, price: 3400, w: 18, h: 17,
+    id: 'castle', name: 'Castle Keep', tier: 3, joy: 0.14, price: 3400, w: 18, h: 17,
     blurb: 'A sunken castle with two round towers, slate roofs and pennants. Fish swim in through its gate and out the other side, and shy ones hide in a tower window. Tap it: the portcullis rises, the pennants fly, and a little parade swims through.',
     paint(c) {
       contact(c, 18, 0.5);
@@ -654,7 +656,7 @@ const Deco = (() => {
 
   /* ---------------- Lighthouse ---------------- */
   def({
-    id: 'lighthouse', name: 'Lighthouse', tier: 3, joy: 0.064, price: 3800, w: 9, h: 22,
+    id: 'lighthouse', name: 'Lighthouse', tier: 3, joy: 0.145, price: 3800, w: 9, h: 22,
     blurb: 'A striped lighthouse on its rocks, its beam sweeping slowly through the water. Fish that glow gather in its light. Tap it: the lamp flares, the foghorn sounds, and every fish turns to look.',
     paint(c) {
       contact(c, 9, 0.5);
@@ -731,7 +733,7 @@ const Deco = (() => {
     };
   }
   def({
-    id: 'carousel', name: 'Carousel', tier: 3, joy: 0.068, price: 4200, w: 14, h: 15,
+    id: 'carousel', name: 'Carousel', tier: 3, joy: 0.15, price: 4200, w: 14, h: 15,
     blurb: 'A little carousel of painted seahorses under a striped canopy, turning slowly with lights along its edge. Fish circle it, and real seahorses love it. Tap it: it spins up to a music-box tune and the fish around it twirl.',
     paint(c) {
       contact(c, 14, 0.45);
@@ -791,7 +793,7 @@ const Deco = (() => {
 
   /* ---------------- Sleeping Stone Giant ---------------- */
   def({
-    id: 'giant', name: 'Sleeping Stone Giant', tier: 3, joy: 0.072, price: 4600, w: 18, h: 11,
+    id: 'giant', name: 'Sleeping Stone Giant', tier: 3, joy: 0.155, price: 4600, w: 18, h: 11,
     blurb: 'The great mossy head of a stone giant, half sunk in the sand and fast asleep, breathing slow bubbles. Shy fish hide behind it and foragers graze its moss. Tap it: it opens its eyes, yawns, and blows a ring for the playful to chase.',
     paint(c) {
       contact(c, 18, 0.55);
