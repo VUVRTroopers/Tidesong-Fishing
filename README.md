@@ -1004,9 +1004,12 @@ top of `js/sync.js` once they are set up in Firebase) and their progress follows
 devices. It is offered quietly in two places: a row under **Start fishing** on the welcome card, and
 a cloud button in the Scrapbook's header (with a tiny pearl on it until the bonus is claimed) that
 opens a small panel to sign in, or, once signed in, shows the account, when it last synced and a
-**Sign out** button. Signing in for the first time gives **1,500 Moonpearls**, once: the first save
-written for an account carries them, and a save that has had them never gets them again (not from a
-second account either).
+**Sign out** button, with a note once the thank-you pearls have arrived. Signing in gives **1,500
+Moonpearls**, once. They belong to the account's progress, whichever device it comes from: every save
+the cloud keeps has had them, so a save sent up without them (a first sign-in, or another device's
+progress chosen over the one that had them) gets them then, and a save that has had them never gets
+them again, from any account. A sign-in that had to go by redirect (a browser that blocks the
+sign-in window) is picked up when the page comes back.
 
 - **Backend:** Firebase Authentication and one Firestore document per player (`saves/{uid}`), written
   only by that player (`firestore.rules`). Firebase is loaded from Google's CDN only when a sign-in

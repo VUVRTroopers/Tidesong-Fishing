@@ -14,8 +14,10 @@
    Writes go through a transaction that only replaces the version this device last saw, so one device
    never overwrites another's newer progress without asking.
 
-   Signing in for the first time gives a bonus of Moonpearls, once: the first save written for an
-   account carries it, and a save that has had it (its gifts list) never gets it again. */
+   Signing in gives a bonus of Moonpearls, once. It belongs to the account's progress, whichever device
+   that comes from: every save the cloud keeps has had it (its gifts list says so), so a save sent up
+   without it (a first sign-in, or the other device's progress chosen over the one that had it) gets it
+   then, and a save that has had it never gets it again, from any account. */
 const Sync = (() => {
   const CONFIG = {
     apiKey: 'AIzaSyDQ95-aRzG046LX-Ons0sd-40-szi_RLH8',
@@ -55,7 +57,10 @@ const Sync = (() => {
           try { await A.signInWithPopup(auth, make[p]()); }
           catch (e) {
             // a browser that blocks the popup goes the long way round, through a redirect
-            if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')) await A.signInWithRedirect(auth, make[p]());
+            if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')) {
+              meta.pending = true; writeMeta();
+              await A.signInWithRedirect(auth, make[p]());
+            }
             else throw e;
           }
         },
@@ -105,10 +110,11 @@ const Sync = (() => {
   function onUser(u) {
     if (!u) {
       // signed out (here or elsewhere): this device keeps its save, and stops syncing
-      if (meta.uid) { meta = { dev: meta.dev }; writeMeta(); }
+      if (meta.uid || meta.pending) { meta = { dev: meta.dev }; writeMeta(); }
       user = null; render(); return;
     }
     user = u;
+    delete meta.pending;
     if (meta.uid !== u.uid) { meta = { dev: meta.dev, uid: u.uid, base: null, dirty: true }; }
     meta.name = u.name; meta.provider = u.provider; writeMeta();
     render();
@@ -116,6 +122,7 @@ const Sync = (() => {
   }
 
   /* ---------- keeping the two copies together ---------- */
+  const hasBonus = s => (s.gifts || []).includes(BONUS_ID);
   const summary = s => ({ level: api.levelOf(s.xp || 0), pearls: s.pearls || 0, fish: (s.net || []).length, kinds: Object.keys(s.caught || {}).length, total: s.total || 0 });
   // a device that has hardly been played yet simply takes the cloud's save
   const slight = s => (s.total || 0) <= 3 && !(s.netTier > 0);
@@ -127,7 +134,8 @@ const Sync = (() => {
     try {
       const doc = await be.get(user.uid), local = api.getSave();
       if (!doc) { await push(); return; }
-      if (meta.base && doc.at === meta.base) { if (meta.dirty) await push(); return; }
+      // up to date: send any changes, and a save that has never had the thank-you gets it now
+      if (meta.base && doc.at === meta.base) { if (meta.dirty || !hasBonus(local)) await push(); return; }
       // the cloud has moved on since this device last looked
       if (doc.save === JSON.stringify(local)) { meta.base = doc.at; meta.dirty = false; writeMeta(); render(); return; }
       if (meta.base ? !meta.dirty : slight(local)) { adopt(doc); return; }
@@ -143,8 +151,8 @@ const Sync = (() => {
     let grant = false, sent = null;
     const ok = await be.tx(uid, cur => {
       if (cur && !overwrite && cur.at !== meta.base) return null;
-      // the first save for an account brings the bonus, unless this save has had it already
-      grant = !cur && !(s.gifts || []).includes(BONUS_ID);
+      // every save the cloud keeps has had the thank-you: this one gets it now if it never has
+      grant = !hasBonus(s);
       const copy = JSON.parse(JSON.stringify(s));
       if (grant) { copy.pearls = (copy.pearls || 0) + BONUS; copy.gifts = (copy.gifts || []).concat(BONUS_ID); }
       sent = { v: 1, save: JSON.stringify(copy), at: Math.max(Date.now(), (cur && cur.at || 0) + 1), dev: meta.dev, bonus: true, sum: summary(copy) };
@@ -227,7 +235,7 @@ const Sync = (() => {
     PROVIDERS.apple && `<button type="button" class="sync-prov apple" data-sync="apple">${A_LOGO}<span>Apple</span></button>`,
   ].filter(Boolean).join('');
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-  const bonusOpen = () => !(api.getSave().gifts || []).includes(BONUS_ID);
+  const bonusOpen = () => !hasBonus(api.getSave());
 
   function render() {
     if (!api) return;
@@ -256,6 +264,7 @@ const Sync = (() => {
       pop.hidden = !popOpen;
       if (popOpen) pop.innerHTML = signedIn
         ? `<p class="sp-who">${CLOUD_OK}<span><b>${esc(meta.name || 'Signed in')}</b><small>${failed ? 'Can’t reach the cloud right now: your progress is safe here and will sync later' : meta.syncedAt ? `Synced ${ago(meta.syncedAt)}` : 'Syncing…'}</small></span></p>
+           ${hasBonus(api.getSave()) ? `<p class="sp-got"><i class="pearl" aria-hidden="true"></i>+${(BONUS).toLocaleString('en-US')} thank-you pearls received</p>` : ''}
            <button type="button" class="secondary-btn sp-out" data-sync="out">Sign out</button>`
         : `<p class="sp-lead">${CLOUD}<b>Play on all your devices</b></p><span class="sync-provs">${buttons()}</span>${bonusOpen() ? BONUS_CHIP : ''}`;
     }
@@ -283,7 +292,7 @@ const Sync = (() => {
     document.addEventListener('keydown', e => { if (popOpen && e.key === 'Escape') { e.stopImmediatePropagation(); togglePop(false); } }, true);
     render();
     // a player who signed in before: follow their account from the start
-    if (meta.uid && enabled()) ready().catch(() => { failed = true; render(); });
+    if ((meta.uid || meta.pending) && enabled()) ready().catch(() => { failed = true; render(); });
     let note = null;
     try { note = sessionStorage.getItem(NOTE_KEY); sessionStorage.removeItem(NOTE_KEY); } catch (e) { /* storage unavailable */ }
     if (note === 'loaded') setTimeout(() => api.toast('Your progress from your other device is here.', '#9fe3b0', 4200), 900);

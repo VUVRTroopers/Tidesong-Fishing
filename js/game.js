@@ -2239,7 +2239,7 @@
     const gift = GIFTS[id];
     if (!gift) return;
     if (!Array.isArray(save.gifts)) save.gifts = [];
-    if (save.gifts.includes(id)) { setTimeout(() => toast('You have already claimed this gift. Thank you again!', '#9fe3b0', 4000), 900); return; }
+    if (save.gifts.includes(id)) { setTimeout(() => toast(`You already have the ${fmt(gift.pearls)} Moonpearls from this link. Thank you again!`, '#9fe3b0', 4000), 900); return; }
     if (gift.until && Date.now() > Date.parse(gift.until)) { setTimeout(() => toast('This gift has ended. Thank you for playing!', '#9fe3b0', 4000), 900); return; }
     save.gifts.push(id);
     save.pearls += gift.pearls;
