@@ -567,6 +567,8 @@ const Badges = (() => {
     const n = state().fresh.length;
     d.hidden = !n;
     const b = $('#btn-book');
+    // new badges glow softly behind the scrapbook's button
+    if (b) { b.classList.toggle('notify', !!n); if (n) b.dataset.glow = 'badge'; else delete b.dataset.glow; }
     if (b) b.setAttribute('aria-label', n ? `Scrapbook: ${n} new ${n === 1 ? 'badge' : 'badges'}` : 'Scrapbook');
   }
   /* Badges shown on a page count as admired once you leave it (or open one of them). */

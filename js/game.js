@@ -917,23 +917,30 @@
   }
 
   /* ================= Nudges =================
-     A notification left waiting (new badges in the scrapbook, new mates or pearls in the aquarium, new
-     waters on the map) now and then nudges its button with a small bounce and a soft sound from that
-     corner, so the eye goes there. Only while fishing calmly (idle, or waiting for a bite, with no menu
-     open), never two within three minutes, and each notification waits two and a half times
-     as long before its next nudge (up to fifteen minutes). Time counts only while playing, and a new or changed
-     notification starts its count again. */
+     A notification left waiting (new badges in the scrapbook, new mates, a full sand or pearls in the
+     aquarium, new waters on the map) glows softly behind its button, breathing slowly. Now and then it
+     also nudges: the button hops and wiggles, its glow flares and a ring of its colour spreads out, with
+     a soft sound from that corner, so the eye goes there. Only at calm moments (no fish on the line, no
+     menu open): the first nudge comes about half a minute after the notification appears (a minute for
+     a few pearls), never two within 75 seconds, and each notification then waits twice as long before
+     its next (up to five minutes). Time counts only while playing; a notification that is answered and
+     comes back starts again. */
+  function glow(btn, kind) {
+    if (!btn) return;
+    btn.classList.toggle('notify', !!kind);
+    if (kind) btn.dataset.glow = kind; else delete btn.dataset.glow;
+  }
   const NUDGES = {
-    place: { btn: '#btn-place', on: () => $('#btn-place').classList.contains('pulse'), sig: () => 'new', first: () => 35 },
-    book: { btn: '#btn-book', on: () => !$('#book-dot').hidden, sig: () => $('#btn-book').getAttribute('aria-label'), first: () => 60 },
+    place: { btn: '#btn-place', on: () => $('#btn-place').classList.contains('pulse'), sig: () => 'new', first: () => 20 },
+    book: { btn: '#btn-book', on: () => !$('#book-dot').hidden, sig: () => 'new', first: () => 25 },
     tank: {
       btn: '#btn-net', on: () => !ui.tankDot.hidden,
       sig: () => ui.tankDot.classList.contains('heart') ? 'mates' : ui.tankDot.classList.contains('full') ? 'full' : 'pearls',
       // new mates and a full sand matter sooner than a few pearls lying about
-      first: sig => sig === 'pearls' ? 240 : 55,
+      first: sig => sig === 'pearls' ? 60 : 25,
     },
   };
-  const NUDGE_GAP = 180, NUDGE_MAX = 900;
+  const NUDGE_GAP = 75, NUDGE_MAX = 300, NUDGE_CALM = ['idle', 'waiting', 'retrieving', 'escaped'];
   let playT = 0, nudgeAt = -1e9, nudgeTick = 0;
   function nudges(dt) {
     if (modalOpen() || document.hidden) return;
@@ -944,18 +951,21 @@
     for (const [kind, N] of Object.entries(NUDGES)) {
       const st = N.st || (N.st = { sig: null, since: 0, wait: 0 });
       const sig = N.on() ? N.sig() : null;
-      if (sig !== st.sig) { st.sig = sig; st.since = playT; st.wait = sig ? N.first(sig) : 0; }
+      // a new notification (or one that has grown more pressing: pearls to a full sand or mates) starts
+      // its count; one that only changes its count keeps its place
+      if (sig !== st.sig) { const fresh = !st.sig || N.first(sig) < N.first(st.sig); st.sig = sig; if (fresh || !sig) { st.since = playT; st.wait = sig ? N.first(sig) : 0; } }
       if (sig && playT - st.since >= st.wait && (!due || st.wait < due.st.wait)) due = { kind, N, st };
     }
-    if (!due || !['idle', 'waiting'].includes(G.phase) || playT - nudgeAt < NUDGE_GAP) return;
+    if (!due || !NUDGE_CALM.includes(G.phase) || playT - nudgeAt < NUDGE_GAP) return;
     nudgeAt = playT;
     due.st.since = playT;
-    due.st.wait = Math.min(NUDGE_MAX, due.st.wait * 2.5);
+    due.st.wait = Math.min(NUDGE_MAX, due.st.wait * 2);
     const b = $(due.N.btn);
     b.classList.remove('nudge');
     void b.offsetWidth;
     b.classList.add('nudge');
-    setTimeout(() => b.classList.remove('nudge'), 1300);
+    clearTimeout(b._nudgeT);
+    b._nudgeT = setTimeout(() => b.classList.remove('nudge'), 1400);
     Sound.play('nudge', due.kind);
   }
 
@@ -1650,6 +1660,9 @@
     ui.tankDot.hidden = !pend.pearls && !pend.hearts;
     ui.tankDot.classList.toggle('heart', !!pend.hearts);
     ui.tankDot.classList.toggle('full', !pend.hearts && pend.full);
+    // a waiting notification glows softly behind its button: pink for new mates, gold for a full sand,
+    // moonlight for pearls
+    glow(ui.netBtn, pend.hearts ? 'mates' : pend.full ? 'full' : pend.pearls ? 'pearls' : null);
     ui.netBtn.setAttribute('aria-label', `Your ${save.netTier ? 'aquariums' : 'aquarium'}: ${used} of ${cap} fish${used >= cap ? ', full' : ''}${pend.full ? `. ${fmt(pend.value)} Moonpearls are waiting and the sand is full` : pend.pearls ? `. ${fmt(pend.value)} Moonpearls are waiting` : ''}`);
     const bait = activeBait();
     const stocked = BAIT_ORDER.reduce((a, id) => a + (save.bait[id] || 0), 0);
@@ -1870,7 +1883,7 @@
       setTimeout(() => {
         toast(`New waters discovered: ${loc.name}`, '#9fe3b0', 5200);
         Sound.play('unlock');
-        $('#btn-place').classList.add('pulse');
+        $('#btn-place').classList.add('pulse'); glow($('#btn-place'), 'place');
       }, delay);
       delay += 1200;
     }
@@ -1926,7 +1939,7 @@
 
   function openMap() {
     if (!canUseMenus()) return;
-    $('#btn-place').classList.remove('pulse');
+    $('#btn-place').classList.remove('pulse'); glow($('#btn-place'), null);
     buildMap();
     openModal('#m-map');
     Sound.play('open');

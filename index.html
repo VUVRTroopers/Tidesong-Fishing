@@ -136,30 +136,43 @@
   .xp-bar { width: clamp(46px, 11vw, 110px); height: 6px; border-radius: 3px; background: rgba(0, 0, 0, 0.32); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55), 0 1px 0 rgba(255, 255, 255, 0.08); overflow: hidden; flex: none; }
   .xp-bar i { display: block; height: 100%; width: 0; border-radius: inherit; background: linear-gradient(180deg, #fff1c6, var(--brass) 55%, #c39033); box-shadow: 0 0 6px rgba(232, 196, 108, 0.45); transition: width 0.8s var(--ease); }
   .xp-text { font-variant-numeric: tabular-nums; white-space: nowrap; }
-  /* new waters on the map: a steady green ring and a dot, like the other buttons' dots */
-  .place-btn { position: relative; }
-  .place-btn.pulse { box-shadow: var(--slab-edge), var(--slab-lift), inset 0 0 0 1px rgba(150, 226, 168, 0.55), 0 0 14px rgba(150, 226, 168, 0.28); }
-  .place-btn.pulse::before { content: ""; position: absolute; top: 6px; right: 6px; width: 10px; height: 10px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff, #c8f5d2 45%, #5fc47c); box-shadow: 0 0 0 2px rgba(8, 17, 28, 0.8), 0 0 10px rgba(150, 226, 168, 0.9); animation: dotPulse 2.4s ease-in-out infinite; }
-  /* A notification left waiting now and then nudges its button: a small bounce and wiggle and a ring of
-     light spreading out from it, so the eye is drawn there. */
-  .nudge { animation: nudge 0.95s cubic-bezier(0.3, 0.7, 0.4, 1) both; }
-  .place-btn.nudge { --nr: 0.3; }
+  .place-btn, .notify, .nudge { position: relative; }
+  /* A notification waiting behind a button: a soft glow in its colour breathes around it (moonlight for
+     pearls, gold for badges and a full sand, pink for new mates, green for new waters). The dots that
+     once marked them are kept only as state. */
+  .tank-dot, .book-dot { display: none !important; }
+  .notify { --glow: 255, 205, 100; }
+  .notify[data-glow="pearls"] { --glow: 200, 184, 255; }
+  .notify[data-glow="mates"] { --glow: 255, 140, 186; }
+  .notify[data-glow="place"] { --glow: 150, 226, 168; }
+  .notify::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    box-shadow: inset 0 0 0 1.5px rgba(var(--glow), 0.75), inset 0 0 14px rgba(var(--glow), 0.3), 0 0 10px 3px rgba(var(--glow), 0.75), 0 0 26px 9px rgba(var(--glow), 0.4), 0 0 48px 14px rgba(var(--glow), 0.16);
+    opacity: 0.45; animation: glowBreath 3.2s ease-in-out infinite;
+  }
+  @keyframes glowBreath { 50% { opacity: 1; } }
+  /* Now and then it nudges: the button hops and wiggles, its glow flares and a ring of its colour
+     spreads out, so the eye is drawn there. */
+  .nudge { animation: nudge 1.15s cubic-bezier(0.3, 0.7, 0.4, 1) both; }
+  .place-btn.nudge { --nr: 0.35; }
   @keyframes nudge {
     0% { transform: none; }
-    16% { transform: translateY(-2px) scale(1.07) rotate(calc(-5deg * var(--nr, 1))); }
-    34% { transform: translateY(-1px) scale(1.05) rotate(calc(4deg * var(--nr, 1))); }
-    52% { transform: scale(1.03) rotate(calc(-2.5deg * var(--nr, 1))); }
-    72% { transform: scale(1.01) rotate(calc(1deg * var(--nr, 1))); }
+    12% { transform: translateY(-4px) scale(1.13) rotate(calc(-8deg * var(--nr, 1))); }
+    26% { transform: translateY(-2px) scale(1.1) rotate(calc(7deg * var(--nr, 1))); }
+    40% { transform: translateY(-1px) scale(1.07) rotate(calc(-5deg * var(--nr, 1))); }
+    55% { transform: scale(1.04) rotate(calc(3deg * var(--nr, 1))); }
+    72% { transform: scale(1.015) rotate(calc(-1deg * var(--nr, 1))); }
     100% { transform: none; }
   }
-  .nudge::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; animation: nudgeRing 1.2s ease-out both; }
-  @keyframes nudgeRing { 0% { box-shadow: 0 0 0 0 rgba(255, 226, 156, 0.6); } 100% { box-shadow: 0 0 0 14px rgba(255, 226, 156, 0); } }
-  .nudge .tank-dot, .nudge .book-dot, .place-btn.nudge::before { animation: dotPop 0.95s ease-out both; }
-  @keyframes dotPop { 0%, 100% { transform: none; } 25% { transform: scale(1.6); } 55% { transform: scale(0.9); } }
+  .nudge.notify::before { animation: glowFlare 1.15s ease-out, glowBreath 3.2s ease-in-out 1.15s infinite; }
+  @keyframes glowFlare { 0% { opacity: 0.6; } 20% { opacity: 1; transform: scale(1.12); filter: brightness(1.5); } 100% { opacity: 0.45; transform: none; } }
+  .nudge::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; animation: nudgeRing 1.3s cubic-bezier(.2, .7, .3, 1) both; }
+  @keyframes nudgeRing { 0% { box-shadow: 0 0 0 0 rgba(var(--glow, 255, 226, 156), 0.75); } 100% { box-shadow: 0 0 0 22px rgba(var(--glow, 255, 226, 156), 0); } }
   @media (prefers-reduced-motion: reduce) {
-    .nudge, .nudge .tank-dot, .nudge .book-dot, .place-btn.nudge::before { animation: none; }
+    .nudge, .notify::before, .nudge.notify::before { animation: none; }
+    .notify::before { opacity: 0.85; }
     .nudge::after { animation: nudgeGlow 1.4s ease-in-out both; }
-    @keyframes nudgeGlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 226, 156, 0); } 40% { box-shadow: 0 0 0 3px rgba(255, 226, 156, 0.55), 0 0 16px rgba(255, 226, 156, 0.4); } }
+    @keyframes nudgeGlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(var(--glow, 255, 226, 156), 0); } 40% { box-shadow: 0 0 0 3px rgba(var(--glow, 255, 226, 156), 0.6), 0 0 18px rgba(var(--glow, 255, 226, 156), 0.45); } }
   }
 
   .hud-actions { display: flex; gap: 8px; flex: none; }
@@ -1198,7 +1211,7 @@
   @media (max-width: 420px) { .records { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
   @media (prefers-reduced-motion: reduce) {
-    .prompt.breathe, .place-btn.pulse::before, .ring-core svg, .demo .band, .demo .marker, .reel-label, .rv-name { animation: none !important; }
+    .prompt.breathe, .ring-core svg, .demo .band, .demo .marker, .reel-label, .rv-name { animation: none !important; }
     .card, .modal.closing .card, .modal.open.behind .card { transition: none; }
     .swap-in, .swap-in-l, .swap-in-r { animation: none; }
   }

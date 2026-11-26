@@ -239,15 +239,18 @@ the catch screen or later from your aquarium, and spend them on:
   you reach a new one (after buying a tank, or emptying the tanks to three quarters and filling them
   again).
 
-**Nudges.** New badges (a gold dot on the scrapbook), new mates or pearls in the aquarium (a dot on the
-tank button) and new waters (a green dot and ring on the map) wait quietly. If one is left unchecked
-for a while, its button now and then gives a small bounce and wiggle with a ring of light and a soft
-sound from that corner (a bubble and chime for the aquarium, a rustle and chime for the scrapbook, two
-rising notes for the map), in the water's key. Nudges come only while you are fishing calmly (idle or
-waiting for a bite, with no menu open), never within three minutes of each other, and each waiting
-notification leaves two and a half times longer before nudging again, up to fifteen minutes. New mates
-and a full sand nudge after about a minute, new badges after one, new waters after about half a
-minute, and a few pearls lying about only after four. With reduced motion the button glows instead.
+**Notifications glow, and now and then nudge.** A notification waiting behind a button lights a soft
+glow around it that breathes slowly: gold on the scrapbook for new badges, moonlight on the aquarium
+button for pearls waiting (gold when a tank's sand is full, pink for new mates), and green on the place
+card for new waters. Now and then the button also nudges: it hops and wiggles, its glow flares, a ring
+of its colour spreads out, and a soft sound comes from that corner (a bubble and chime for the
+aquarium, a rustle and chime for the scrapbook, two rising notes for the map), in the water's key.
+Nudges come only at calm moments (no fish on the line, no menu open), never within 75 seconds of each
+other: the first about half a minute after a notification appears (a minute for a few pearls), and
+each one waits twice as long before the next, up to five minutes. A notification that only changes its
+count (one more badge, a few more pearls) keeps its place in the queue; one that grows more pressing (a
+full sand, new mates) starts sooner. With reduced motion the glow holds steady and a nudge is a
+brightening instead of a hop.
 
 - **Decorations:** twelve pieces for the aquariums, from a teacup to a sleeping stone giant, that
   please the fish of the tank they stand in (so they make more pearls) and give them somewhere to
@@ -452,8 +455,8 @@ The game explains almost none of what follows; players find it by watching and t
   - **Seeing them:** pearls float and bob a little above the sand over a breathing shadow, sit in a
     pool of shade and a soft glow in their rarity's colour, stand in a faint moonbeam, send out a ring
     now and then, and a glint runs along the row.
-  - Pearls waiting light a dot on the tank button, gold when a tank's sand is full; the tank tabs show
-    which.
+  - Pearls waiting light a soft glow around the aquarium button, gold when a tank's sand is full; the
+    tank tabs show which.
 
 <details>
 <summary>Spoilers: what each tank's decor does</summary>
@@ -568,7 +571,7 @@ after the tanks, not taps on Feed.
 **The moment.** A new badge drops in at the top of the screen with its medal spinning into place and a
 chime that grows richer with the grade. Tap it to open the scrapbook at that badge. Badges wait while a
 fish is on the line. Several at once come one after another, and a crowd is gathered into one note. A
-dot on the scrapbook button and on the page tabs marks new badges until you have seen them.
+glow around the scrapbook button and a dot on the page tabs mark new badges until you have seen them.
 
 **Saves from before the scrapbook** are credited quietly on first load, with one note ("Your scrapbook
 is ready: 61 badges from your adventures so far"). Credit comes from everything the save already shows:
