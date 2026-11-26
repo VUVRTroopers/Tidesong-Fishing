@@ -97,7 +97,11 @@
     homeFish(s);
     return s;
   }
-  function persistRaw() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* ignore */ } }
+  function persistRaw() {
+    if (Sync.frozen) return; // a save from another device is being put in place
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* ignore */ }
+    Sync.changed();
+  }
   // every change to the save is a chance to have earned a badge
   function persist() { persistRaw(); Badges.poke(); }
   let save = load();
@@ -2074,6 +2078,24 @@
     busy: () => ['bite', 'reeling'].includes(G.phase) || !$('#m-intro').hidden,
   });
 
+  Sync.init({
+    saveKey: SAVE_KEY,
+    getSave: () => save,
+    levelOf: xp => levelFromXp(xp).level,
+    fmt, toast, openModal, closeModal,
+    play: (name, ...a) => Sound.play(name, ...a),
+    busy: () => ['bite', 'reeling'].includes(G.phase) || (revealState && !$('#m-reveal').hidden),
+    // the thank-you for signing in, once
+    grant: (n, id) => {
+      save.pearls += n;
+      if (!save.gifts.includes(id)) save.gifts.push(id);
+      persist(); flashWallet(); Sound.play('buy');
+      toast(`☁️ Your progress now follows you to every device. Here are ${fmt(n)} Moonpearls to say thank you!`, '#e8c46c', 6000);
+    },
+  });
+
+  Tank.tipsOn($('#m-book')); Tank.tipsOn($('#m-intro'));
+
   Shop.init({
     get save() { return save; },
     note: (kind, v) => Badges.note(kind, v),
@@ -2239,7 +2261,7 @@
   Flourish.setLocation(save.loc, 0);
   updateHUD();
   toIdle();
-  if (!save.intro) openModal('#m-intro');
+  if (!save.intro) { openModal('#m-intro'); Sync.warm(); }
   if (save.marketGift) {
     const gift = save.marketGift;
     delete save.marketGift;

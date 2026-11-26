@@ -1166,6 +1166,48 @@
     .card, .modal.closing .card, .modal.open.behind .card { transition: none; }
     .swap-in, .swap-in-l, .swap-in-r { animation: none; }
   }
+
+  /* signing in to play on every device: quiet, and out of the way */
+  .sync-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 10px; margin: 18px -6px 0; padding-top: 16px; border-top: 1px solid rgba(214, 222, 255, 0.1); }
+  .sync-lead { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 800; color: var(--ink-soft); }
+  .sync-ico { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+  .sync-ico .tick { stroke: #96e2a8; stroke-width: 2.2; }
+  .sync-provs { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+  .sync-prov { display: inline-flex; align-items: center; gap: 8px; padding: 7px 13px 7px 10px; border: 0; border-radius: 999px; font: inherit; font-size: 13.5px; font-weight: 800; cursor: pointer; color: #1f1f1f; background: #fff; box-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) inset, 0 2px 8px rgba(0, 0, 0, 0.3); transition: transform 0.15s var(--ease); }
+  .sync-prov:hover { transform: translateY(-1px); }
+  .sync-prov svg { width: 18px; height: 18px; flex: none; }
+  .sync-prov.facebook { color: #fff; background: #1877f2; }
+  .sync-prov.apple { color: #fff; background: #000; }
+  .sync-bonus { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 800; color: var(--brass); background: var(--well-fill); box-shadow: var(--well-edge), inset 0 0 0 1px rgba(232, 196, 108, 0.35); font-variant-numeric: tabular-nums; cursor: help; }
+  .sync-bonus .pearl, .sync-dot.pearl { width: 12px; height: 12px; }
+  .sync-btn { position: relative; margin-left: auto; color: var(--ink-faint); }
+  .sync-btn.on { color: var(--ink-soft); }
+  .sync-btn.err .tick { stroke: var(--ember); }
+  .sync-btn[aria-expanded="true"] { color: var(--ink); box-shadow: var(--well-edge), inset 0 0 0 1px rgba(232, 196, 108, 0.45); background: var(--well-fill); }
+  .sync-btn + .sync-pop + .close-btn { margin-left: 0; }
+  .sync-dot { position: absolute; top: 6px; right: 6px; }
+  .sync-pop {
+    position: absolute; z-index: 6; top: 70px; right: 20px; width: min(300px, calc(100% - 40px)); padding: 14px; border-radius: 16px; display: grid; gap: 10px; justify-items: start;
+    background: var(--grain), linear-gradient(180deg, rgba(22, 36, 48, 0.98), rgba(8, 16, 24, 0.98)); box-shadow: var(--slab-edge), 0 16px 40px rgba(0, 0, 0, 0.5); animation: fcIn 0.2s var(--ease) both;
+  }
+  .sync-pop p { margin: 0; display: flex; align-items: center; gap: 9px; font-size: 14px; color: var(--ink); }
+  .sp-who span { display: grid; gap: 2px; }
+  .sp-who small { font-size: 12px; font-weight: 700; color: var(--ink-faint); line-height: 1.35; }
+  .sp-who .sync-ico { width: 26px; height: 26px; color: var(--ink-soft); }
+  .sync-card { width: min(100%, 560px); padding: 24px; text-align: center; }
+  .sync-card h2 { margin: 0 0 16px; font-family: var(--display); font-weight: 600; font-size: 22px; }
+  .sync-saves { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+  .sync-save { display: grid; gap: 10px; padding: 14px; border: 0; border-radius: 18px; font: inherit; color: var(--ink); text-align: left; cursor: pointer; background: var(--well-fill); box-shadow: var(--well-edge); transition: box-shadow 0.15s ease, transform 0.15s var(--ease); }
+  .sync-save:hover, .sync-save:focus-visible { transform: translateY(-1px); box-shadow: var(--well-edge), inset 0 0 0 2px rgba(232, 196, 108, 0.55); }
+  .ss-where { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--ink-soft); }
+  .ss-where b { color: var(--ink); }
+  .ss-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ss-stats span { display: grid; gap: 1px; }
+  .ss-stats small { font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-faint); }
+  .ss-stats b { display: inline-flex; align-items: center; gap: 5px; font-size: 18px; font-variant-numeric: tabular-nums; }
+  .ss-stats .pearl { width: 13px; height: 13px; }
+  .ss-when { font-size: 12.5px; font-weight: 700; color: var(--ink-faint); }
+  .ss-keep { justify-self: stretch; text-align: center; padding: 9px; border-radius: 12px; font-weight: 800; color: var(--on-brass, #2a1606); background: var(--brass-fill, #e8c46c); box-shadow: var(--brass-edge, none); }
 </style>
 
 <div id="app">
@@ -1325,6 +1367,8 @@
           <h2 id="book-title">Scrapbook</h2>
           <p class="sheet-sub" id="book-sub"></p>
         </div>
+        <button class="close-btn sync-btn" id="book-sync" type="button" aria-haspopup="true" aria-expanded="false" hidden></button>
+        <div class="sync-pop" id="sync-pop" hidden></div>
         <button class="close-btn" type="button" data-close aria-label="Close scrapbook"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       <div class="book-tally" id="book-tally"></div>
@@ -1384,6 +1428,15 @@
         <li><span><b>Keep or sell.</b> Fish you keep swim in your aquarium; sell the rest for Moonpearls. Spend them at the Driftwood Market on bait, rods, bobbers and grander tanks.</span></li>
       </ol>
       <button class="primary-btn" id="intro-go" type="button" data-autofocus>Start fishing</button>
+      <div class="sync-row" id="intro-sync" hidden></div>
+    </div>
+  </div>
+
+  <!-- two saves for one account: which to keep -->
+  <div class="modal" id="sync-choose" hidden role="dialog" aria-modal="true" aria-labelledby="sync-choose-title">
+    <div class="card sync-card">
+      <h2 id="sync-choose-title">Which progress to keep?</h2>
+      <div class="sync-saves"></div>
     </div>
   </div>
 </div>
@@ -1405,4 +1458,5 @@
 <script src="js/tank-env.js"></script>
 <script src="js/tank-gl.js"></script>
 <script src="js/tank.js"></script>
+<script src="js/sync.js"></script>
 <script src="js/game.js"></script>

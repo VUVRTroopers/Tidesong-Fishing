@@ -995,6 +995,33 @@ In `js/tank.js`, `TR` holds each species' temperament, `YIELD` the pearls each r
 The badge catalogue is built at the top of `js/badges.js` with `add()` and `ladder()`. Each badge names
 its page, grade, glyph, what it measures and its goal. `GLYPH` holds the engraved icons.
 
+## Playing on every device
+
+Players can sign in with Google (Facebook and Apple are built in and switched on in `PROVIDERS` at the
+top of `js/sync.js` once they are set up in Firebase) and their progress follows them between
+devices. It is offered quietly in two places: a row under **Start fishing** on the welcome card, and
+a cloud button in the Scrapbook's header (with a tiny pearl on it until the bonus is claimed) that
+opens a small panel to sign in, or, once signed in, shows the account, when it last synced and a
+**Sign out** button. Signing in for the first time gives **1,500 Moonpearls**, once: the first save
+written for an account carries them, and a save that has had them never gets them again (not from a
+second account either).
+
+- **Backend:** Firebase Authentication and one Firestore document per player (`saves/{uid}`), written
+  only by that player (`firestore.rules`). Firebase is loaded from Google's CDN only when a sign-in
+  button is on screen or for a player who has signed in before, so nobody else downloads it.
+- **Keeping devices together:** the cloud copy carries the time it was written; each device remembers
+  the version it last saw and whether it has changed the save since. On opening the game, on coming
+  back to it, and a few seconds after any change, a device sends its changes if the cloud still holds
+  what it last saw, takes the cloud's progress if only the cloud has moved on (the page reloads with
+  it and says so), and otherwise asks the player which to keep, with two cards (level, pearls, fish
+  kept, kinds found, when). A device that has hardly been played simply takes the cloud's progress.
+  Writes are transactions that only replace the version the device last saw, so a device never
+  overwrites newer progress from another without asking, and the question never interrupts a catch.
+- **Signing out** keeps the progress on that device and stops syncing it.
+- **Setting up Firebase:** enable Google under Authentication → Sign-in method, add the site's domain
+  (`vuvrtroopers.github.io`) under Authentication → Settings → Authorized domains, create the Firestore
+  database and paste `firestore.rules` into its Rules tab.
+
 ## Gift links
 
 `claim/` is a link for rewarding players: https://vuvrtroopers.github.io/Tidesong-Fishing/claim/ shows
