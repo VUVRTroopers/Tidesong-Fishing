@@ -753,6 +753,11 @@ const Tank = (() => {
     let sp = base * f.boost * (f.state === 'idle' || (f.state === 'poi' && f.arrived && f.poi && ['hide', 'perch', 'shade', 'gather'].includes(f.poi.kind)) ? 0.35 : 1);
     if (f.react && f.react.kind === 'bubble') sp *= 0.15;
     if (f.state === 'eat') sp *= 1.45;
+    // on a phone the fish being looked at keeps to the water its card leaves in view
+    if (f === sel && cardBand) {
+      const lo = Math.max(sc.swim.y0, cardBand.y0) + f.hh, hi = Math.min(sc.swim.y1, cardBand.y1) - f.hh;
+      if (hi > lo) f.ty = clamp(f.ty, lo, hi);
+    }
     const dx = f.tx - f.x, dy = f.ty - f.y, d = Math.hypot(dx, dy) || 1;
     const arrive = clamp(d / (f.len * 1.1), 0, 1);
     let dvx = dx / d * sp * arrive, dvy = dy / d * sp * arrive;
@@ -2015,11 +2020,23 @@ const Tank = (() => {
     dropTip();
     if (force) placeCard();
   }
-  /* The card sits at the bottom of the tank, or the top when the fish it describes swims beneath it. */
+  /* The card sits at the bottom of the tank, or the top when the fish it describes swims beneath it.
+     On a narrow screen the card spans the tank, so it never moves: it takes the side away from the
+     water (the top, over a bowl sitting low), and the fish it describes keeps to the open water it
+     leaves in view, so both can be seen. */
+  let cardBand = null, cardFor = null;
   function placeCard() {
     const el = $('#fish-card');
-    if (el.hidden || !sel) return;
-    const ch = el.offsetHeight, cw = el.offsetWidth, top = el.classList.contains('top');
+    if (el.hidden || !sel) { cardBand = null; cardFor = null; return; }
+    const ch = el.offsetHeight, cw = el.offsetWidth;
+    if (cw > W * 0.6) {
+      if (cardFor !== sel) { cardFor = sel; el.classList.toggle('top', (sc.swim.y0 + sc.swim.y1) / 2 > H * 0.55); }
+      const m = 14;
+      cardBand = el.classList.contains('top') ? { y0: ch + m, y1: H } : { y0: 0, y1: H - ch - m };
+      return;
+    }
+    cardBand = null; cardFor = null;
+    const top = el.classList.contains('top');
     const under = sel.x < cw + 30;
     if (!top && under && sel.y > H - ch - 24) el.classList.add('top');
     else if (top && (!under || sel.y < ch + 24)) el.classList.remove('top');

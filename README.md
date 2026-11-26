@@ -328,7 +328,9 @@ them, and a hobbyist who keeps nearly everything and sells only to make room:
 
 Fish you keep live in your aquariums, opened from the bowl button under the place name. Tap a fish to
 follow it with a card showing its weight, length, temperament and friendships, and to star, sell,
-move or release it. **List** shows the tank's fish, most valuable first; **Sell unstarred** clears
+move or release it (on a wide screen the card moves out of the fish's way; on a phone, where it spans
+the tank, it stays put on the side away from the water and the fish keeps to the water left in view).
+**List** shows the tank's fish, most valuable first; **Sell unstarred** clears
 out the rest; and **Feed** (once every 30 seconds, and once is enough for about ten hours) sprinkles food: ragged flakes in the usual mix of colours
 that float a while, then tumble down, and a few pellets that sink straight to the bottom-dwellers.
 Each fish noses up to a morsel and snaps it up: it is sucked into its mouth, crumbs drift away and
