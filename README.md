@@ -328,8 +328,14 @@ them, and a hobbyist who keeps nearly everything and sells only to make room:
 
 Fish you keep live in your aquariums, opened from the bowl button under the place name. Tap a fish to
 follow it with a card showing its weight, length, temperament and friendships, and to star, sell,
-move or release it (on a wide screen the card moves out of the fish's way; on a phone, where it spans
-the tank, it stays put on the side away from the water and the fish keeps to the water left in view).
+move or release it. The card never hops about: it keeps its place (the bottom corner, or across the
+top of a phone screen over a low-sitting bowl, and slimmer in a short tank, such as a phone held
+sideways), and the fish it describes keeps to the roomiest open water beside or above it, swimming
+briskly out from under it when first chosen. The aquarium's menus move like the rest of the game's:
+the card rises in and settles out, a different fish's details slide in as the card glides to its new
+height, the Move and Decor panels fade their shade in and rise into place (and leave the same way),
+grow and shrink smoothly as rows unfold, switching tanks slides the new one in from its side of the
+tabs, and the list's rows fall into place one after another. All of it respects reduced motion.
 **List** shows the tank's fish, most valuable first; **Sell unstarred** clears
 out the rest; and **Feed** (once every 30 seconds, and once is enough for about ten hours) sprinkles food: ragged flakes in the usual mix of colours
 that float a while, then tumble down, and a few pellets that sink straight to the bottom-dwellers.

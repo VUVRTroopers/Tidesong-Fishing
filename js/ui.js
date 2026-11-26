@@ -44,5 +44,40 @@ const UIFX = (() => {
     }, 110);
   }
 
-  return { morph, swap, reduced };
+  /* Change what an element shows and let it glide to its new height, keeping its scroll position.
+     `get` finds the element (again, after `mutate`, for contents that are written afresh). */
+  const EASE = 'cubic-bezier(.2, .8, .2, 1)';
+  function glide(get, mutate) {
+    const a = get();
+    if (!a || reduced() || a.closest('[hidden]')) { mutate(); return; }
+    const from = a.getBoundingClientRect().height, scroll = a.scrollTop;
+    mutate();
+    const b = get();
+    if (!b) return;
+    if (scroll) b.scrollTop = scroll;
+    clearTimeout(b._glideT);
+    b.style.transition = 'none'; b.style.height = ''; b.style.overflow = '';
+    const to = b.getBoundingClientRect().height;
+    if (Math.abs(to - from) < 1) { b.style.transition = ''; return; }
+    b.style.boxSizing = 'border-box'; b.style.overflow = 'hidden'; b.style.height = `${from}px`;
+    void b.offsetHeight;
+    b.style.transition = `height 0.34s ${EASE}`;
+    b.style.height = `${to}px`;
+    b._glideT = setTimeout(() => { b.style.height = ''; b.style.transition = ''; b.style.overflow = ''; b.style.boxSizing = ''; }, 360);
+  }
+
+  /* Show or hide something that floats over a card (a panel, the fish card): it comes in with its
+     own CSS entrance, and on the way out it plays `.ov-out` before hiding (then `done`). */
+  function overlay(el, show, done) {
+    if (!el) return;
+    clearTimeout(el._ovT);
+    if (show) { el.classList.remove('ov-out'); el.hidden = false; return; }
+    if (el.hidden) { if (done) done(); return; }
+    if (reduced()) { el.hidden = true; if (done) done(); return; }
+    el.classList.add('ov-out');
+    el._ovT = setTimeout(() => { el.hidden = true; el.classList.remove('ov-out'); if (done) done(); }, 210);
+  }
+  const leaving = el => !!el && el.classList.contains('ov-out');
+
+  return { morph, swap, glide, overlay, leaving, reduced };
 })();

@@ -938,11 +938,28 @@
   .tank-dot.full { background: radial-gradient(circle at 35% 35%, #fff, #fff1c4 45%, #f3c86a); box-shadow: 0 0 0 2px rgba(8, 17, 28, 0.8), 0 0 14px rgba(255, 214, 120, 1); }
   .fish-card {
     position: absolute; left: 12px; bottom: 12px; width: min(348px, calc(100% - 24px)); padding: 12px 14px; border-radius: 16px;
-    display: grid; gap: 6px; background: var(--grain), linear-gradient(180deg, rgba(22, 36, 48, 0.86), rgba(8, 16, 24, 0.9));
+    background: var(--grain), linear-gradient(180deg, rgba(22, 36, 48, 0.86), rgba(8, 16, 24, 0.9));
     -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2);
-    box-shadow: var(--slab-edge), 0 12px 30px rgba(0, 0, 0, 0.4), inset 3px 0 0 var(--rc); animation: fcIn 0.32s var(--ease) both;
+    box-shadow: var(--slab-edge), 0 12px 30px rgba(0, 0, 0, 0.4), inset 3px 0 0 var(--rc);
+    --fc-dy: 14px; animation: fcEnter 0.42s cubic-bezier(.2, .9, .3, 1.12) both; transition: box-shadow 0.35s ease;
   }
+  .fc-in { display: grid; gap: 6px; }
+  .fish-card.short { padding: 9px 12px; width: min(330px, calc(100% - 24px)); }
+  .fish-card.short .fc-in { gap: 4px; }
+  .fish-card.short .fc-since, .fish-card.short .fc-miss, .fish-card.short .fc-bonds li:nth-child(n+2) { display: none; }
+  .fish-card.short .fc-mood { font-size: 13px; }
+  .fish-card.short .fc-act { margin-top: 2px; }
+  /* the card rises into place (or drops, across the top), settles out the same way, and a different
+     fish's details slide in while the card glides to its new height */
+  .fish-card.top { --fc-dy: -14px; }
+  .fish-card.ov-out { animation: fcLeave 0.21s cubic-bezier(.4, 0, 1, 1) both; pointer-events: none; }
+  @keyframes fcEnter { from { opacity: 0; transform: translateY(var(--fc-dy)) scale(0.97); } }
+  @keyframes fcLeave { to { opacity: 0; transform: translateY(calc(var(--fc-dy) * 0.6)) scale(0.98); } }
   @keyframes fcIn { from { opacity: 0; transform: translateY(10px); } }
+  .fc-swap { animation: fcSwap 0.32s var(--ease) both; }
+  @keyframes fcSwap { from { opacity: 0; transform: translateX(10px); } }
+  .fc-act .sell-btn.armed, .fc-act .text-btn.armed { animation: armPop 0.34s cubic-bezier(.2, .9, .3, 1.3); }
+  @keyframes armPop { from { transform: scale(0.94); } }
   .fc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
   .fc-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; }
   .fc-title h3 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 19px; }
@@ -973,8 +990,25 @@
   /* moving a fish: a small panel over the tank */
   .move-menu {
     position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; padding: 14px; background: rgba(4, 10, 16, 0.5);
-    -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: fcIn 0.24s var(--ease) both;
+    -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: mmFade 0.24s ease both;
   }
+  /* panels over the tank: the shade fades in and the panel rises and settles, like the game's menus;
+     they leave the same way, and new rows unfold into them */
+  .move-menu .mm-box { animation: mmIn 0.42s cubic-bezier(.2, .9, .3, 1.12) both; }
+  .move-menu.settled:not(.ov-out) .mm-box { animation: none; }
+  .move-menu.ov-out { animation: mmFadeOut 0.21s ease both; pointer-events: none; }
+  .move-menu.ov-out .mm-box { animation: mmOut 0.21s cubic-bezier(.4, 0, 1, 1) both; }
+  @keyframes mmFade { from { opacity: 0; } }
+  @keyframes mmFadeOut { to { opacity: 0; } }
+  @keyframes mmIn { from { opacity: 0; transform: translateY(16px) scale(0.96); } }
+  @keyframes mmOut { to { opacity: 0; transform: translateY(10px) scale(0.98); } }
+  .mm-swap.fresh, .dm-to.fresh { animation: unfold 0.32s var(--ease) both; }
+  @keyframes unfold { from { opacity: 0; transform: translateY(-6px); } }
+  .mm-tank, .mm-fish, .fc-bond, .dm-ibtn, .dm-empty-add, .sync-prov { transition: transform 0.16s var(--ease), box-shadow 0.2s var(--ease), background-color 0.2s ease, color 0.16s ease, border-color 0.2s ease, opacity 0.2s ease; }
+  .mm-tank:active, .mm-fish:active, .fc-bond:active, .dm-ibtn:active { transform: translateY(1px); }
+  .tank-list.stagger .fishrow, .tank-list.stagger .tl-head, .tank-list.stagger .empty { animation: rowIn 0.42s var(--ease) both; animation-delay: calc(var(--i, 0) * 28ms); }
+  @keyframes rowIn { from { opacity: 0; transform: translateY(10px); } }
+  #tank-capbar { transition: width 0.6s var(--ease), background 0.3s ease; }
   .mm-box {
     width: min(360px, 100%); max-height: 100%; overflow: auto; padding: 14px; border-radius: 18px; display: grid; gap: 8px;
     background: var(--grain), linear-gradient(180deg, rgba(22, 36, 48, 0.96), rgba(8, 16, 24, 0.97)); box-shadow: var(--slab-edge), 0 16px 40px rgba(0, 0, 0, 0.5);
@@ -1034,8 +1068,9 @@
   .empty-tank {
     position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); width: min(340px, calc(100% - 32px)); padding: 14px 16px; border-radius: 16px;
     display: grid; gap: 10px; justify-items: center; text-align: center; background: rgba(8, 16, 24, 0.66); box-shadow: var(--slab-edge);
-    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); animation: fcIn 0.4s var(--ease) both;
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); animation: etIn 0.45s cubic-bezier(.2, .9, .3, 1.12) both;
   }
+  @keyframes etIn { from { opacity: 0; transform: translate(-50%, calc(-50% + 12px)) scale(0.97); } }
   .empty-tank p { margin: 0; font-size: 13.5px; font-weight: 700; color: var(--ink); line-height: 1.45; }
   .fc-miss { margin: 0; font-size: 12.5px; color: #ffc6dc; line-height: 1.4; }
   .fc-bond small { font-weight: 700; color: var(--ink-faint); }
@@ -1126,7 +1161,8 @@
   .fish-card.top { bottom: auto; top: 12px; }
   @media (max-width: 560px) {
     .tank-stage { margin: 12px -10px 0; border-radius: 14px; }
-    .fish-card { left: 8px; right: 8px; bottom: 8px; width: auto; padding: 10px 12px; gap: 4px; }
+    .fish-card { left: 8px; right: 8px; bottom: 8px; width: auto; padding: 10px 12px; }
+    .fc-in { gap: 4px; }
     .fish-card.top { top: 8px; bottom: auto; }
     .fc-title h3 { font-size: 17px; }
     .fc-mood { font-size: 13.5px; }
@@ -1137,7 +1173,7 @@
     .tank-btns { justify-content: flex-start; }
     .tank-cap { max-width: none; flex-basis: 100%; }
   }
-  @media (prefers-reduced-motion: reduce) { .tank-dot, .tank-hint, .fish-card { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .tank-dot, .tank-hint, .fish-card, .fc-swap, .move-menu, .move-menu .mm-box, .empty-tank, .tank-list.stagger *, .mm-swap.fresh, .dm-to.fresh { animation: none !important; } }
   .ladder { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
   .rung { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; padding: 12px 14px; border-radius: 14px; background: var(--panel-fill); box-shadow: var(--panel-edge); }
   .rung > div:first-child { display: grid; gap: 2px; }

@@ -753,10 +753,14 @@ const Tank = (() => {
     let sp = base * f.boost * (f.state === 'idle' || (f.state === 'poi' && f.arrived && f.poi && ['hide', 'perch', 'shade', 'gather'].includes(f.poi.kind)) ? 0.35 : 1);
     if (f.react && f.react.kind === 'bubble') sp *= 0.15;
     if (f.state === 'eat') sp *= 1.45;
-    // on a phone the fish being looked at keeps to the water its card leaves in view
-    if (f === sel && cardBand) {
-      const lo = Math.max(sc.swim.y0, cardBand.y0) + f.hh, hi = Math.min(sc.swim.y1, cardBand.y1) - f.hh;
-      if (hi > lo) f.ty = clamp(f.ty, lo, hi);
+    // the fish being looked at keeps to the open water its card leaves, so it is never behind it
+    if (f === sel && cardZone) {
+      const z = cardZone, hx = f.len * 0.5, hy = f.hh;
+      if (z.x1 - z.x0 > hx * 2) f.tx = clamp(f.tx, z.x0 + hx, z.x1 - hx);
+      if (z.y1 - z.y0 > hy * 2) f.ty = clamp(f.ty, z.y0 + hy, z.y1 - hy);
+      // caught under the card (just chosen, or nudged there): it swims out briskly, not at a dawdle
+      const r = cardRect;
+      if (r && f.x > r.x0 - hx && f.x < r.x1 + hx && f.y > r.y0 - hy && f.y < r.y1 + hy) sp = Math.max(sp, base * 2.2);
     }
     const dx = f.tx - f.x, dy = f.ty - f.y, d = Math.hypot(dx, dy) || 1;
     const arrive = clamp(d / (f.len * 1.1), 0, 1);
@@ -1858,14 +1862,19 @@ const Tank = (() => {
     if (b.dataset.tab === 'all') {
       if (view === 'list' && listAll) return;
       listAll = true;
+      staggerList = true;
       if (view !== 'list') { view = 'list'; sel = null; UIFX.swap($('#m-tank .card'), $('#tank-stage'), renderUI, 1); }
-      else renderUI();
+      else UIFX.swap($('#m-tank .card'), $('#tank-stage'), renderUI, 1);
       return;
     }
     const t = +b.dataset.tab;
+    const was = view === 'list' && listAll;
     listAll = false;
-    if (t !== here) switchTank(t);
-    renderUI();
+    if (t === here && !was) return;
+    // the new tank (or this tank's list) slides in from its side of the tabs
+    const dir = was ? -1 : Math.sign(t - here);
+    if (view === 'list') staggerList = true;
+    UIFX.swap($('#m-tank .card'), $('#tank-stage'), () => { if (t !== here) switchTank(t); renderUI(); }, dir);
   }
   function renderBar() {
     const s = api.save, all = view === 'list' && listAll, room = tanksRoom(s.netTier), cap = TANKS[here].cap, n = fishIn(here).length;
@@ -1970,7 +1979,7 @@ const Tank = (() => {
   let cardSig = '';
   function renderCard(force) {
     const el = $('#fish-card');
-    if (!sel || sel.leaving || view !== 'tank' || !isOpen) { el.hidden = true; cardSig = ''; return; }
+    if (!sel || sel.leaving || view !== 'tank' || !isOpen) { UIFX.overlay(el, false); cardSig = ''; cardUid = null; cardRect = cardZone = null; zoneFor = null; return; }
     const f = sel, rec = f.rec, sp = f.sp, R = RARITIES[sp.rarity], c = api.save.caught[f.id] || {};
     const tags = [];
     if (c.best && rec.kg >= c.best) tags.push('Heaviest');
@@ -1998,8 +2007,7 @@ const Tank = (() => {
     const sig = [f.uid, rec.fav, armedS, armedR, bonds.map(b => b.uid + ':' + Math.floor(b.v / 10)).join(','), rec.pearls || 0, missHTML, multi(), happyHTML].join('|');
     if (!force && sig === cardSig) return;
     cardSig = sig;
-    el.style.setProperty('--rc', R.color);
-    el.innerHTML = `
+    const html = `<div class="fc-in">
       <div class="fc-head">
         <div class="fc-title"><h3>${esc(sp.name)}</h3>${tags.map(t => `<em class="tag">${t}</em>`).join('')}</div>
         <button type="button" class="fc-close" data-tk="close" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
@@ -2015,31 +2023,56 @@ const Tank = (() => {
         <button type="button" class="sell-btn${armedS ? ' armed' : ''}" data-tk="sell">${armedS ? 'Tap again to sell' : `Sell · ${pearlsHTML(rec.value)}`}</button>
         ${multi() ? `<button type="button" class="secondary-btn move-btn" data-tk="move">${MOVE}Move</button>` : ''}
         <button type="button" class="text-btn${armedR ? ' armed' : ''}" data-tk="release">${armedR ? 'Tap again to release' : 'Release'}</button>
-      </div>`;
-    el.hidden = false;
+      </div></div>`;
+    el.style.setProperty('--rc', R.color);
+    if (el.hidden || UIFX.leaving(el)) {
+      // coming in: settle where it will sit first, then rise into view
+      el.innerHTML = html;
+      UIFX.overlay(el, true);
+      cardUid = f.uid;
+      placeCard(true);
+    } else {
+      // already showing: glide to the new height, and a different fish's details slide in
+      const other = cardUid !== f.uid;
+      cardUid = f.uid;
+      UIFX.glide(() => el, () => { el.innerHTML = html; });
+      if (other && !UIFX.reduced()) el.firstElementChild.classList.add('fc-swap');
+    }
     dropTip();
     if (force) placeCard();
   }
-  /* The card sits at the bottom of the tank, or the top when the fish it describes swims beneath it.
-     On a narrow screen the card spans the tank, so it never moves: it takes the side away from the
-     water (the top, over a bowl sitting low), and the fish it describes keeps to the open water it
-     leaves in view, so both can be seen. */
-  let cardBand = null, cardFor = null;
-  function placeCard() {
+  /* The card keeps one place: the bottom corner of the tank, or across the top on a narrow screen when
+     the water sits low (over the bowl). It never hops about after its fish; the fish it describes
+     keeps out from under it instead, swimming in the water beside or above it (see move). If its place
+     has to change (the screen turned), it glides there. */
+  let cardRect = null, cardUid = null, cardZone = null, zoneSide = null, zoneFor = null;
+  function placeCard(instant) {
     const el = $('#fish-card');
-    if (el.hidden || !sel) { cardBand = null; cardFor = null; return; }
-    const ch = el.offsetHeight, cw = el.offsetWidth;
-    if (cw > W * 0.6) {
-      if (cardFor !== sel) { cardFor = sel; el.classList.toggle('top', (sc.swim.y0 + sc.swim.y1) / 2 > H * 0.55); }
-      const m = 14;
-      cardBand = el.classList.contains('top') ? { y0: ch + m, y1: H } : { y0: 0, y1: H - ch - m };
-      return;
+    if (el.hidden || !sel || UIFX.leaving(el)) { cardRect = cardZone = null; zoneFor = null; return; }
+    // a short tank (a phone held sideways) gets a slimmer card
+    el.classList.toggle('short', H < 380);
+    const top = el.offsetWidth > W * 0.6 && (sc.swim.y0 + sc.swim.y1) / 2 > H * 0.55;
+    if (top !== el.classList.contains('top')) {
+      const y0 = el.offsetTop;
+      el.classList.toggle('top', top);
+      if (!instant && !UIFX.reduced() && el.animate) el.animate([{ transform: `translateY(${y0 - el.offsetTop}px)` }, { transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.2, .8, .2, 1)' });
     }
-    cardBand = null; cardFor = null;
-    const top = el.classList.contains('top');
-    const under = sel.x < cw + 30;
-    if (!top && under && sel.y > H - ch - 24) el.classList.add('top');
-    else if (top && (!under || sel.y < ch + 24)) el.classList.remove('top');
+    const r = cardRect = { x0: el.offsetLeft, y0: el.offsetTop, x1: el.offsetLeft + el.offsetWidth, y1: el.offsetTop + el.offsetHeight };
+    // the open water beside or above the card: the roomiest, chosen once for each fish looked at
+    const sw = sc.swim, m = 10, Z = {
+      above: { x0: sw.x0, y0: sw.y0, x1: sw.x1, y1: Math.min(sw.y1, r.y0 - m) },
+      below: { x0: sw.x0, y0: Math.max(sw.y0, r.y1 + m), x1: sw.x1, y1: sw.y1 },
+      right: { x0: Math.max(sw.x0, r.x1 + m), y0: sw.y0, x1: sw.x1, y1: sw.y1 },
+      left: { x0: sw.x0, y0: sw.y0, x1: Math.min(sw.x1, r.x0 - m), y1: sw.y1 },
+    };
+    const area = z => Math.max(0, z.x1 - z.x0) * Math.max(0, z.y1 - z.y0);
+    if (zoneFor !== sel || !zoneSide) {
+      // of the roomy ones (at least half the roomiest), the one the fish reaches soonest
+      const big = Math.max(...Object.values(Z).map(area)), dist = z => Math.hypot(Math.max(z.x0 - sel.x, 0, sel.x - z.x1), Math.max(z.y0 - sel.y, 0, sel.y - z.y1));
+      zoneFor = sel;
+      zoneSide = Object.keys(Z).filter(k => area(Z[k]) >= big * 0.5).reduce((a, k) => (a === null || dist(Z[k]) < dist(Z[a]) ? k : a), null) || 'above';
+    }
+    cardZone = area(Z[zoneSide]) > 0 ? Z[zoneSide] : null;
   }
   /* The list: this tank's fish, or every fish tank by tank. */
   function rowHTML(f) {
@@ -2082,9 +2115,16 @@ const Tank = (() => {
     }
     box.innerHTML = html;
     box.hidden = false;
+    if (staggerList && !UIFX.reduced()) {
+      box.querySelectorAll('.fishrow, .tl-head, .empty').forEach((r, i) => r.style.setProperty('--i', Math.min(i, 12)));
+      box.classList.add('stagger');
+      clearTimeout(box._stT); box._stT = setTimeout(() => box.classList.remove('stagger'), 800);
+    }
+    staggerList = false;
     dropTip();
-    requestAnimationFrame(paintList);
+    paintList();
   }
+  let staggerList = false;
   function paintList() {
     const d = Math.min(2, window.devicePixelRatio || 1);
     document.querySelectorAll('#tank-list canvas[data-fish]').forEach(c => {
@@ -2107,7 +2147,7 @@ const Tank = (() => {
     view = view === 'list' ? 'tank' : 'list';
     closeMove();
     play('click');
-    if (view === 'list') sel = null; else listAll = false;
+    if (view === 'list') { sel = null; staggerList = true; } else listAll = false;
     UIFX.swap($('#m-tank .card'), $('#tank-stage'), renderUI, view === 'list' ? 1 : -1);
   }
 
@@ -2156,9 +2196,19 @@ const Tank = (() => {
     return true;
   }
   let decorOpen = false, decorMoving = null;
+  let decorFresh = null;
   function openDecor() { decorOpen = true; decorMoving = null; play('click'); renderDecor(); }
   function closeDecor() { if (!decorOpen) return; decorOpen = false; renderDecor(); }
   const decoThumb = id => `<canvas class="dm-art" data-deco="${id}" aria-hidden="true"></canvas>`;
+  // each piece's little picture is painted once and copied after that, so redrawing the panel is instant
+  const thumbs = new Map();
+  function paintThumb(c) {
+    const key = `${c.dataset.deco}|${c.clientWidth}x${c.clientHeight}`, done = thumbs.get(key);
+    if (done) { c.width = done.width; c.height = done.height; c.getContext('2d').drawImage(done, 0, 0); return; }
+    Deco.preview(c, c.dataset.deco, T);
+    const copy = document.createElement('canvas'); copy.width = c.width; copy.height = c.height; copy.getContext('2d').drawImage(c, 0, 0);
+    thumbs.set(key, copy);
+  }
   // a tank's decoration spaces as a row of dots, filled for each piece standing in it
   const slotDots = (n, cap) => `<span class="slot-dots" aria-hidden="true">${'<i class="on"></i>'.repeat(Math.min(n, cap))}${'<i></i>'.repeat(Math.max(0, cap - n))}</span>`;
   const ICO = {
@@ -2174,14 +2224,14 @@ const Tank = (() => {
      pieces to place here, and the way to the market. Pictures and icons; the words wait in tips. */
   function renderDecor() {
     const el = $('#decor-menu');
-    if (!decorOpen || !isOpen) { el.hidden = true; el.innerHTML = ''; return; }
+    if (!decorOpen || !isOpen) { UIFX.overlay(el, false, () => { if (!decorOpen) el.innerHTML = ''; }); return; }
     const T0 = TANKS[here], cap = decoCap(here), mine = decosIn(here), stored = (S.decos || []).filter(d => d.t < 0), full = mine.length >= cap;
     let h = `<div class="mm-box dm-box"><div class="mm-head"><h3>Decorations</h3><span class="dm-cap" data-tip="${esc(`${T0.name}: ${mine.length} of ${cap} spaces`)}">${slotDots(mine.length, cap)}</span><button type="button" class="fc-close" data-dm="close" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
     const others = tanks().filter(t => t !== here);
     if (mine.length) h += `<ul class="dm-list">${mine.map(d => {
       const D = Deco.DEF[d.id];
       let row = `<li class="dm-item">${decoThumb(d.id)}<span class="dm-name">${esc(D.name)}</span><span class="dm-acts">${others.length ? icoBtn('move', 'move', d.uid, 'Move to another tank', `aria-expanded="${decorMoving === d.uid}"`) : ''}${icoBtn('store', 'store', d.uid, 'Put away in your storeroom')}</span></li>`;
-      if (decorMoving === d.uid) row += `<li class="dm-to">${others.slice().reverse().map(t => {
+      if (decorMoving === d.uid) row += `<li class="dm-to${decorFresh === d.uid ? ' fresh' : ''}">${others.slice().reverse().map(t => {
         const n = decosIn(t).length, c2 = decoCap(t), tf = n >= c2;
         return `<button type="button" class="mm-tank${tf ? ' full' : ''}" data-dm="to" data-uid="${d.uid}" data-t="${t}" ${tf ? 'aria-disabled="true"' : ''}><span>${esc(TANKS[t].name)}</span>${slotDots(n, c2)}</button>`;
       }).join('')}</li>`;
@@ -2194,10 +2244,12 @@ const Tank = (() => {
       h += `<div class="dm-sub" data-tip="Your storeroom">${ico('store')}<i></i></div><ul class="dm-list">${Object.entries(groups).map(([id, ds]) => `<li class="dm-item">${decoThumb(id)}<span class="dm-name">${esc(Deco.DEF[id].name)}${ds.length > 1 ? ` <small>×${ds.length}</small>` : ''}</span><span class="dm-acts">${icoBtn('place', 'place', ds[0].uid, full ? 'This tank is full' : 'Place in this tank', full ? 'aria-disabled="true"' : '')}</span></li>`).join('')}</ul>`;
     }
     h += `<button type="button" class="secondary-btn dm-shop" data-dm="shop">${ico('bag')}<span>Market</span></button></div>`;
-    el.innerHTML = h;
-    el.hidden = false;
+    // previews are painted straight away, so nothing blinks when the panel is written afresh
+    const write = () => { el.innerHTML = h; el.querySelectorAll('canvas[data-deco]').forEach(paintThumb); };
+    if (el.hidden || UIFX.leaving(el)) { el.classList.remove('settled'); UIFX.overlay(el, true); write(); }
+    else { el.classList.add('settled'); UIFX.glide(() => el.querySelector('.mm-box'), write); }
+    decorFresh = null;
     dropTip();
-    requestAnimationFrame(() => el.querySelectorAll('canvas[data-deco]').forEach(c => Deco.preview(c, c.dataset.deco, T)));
   }
   function onDecorMenu(e) {
     if (e.target === e.currentTarget) { closeDecor(); return; }
@@ -2206,7 +2258,7 @@ const Tank = (() => {
     const uid = +b.dataset.uid;
     switch (b.dataset.dm) {
       case 'close': closeDecor(); return;
-      case 'move': decorMoving = decorMoving === uid ? null : uid; play('click'); break;
+      case 'move': decorMoving = decorMoving === uid ? null : uid; decorFresh = decorMoving; play('click'); break;
       case 'to': decorMoving = null; placeDecor(uid, +b.dataset.t); break;
       case 'store': placeDecor(uid, -1); break;
       case 'place': placeDecor(uid, here); break;
@@ -2225,7 +2277,7 @@ const Tank = (() => {
   function renderMove() {
     const el = $('#move-menu');
     const rec = moving && fishRec(moving.uid);
-    if (!rec) { moving = null; el.hidden = true; el.innerHTML = ''; return; }
+    if (!rec) { moving = null; UIFX.overlay(el, false, () => { if (!moving) el.innerHTML = ''; }); return; }
     const from = tankOf(rec), name = SPECIES[rec.id].name, m = mateRec(rec);
     let h = `<div class="mm-box"><div class="mm-head"><h3>Move your ${esc(name)}</h3><button type="button" class="fc-close" data-mm="close" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
     if (m) h += `<p class="mm-note">${tankOf(m) === from ? 'Its mate lives here too.' : `Its mate lives in the ${esc(TANKS[tankOf(m)].name)}.`} Mates make more pearls when they share a tank.</p>`;
@@ -2237,15 +2289,16 @@ const Tank = (() => {
       else {
         h += `<button type="button" class="mm-tank full" data-mm="swap" data-t="${t}" aria-expanded="${moving.open === t}"><span>${label}</span><small>Full · swap</small></button>`;
         if (moving.open === t) {
-          h += `<div class="mm-swap"><p>Swap places with…</p>${fishIn(t).sort((a, b) => b.value - a.value).map(o => {
+          h += `<div class="mm-swap${moving.fresh === t ? ' fresh' : ''}"><p>Swap places with…</p>${fishIn(t).sort((a, b) => b.value - a.value).map(o => {
             const sp = SPECIES[o.id];
             return `<button type="button" class="mm-fish" data-mm="with" data-uid="${o.uid}" style="--rc:${RARITIES[sp.rarity].color}"><i class="dot"></i>${esc(sp.name)}${o.fav ? ' <span aria-label="starred">★</span>' : ''}<small>${pearlsHTML(o.value)}</small></button>`;
           }).join('')}</div>`;
         }
       }
     }
-    el.innerHTML = h + '</div>';
-    el.hidden = false;
+    if (el.hidden || UIFX.leaving(el)) { el.classList.remove('settled'); el.innerHTML = h + '</div>'; UIFX.overlay(el, true); }
+    else { el.classList.add('settled'); UIFX.glide(() => el.querySelector('.mm-box'), () => { el.innerHTML = h + '</div>'; }); }
+    moving.fresh = null;
     const first = el.querySelector('[data-mm="to"], [data-mm="swap"], [data-mm="with"]');
     if (first && !moving.focused) { moving.focused = true; first.focus({ preventScroll: true }); }
   }
@@ -2257,7 +2310,7 @@ const Tank = (() => {
     switch (b.dataset.mm) {
       case 'close': closeMove(); break;
       case 'to': moving = null; moveFish(uid, +b.dataset.t); renderMove(); break;
-      case 'swap': moving.open = moving.open === +b.dataset.t ? null : +b.dataset.t; play('click'); renderMove(); { const x = $('#move-menu [data-mm="with"]'); if (x) x.focus({ preventScroll: true }); } break;
+      case 'swap': moving.open = moving.open === +b.dataset.t ? null : +b.dataset.t; moving.fresh = moving.open; play('click'); renderMove(); { const x = $('#move-menu [data-mm="with"]'); if (x) x.focus({ preventScroll: true }); } break;
       case 'with': moving = null; swapFish(uid, +b.dataset.uid); renderMove(); break;
     }
   }
@@ -2703,6 +2756,6 @@ const Tank = (() => {
     decosIn: t => decosIn(t),
     get isOpen() { return isOpen; },
     /* for tests and the console */
-    _debug: { get fish() { return fish; }, get sc() { return sc; }, get parts() { return parts; }, reactTo, startInteraction, select, feed, tapAt, collect, settle, pearlPos, sweep, accrue, bedValue, bedCap, tankRate, pending, YIELD, pearlSprite, moveFish, swapFish, switchTank, fishIn, placeDecor, decoJoy, get decor() { return sc && sc.decos; }, get here() { return here; }, get falling() { return falling.size; }, get lifted() { return lifted.size; } },
+    _debug: { get fish() { return fish; }, get sel() { return sel; }, get zone() { return cardZone; }, get sc() { return sc; }, get parts() { return parts; }, reactTo, startInteraction, select, feed, tapAt, collect, settle, pearlPos, sweep, accrue, bedValue, bedCap, tankRate, pending, YIELD, pearlSprite, moveFish, swapFish, switchTank, fishIn, placeDecor, decoJoy, get decor() { return sc && sc.decos; }, get here() { return here; }, get falling() { return falling.size; }, get lifted() { return lifted.size; } },
   };
 })();
