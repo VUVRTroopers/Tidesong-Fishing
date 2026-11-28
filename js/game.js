@@ -347,7 +347,7 @@
     // knows already.
     const cap = netCap();
     if (save.net.length <= cap * 0.75) save.fullWarned = 0;
-    else if (save.fullWarned !== cap) {
+    else if (save.net.length >= cap && save.fullWarned !== cap) {
       save.fullWarned = cap; persist();
       toast(`Your ${save.netTier ? 'aquariums are' : 'aquarium is'} full. Sell a few fish, or buy another tank, to keep new catches.`, '#ff8c7c', 3800);
     }
