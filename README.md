@@ -91,15 +91,22 @@ Then visit `http://localhost:8000`.
 4. **The landing.** Fill the ring and the rod hauls back and bends hard, the line snaps bar-taut and
    the water boils where it goes in. Then the fish bursts out nose first, in a crown of spray with a
    column of white water chasing it up. A big fish shakes the view a little; Epic and rarer fish flash
-   their colour as they break out, and an Extreme one lights the whole sky for a moment. It comes up
-   on the line by its mouth, with the float riding the line above it, and toward you, so it grows as
-   it nears, thrashing and shedding drops. It swings below the rod tip in its rarity's glow, and a
-   glint runs over it at the top. The music of the catch climbs as it rises and lands its chord as it
-   gets there. Then the fish leaves the line (the float springs back up to the rod tip) and flies into
-   the catch card, levelling out and taking on the card's light, as the card grows around it from
-   where it hung. The card's details settle in one after another: the rarity is stamped on first,
-   then the name and each figure. The whole landing takes a little over a second, a beat longer for
-   rarer fish. A tap during it hurries the fish to the card.
+   their colour as they break out, and an Extreme one lights the whole sky for a moment. The hoist is
+   simulated rather than scripted: the fish is a weight on the line, which the reel shortens while
+   gravity swings it. It leaps clear and is swung up into the air on the line by its mouth, coming
+   toward you (so it grows as it nears, through the scene's own perspective), then drops, is caught
+   by the line and swings below the rod tip. Its body hangs from the hook like a second weight,
+   trailing when the line jerks it and settling head-up. It fights the whole way: it curls one way
+   and the other with each kick, its tail beating and its body twisting on the line, and the kicks
+   fling spray off its tail. Long, slender fish writhe more. The rod bends as hard as the line pulls,
+   so it dips at the bottom of each swing and eases as the fish flies. The float rides the line above
+   the hook, the fish glows in its rarity's colours, and a glint runs over it as it comes up to hang.
+   The music of the catch climbs as it rises and lands its chord as it gets there. Then the fish
+   leaves the line (the float springs back up to the rod tip) and flies into the catch card,
+   straightening out, levelling and taking on the card's light, as the card grows around it from where
+   it hung. The card's details settle in one after another: the rarity is stamped on first, then the
+   name and each figure. The whole landing takes about a second and a half, a beat longer for rarer
+   fish. A tap during it hurries the fish to the card.
 5. **Keep, sell or release.** Every catch has a weight, a length and a price.
 
 A bite never announces its rarity: the cue and the slider look the same for every fish, and a shadow

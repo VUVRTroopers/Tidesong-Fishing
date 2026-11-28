@@ -1092,9 +1092,13 @@
         const Ld = G.land, t = G.pt, wt = 0.85 + 0.3 * (Ld.size ?? 0.4) + 0.05 * RARITIES[Ld.rarity].tier, back = L.portrait ? -0.13 : -0.2;
         if (Ld.loose) rate = 9;
         else if (Ld.calm) { bend = 0.32; swing = back * 0.5; rate = 8; }
-        else if (t < HOIST.burst) { bend = 0.62 * wt + Math.sin(G.t * 41) * 0.03; swing = back * 0.8; rate = 16; }
-        else if (t < HOIST.peak) { bend = lerp(0.6, 0.42, (t - HOIST.burst) / (HOIST.peak - HOIST.burst)) * wt + Math.sin(G.t * 29) * 0.04 * hoistThrash(t); swing = back * 1.1; rate = 13; }
-        else { bend = 0.4 * wt + 0.05 * Math.sin((t - HOIST.peak) * 7); swing = back; rate = 9; }
+        else if (t < HOIST.burst || !Ld.sim) { bend = 0.62 * wt + Math.sin(G.t * 41) * 0.03; swing = back * 0.8; rate = 16; }
+        else {
+          // the rod bends as hard as the line pulls: most while it is reeled up and at the bottom of each swing
+          // hauled back while it is swung in, then eased forward so it hangs out in front, clear of the rod
+          const S = Ld.sim, reeling = S.tau < HC.reel;
+          bend = clamp((0.14 + 0.24 * S.load) * wt, 0.2, 0.85); swing = back * (reeling ? 1.1 : 0.25); rate = reeling ? 14 : 5;
+        }
         break;
       }
     }
@@ -1292,82 +1296,185 @@
      Burst: the fish breaks the surface nose first, in a crown of spray with a column of white water
        chasing it up (a bigger fish shakes the view a little; rarer ones flash their colour, the rarest
        the whole sky).
-     Hoist: it comes up on the line by its mouth, toward you, so it grows as it nears, thrashing and
-       shedding drops, and swings below the rod tip in its rarity's glow; a glint runs over it at the top.
+     Hoist: a weight on the line (see "The hoist happens in a small 3D world" below): it leaps clear and
+       is swung up into the air by its mouth, coming toward you, so it grows as it nears; drops and is
+       caught by the line; and swings below the rod tip, its body hanging from the hook like a second
+       weight. It fights all the way, curling and twisting and flinging spray, in its rarity's glow, and
+       the rod bends as hard as the line pulls. A glint runs over it as it comes up to hang.
      Into the card: it leaves the line (the float springs back up to the rod tip) and flies into the
        catch card, levelling out as the card grows around it from where it hung, and the card's
        details settle in one after another.
      A tap during the hoist hurries it to the card. With reduced motion the fish simply appears where
      it hangs and the card opens without the flight. */
-  const HOIST = { burst: 0.2, peak: 0.84, open: 1.1, perTier: 0.08, fly: 0.56 };
+  const HOIST = { burst: 0.2, open: 1.3, perTier: 0.07, fly: 0.56 };
   const hoistOpenAt = Ld => Ld.calm ? 0.6 : HOIST.open + HOIST.perTier * RARITIES[Ld.rarity].tier;
-  // how hard it fights on the line: nothing under water, wild as it breaks out, settling as it hangs
-  const hoistThrash = t => t < HOIST.burst ? 0 : 0.18 + 0.82 * Math.exp(-2.4 * (t - HOIST.burst));
+  // how hard it fights on the line: nothing under water, wild as it breaks out, settling as it hangs,
+  // and stilling just before it leaves the line for the card
+  function hoistThrash(t) {
+    const Ld = G.land;
+    if (t < HOIST.burst || !Ld || Ld.calm) return 0;
+    const calm = Ld.hurry ? 1 : clamp((hoistOpenAt(Ld) - t) / 0.2, 0, 1);
+    return (0.22 + 0.78 * Math.exp(-2.2 * (t - HOIST.burst))) * (0.35 + 0.65 * calm);
+  }
   const wrapA = a => Math.atan2(Math.sin(a), Math.cos(a));
   // a fish's drawing at scale s (pixels per unit of its drawing) fitted to a w×h frame
   const artScale = (id, w, h, fit) => { const b = FishArt.BOX[id]; return Math.min(w * fit / (b[1] - b[0]), h * fit / (b[3] - b[2])) * 0.92; };
-  // paint a fish at drawing scale s, centred on its drawing, at the context's current transform
-  function paintFish(c, id, t, s, light) {
+
+  /* Paint a fish at drawing scale s (pixels per unit of its drawing), centred on its drawing, at the
+     context's current transform. With bend = { curl, amp, wave } its body bends along its spine: the
+     head (on the right) stays as it is, held by the hook, and the body curves away behind it more and
+     more toward the tail, curl being how far the tail is turned (radians) and amp a ripple running down
+     it (a tail beat). The bend is drawn in thin columns, each sheared to follow the spine, with every
+     column edge on a whole pixel so the joins never show. */
+  let bendCv = null, stageCv = null;
+  function paintFish(c, id, t, s, light, bend) {
     const b = FishArt.BOX[id], w = (b[1] - b[0]) * s / 0.92 / 0.9, h = (b[3] - b[2]) * s / 0.92 / 0.9;
     if (w < 2 || h < 2) return;
-    c.drawImage(FishGL.render(id, t, w * DPR, h * DPR, { fit: 0.9, light }), -w / 2, -h / 2, w, h);
+    const img = FishGL.render(id, t, w * DPR, h * DPR, { fit: 0.9, light });
+    if (!bend || (Math.abs(bend.curl) < 0.01 && bend.amp < 0.01)) { c.drawImage(img, -w / 2, -h / 2, w, h); return; }
+    const iw = img.width, ih = img.height, pad = Math.ceil(Math.max(ih * 0.3, iw * 0.32));
+    if (!bendCv) { bendCv = document.createElement('canvas'); stageCv = document.createElement('canvas'); }
+    if (stageCv.width !== iw || stageCv.height !== ih) { stageCv.width = iw; stageCv.height = ih; }
+    if (bendCv.width !== iw || bendCv.height !== ih + 2 * pad) { bendCv.width = iw; bendCv.height = ih + 2 * pad; }
+    // (one copy of the lit fish, rather than drawing every column straight from the GPU's canvas)
+    const sx = stageCv.getContext('2d');
+    sx.clearRect(0, 0, iw, ih); sx.drawImage(img, 0, 0);
+    const x = bendCv.getContext('2d');
+    x.setTransform(1, 0, 0, 1, 0, 0);
+    x.clearRect(0, 0, iw, ih + 2 * pad);
+    const rigid = Math.round(iw * 0.32);
+    x.drawImage(stageCv, iw - rigid, 0, rigid, ih, iw - rigid, pad, rigid, ih);
+    const n = 36, sw = (iw - rigid) / n, K = 1 / 0.4;
+    let X = iw - rigid, Y = 0, phi = 0;
+    for (let i = 0; i < n; i++) {
+      const u = (rigid + (i + 0.5) * sw) / iw, wgt = u < 0.3 ? 0 : u > 0.95 ? 1 : ((u - 0.3) / 0.65) ** 2 * (3 - 2 * (u - 0.3) / 0.65);
+      const dphi = (bend.curl + bend.amp * Math.sin(bend.wave - 7 * u)) * K * wgt * (sw / iw), pm = phi + dphi / 2;
+      const Xl = X - sw * Math.cos(pm), Yl = Y + sw * Math.sin(pm);
+      const xr = Math.round(X), xl = Math.round(Xl), sx1 = iw - rigid - i * sw, sx0 = sx1 - sw;
+      if (xr > xl) {
+        const a = (xr - xl) / sw, slope = (Y - Yl) / (xr - xl);
+        x.setTransform(a, a * slope, 0, 1, xl - sx0 * a, pad + Yl - sx0 * a * slope);
+        x.drawImage(stageCv, sx0, 0, sw, ih, sx0, 0, sw, ih);
+      }
+      X = Xl; Y = Yl; phi += dphi;
+    }
+    x.setTransform(1, 0, 0, 1, 0, 0);
+    const k = h / ih;
+    c.drawImage(bendCv, 0, 0, iw, ih + 2 * pad, -w / 2, -h / 2 - pad * k, w, h + 2 * pad * k);
+  }
+
+  /* The hoist happens in a small 3D world seen through the scene's own camera (eye 1.2 m above the
+     water, looking at the horizon), so a fish nearer the eye draws larger and lower. The rod tip stands
+     1.6 m out from the eye. The fish is a weight on the line: the line holds it at the length the reel
+     has wound in to (never slack, never stretched) while it swings freely under gravity. It leaves the
+     water with a leap, so it is swung up into the air as it comes in, then drops and is caught by the
+     line, the hand slowing it as the reel finishes. Then it hangs 30 cm below the tip and swings. */
+  const HC = { eye: 1.2, tip: 1.6, hang: 0.3, reel: 0.6, up: 5 };
+  const camF = () => 0.95 * Math.min(H, W * 1.25);
+  const to3 = (s, Z) => { const f = camF(); return { x: (s.x - W / 2) * Z / f, y: HC.eye - (s.y - L.horizon) * Z / f, z: Z }; };
+  const to2 = p => { const f = camF(); return { x: W / 2 + f * p.x / p.z, y: L.horizon + f * (HC.eye - p.y) / p.z, k: f / p.z }; };
+  // how long it looks, in metres (a little larger than life for small fish, a little smaller for the giants)
+  const showLen = Ld => clamp(0.18 + (Ld.cm || 40) / 100 * 0.4, 0.28, 0.5);
+
+  function startSim(Ld) {
+    const tipS = rodTip(), f = camF();
+    const Ze = Math.min(25, f * HC.eye / Math.max(6, Ld.from.y - L.horizon));
+    const E = to3(Ld.from, Ze); E.y = 0;
+    const T = to3(tipS, HC.tip);
+    const len0 = Math.max(HC.hang + 0.1, Math.hypot(E.x - T.x, E.y - T.y, E.z - T.z));
+    // its body still runs down into the water, nose first along the line
+    const lineA = Math.atan2(Ld.from.y - tipS.y, Ld.from.x - tipS.x), beta = lineA + wrapA(Math.PI / 2 - lineA) * 0.75;
+    Ld.sim = { P: E, V: { x: 0, y: HC.up, z: 0 }, len0, prev: len0, tau: 0, load: 1, beta, bv: 0, ph: rand(0, TAU), face: Math.cos(beta + Math.PI) >= 0 ? 1 : -1, ms: null, mv: { x: 0, y: 0 }, ma: { x: 0, y: 0 } };
+  }
+
+  function stepSim(Ld, dt) {
+    const S = Ld.sim, T = to3(rodTip(), HC.tip), n = Math.min(16, Math.max(1, Math.ceil(dt * 240))), h = dt / n;
+    const thr = hoistThrash(G.pt), tall = FishArt.BOX[Ld.id], upright = (tall[3] - tall[2]) > (tall[1] - tall[0]) * 1.1;
+    for (let i = 0; i < n; i++) {
+      S.tau += h;
+      const k = Math.min(1, S.tau / HC.reel), len = S.len0 + (HC.hang - S.len0) * (1 - Math.pow(1 - k, 2.2));
+      const rdot = (len - S.prev) / h; S.prev = len;
+      // air drag, and the hand steadying it on the reel: more and more as the reel finishes, and enough
+      // to temper the spin-up a shortening line gives a swinging weight; once it hangs, the swing toward
+      // and away from you dies much sooner than the sideways one
+      const cd = Math.min(0.5, ((k < 1 ? 0.6 + 12 * k * k * k : 3.2) + 0.6 * Math.abs(rdot) / len) * h), cz = k < 1 ? 0 : 8 * h;
+      const V = S.V;
+      V.y -= 9.8 * h;
+      V.x *= 1 - cd; V.y *= 1 - cd; V.z *= 1 - cd - cz;
+      const fx = S.P.x + V.x * h, fy = S.P.y + V.y * h, fz = S.P.z + V.z * h;
+      const dx = fx - T.x, dy = fy - T.y, dz = fz - T.z, Lf = Math.hypot(dx, dy, dz) || 1, sc = len / Lf;
+      // (once it hangs, the rod held out keeps it from swinging in nearer than the tip)
+      const N = { x: T.x + dx * sc, y: Math.max(0, T.y + dy * sc), z: Math.max(k < 1 ? 0.7 : T.z - 0.1, T.z + dz * sc) };
+      // how hard the line pulls, in g: it bends the rod
+      const pull = Math.hypot(N.x - fx, N.y - fy, N.z - fz) / (h * h) / 9.8;
+      S.load += (Math.min(4, pull) - S.load) * Math.min(1, h * 12);
+      S.V = { x: (N.x - S.P.x) / h, y: (N.y - S.P.y) / h, z: (N.z - S.P.z) / h };
+      S.P = N;
+      // the body hangs from the mouth like a second weight: gravity pulls it down, it trails behind
+      // when the mouth is jerked about, and the fish's own fight flings it from side to side
+      const m = to2(N);
+      if (S.ms) {
+        const vx = (m.x - S.ms.x) / h, vy = (m.y - S.ms.y) / h, a = Math.min(1, h * 30);
+        const ax = clamp((vx - S.mv.x) / h, -3e5, 3e5), ay = clamp((vy - S.mv.y) / h, -3e5, 3e5);
+        S.ma.x += (ax - S.ma.x) * a; S.ma.y += (ay - S.ma.y) * a;
+        S.mv = { x: vx, y: vy };
+      }
+      S.ms = m;
+      const g = 9.8 * m.k, lb = Math.max(6, showLen(Ld) * m.k * 0.42), lim = g * 3;
+      const ax = clamp(S.ma.x, -lim, lim), ay = clamp(S.ma.y, -lim, lim), sb = Math.sin(S.beta), cb = Math.cos(S.beta);
+      S.ph += h * TAU * (2.5 + 0.9 * Math.sin(S.tau * 3.3 + 1));
+      const fight = thr * (upright ? 40 : 95) * Math.sin(S.ph);
+      S.bv += ((g * cb + ax * sb - ay * cb) / lb + fight - 3.2 * S.bv) * h;
+      S.beta += S.bv * h;
+    }
   }
 
   /* Where the fish is this moment: its mouth on the line (m), its middle (c), how it is turned (ang,
-     face: 1 facing right, -1 left), its size (s, and len its length on screen) and where the float is. */
+     face: 1 facing right, -1 left, sy: a little twist on the line), its size (s, and len, its longest
+     side on screen), how its body is bent, where the float is and where the water is beneath it. */
   function hoistPose() {
-    const Ld = G.land, t = G.pt, tip = rodTip(), tier = RARITIES[Ld.rarity].tier, b = FishArt.BOX[Ld.id];
-    const len1 = L.m * (L.portrait ? 0.4 : 0.31) * (0.88 + 0.24 * (Ld.size ?? 0.4)) * (1 + 0.04 * tier);
-    const len0 = len1 * 0.4 * persp(Ld.from.y);
-    // it hangs below the rod tip, a little way out toward the water it came from
-    const S = { x: clamp(tip.x + (Ld.from.x - tip.x) * 0.36, W * 0.14, W * 0.86), y: clamp(tip.y + L.m * (L.portrait ? 0.12 : 0.15), H * 0.26, H * 0.64) };
-    const P0 = { x: Ld.from.x, y: Ld.from.y + len0 * 0.3 };
-    let m, len;
-    if (Ld.calm) { m = S; len = len1; }
-    else if (t < HOIST.burst) { m = P0; len = len0; }
-    else if (t < HOIST.peak) {
-      // up out of the water in an arc and in toward you, quick at first, still swinging as it arrives
-      const k = (t - HOIST.burst) / (HOIST.peak - HOIST.burst), e = 0.72 * (1 - (1 - k) * (1 - k)) + 0.28 * k, u = 1 - e;
-      const P1 = { x: lerp(Ld.from.x, S.x, 0.3), y: Math.min(Ld.from.y, S.y) - L.m * 0.14 };
-      m = { x: u * u * P0.x + 2 * u * e * P1.x + e * e * S.x, y: u * u * P0.y + 2 * u * e * P1.y + e * e * S.y };
-      len = lerp(len0, len1, easeOut(k));
-    } else {
-      // then it swings on the line, below the tip, a little less each time
-      const tau = t - HOIST.peak, R = Math.hypot(S.x - tip.x, S.y - tip.y), phi = Math.atan2(S.y - tip.y, S.x - tip.x);
-      const th = (Ld.from.x >= tip.x ? 1 : -1) * 0.2 * Math.exp(-2.6 * tau) * Math.sin(7 * tau);
-      m = { x: tip.x + Math.cos(phi + th) * R, y: tip.y + Math.sin(phi + th) * R };
-      len = len1;
-    }
-    // it hangs from its mouth: its body runs on from the line, drooping, nearly upright as it comes
-    // out nose first, and thrashing about the hook
-    const since = Math.max(0, t - HOIST.burst), thr = Ld.calm ? 0 : hoistThrash(t);
-    const lineA = Math.atan2(m.y - tip.y, m.x - tip.x);
-    const droop = Ld.calm ? 0.14 : 0.14 + 0.6 * clamp(1 - since / 0.28, 0, 1);
-    const body = lineA + wrapA(Math.PI / 2 - lineA) * droop + thr * (0.5 * Math.sin(G.t * 23) + 0.22 * Math.sin(G.t * 37 + 1.3));
-    const head = body + Math.PI, face = Math.cos(head) >= 0 ? 1 : -1, ang = wrapA(face > 0 ? head : body);
-    const c = { x: m.x + Math.cos(body) * len * 0.47, y: m.y + Math.sin(body) * len * 0.47 };
+    const Ld = G.land, tip = rodTip(), b = FishArt.BOX[Ld.id];
+    if (!Ld.sim) startSim(Ld);
+    const S = Ld.sim;
+    if (Ld.calm) { const T = to3(tip, HC.tip); S.P = { x: T.x, y: T.y - HC.hang, z: T.z }; S.beta = Math.PI / 2 + (Ld.from.x >= tip.x ? -0.45 : 0.45); }
+    const mm = to2(S.P), m = { x: mm.x, y: mm.y }, len = showLen(Ld) * mm.k, s = len / Math.max(b[1] - b[0], b[3] - b[2]);
+    const body = S.beta, head = body + Math.PI;
+    // which way it faces only changes once it has clearly turned over, so it never flickers when it hangs straight down
+    if (S.face * Math.cos(head) < -0.3) S.face = -S.face;
+    const face = S.face, ang = wrapA(face > 0 ? head : body), half = (b[1] - b[0]) * s / 2;
+    const c = { x: m.x + Math.cos(body) * half * 0.94, y: m.y + Math.sin(body) * half * 0.94 };
+    const thr = hoistThrash(G.pt), upright = (b[3] - b[2]) > (b[1] - b[0]) * 1.1, bk = upright ? 0.25 : 1;
+    // long, slender fish (an eel, an oarfish) writhe more
+    const writhe = clamp(((b[1] - b[0]) / (b[3] - b[2]) - 2.2) / 2, 0, 1);
+    // it curls one way then the other with each kick, its tail beating fast, and twists a little on the line
+    const bend = Ld.calm ? null : { curl: thr * 1.1 * (1 + 0.6 * writhe) * Math.sin(S.ph + 0.9) * bk, amp: (0.1 + 0.22 * thr + 0.22 * writhe * thr) * bk, wave: Ld.ft * TAU * 1.6 };
+    const sy = 1 - 0.2 * thr * (0.5 + 0.5 * Math.sin(S.ph * 0.5 + 0.6));
     // the float rides the line a little above the hook
     const dl = Math.max(1, Math.hypot(tip.x - m.x, tip.y - m.y)), fb = Math.min(L.m * 0.06, dl * 0.4);
     const bob = { x: m.x + (tip.x - m.x) / dl * fb, y: m.y + (tip.y - m.y) / dl * fb };
-    return { m, c, ang, face, head, len, s: len / (b[1] - b[0]), bob, tip };
+    const water = to2({ x: S.P.x, y: 0, z: S.P.z }).y;
+    return { m, c, ang, face, head, len, half, s, sy, bend, bob, tip, water, clear: S.P.y };
   }
 
   function stepHoist(dt) {
     const Ld = G.land, t = G.pt, tier = RARITIES[Ld.rarity].tier;
-    Ld.ft += dt * (Ld.shown ? 1 : 1 + 2.4 * hoistThrash(t));
+    Ld.ft += dt * (Ld.shown ? 1 : 1 + 2.2 * hoistThrash(t));
     if (Ld.calm) {
       if (!Ld.burst) { Ld.burst = true; Ld.burstAt = G.t; ripple(Ld.from.x, Ld.from.y, 2, 1.4); Sound.play('landed', Ld.rarity); }
     } else if (t < HOIST.burst) {
       // the water boils where the line goes in
       if (Math.random() < dt * 45) G.drops.push({ x: Ld.from.x + rand(-1, 1) * L.m * 0.02, y: Ld.from.y, vx: rand(-60, 60), vy: -rand(60, 170), t: 0, floor: Ld.from.y + 2, r: rand(0.8, 1.8) });
-    } else if (!Ld.burst) burstOut(Ld, tier);
-    else if (!Ld.shown) shedDrops(Ld, dt);
+    } else {
+      if (!Ld.burst) burstOut(Ld, tier);
+      if (!Ld.shown) { const was = Math.sin(Ld.sim.ph); stepSim(Ld, dt); shedDrops(Ld, dt, was); }
+    }
     if (!Ld.shown && (t >= hoistOpenAt(Ld) || (Ld.hurry && t >= HOIST.burst + 0.3))) handOff(Ld);
   }
 
   // the fish breaks the surface
   function burstOut(Ld, tier) {
     Ld.burst = true; Ld.burstAt = G.t;
+    startSim(Ld);
     if (FS) { FS.alpha = 0; FS.mode = 'sink'; FS.gone = true; FS = null; }
     const p = Ld.from, s = 1.3 + (Ld.size ?? 0.4) * 0.8 + tier * 0.12, sq = Math.sqrt(L.m / 700) * persp(p.y);
     // a crown of spray thrown up and out
@@ -1387,20 +1494,24 @@
     G.flexV -= L.m * 1.4;
   }
 
-  // water streaming off it as it rises and thrashes
-  function shedDrops(Ld, dt) {
-    const P = hoistPose(), prev = Ld.pm;
-    Ld.pm = P.m;
-    if (!prev || dt <= 0) return;
-    const vx = (P.m.x - prev.x) / dt, vy = (P.m.y - prev.y) / dt;
-    let n = (70 * hoistThrash(G.pt) + 6) * dt;
-    const ca = Math.cos(P.head), sa = Math.sin(P.head), rs = Math.sqrt(P.len / (L.m * 0.28));
+  // water streaming off it as it rises, and flung from its tail with each kick
+  function shedDrops(Ld, dt, was) {
+    const P = hoistPose(), S = Ld.sim, thr = hoistThrash(G.pt);
+    const ca = Math.cos(P.head), sa = Math.sin(P.head), rs = Math.sqrt(P.len / (L.m * 0.3));
+    const drop = (u, w, vx, vy) => {
+      const x = P.c.x + ca * u - sa * w, y = P.c.y + sa * u + ca * w;
+      G.drops.push({ x, y, vx, vy, t: 0, floor: Math.max(P.water, y) + rand(L.m * 0.02, L.m * 0.08), r: rand(0.9, 2.1) * rs });
+    };
+    let n = (55 * thr + 6) * dt;
     while (n > 0) {
       if (n < 1 && Math.random() > n) break;
       n -= 1;
-      const u = rand(-0.5, 0.4) * P.len, w = rand(-0.1, 0.1) * P.len;
-      const x = P.c.x + ca * u - sa * w, y = P.c.y + sa * u + ca * w;
-      G.drops.push({ x, y, vx: vx * 0.35 + rand(-45, 45), vy: vy * 0.35 + rand(-70, 10), t: 0, floor: Math.max(Ld.from.y, y + L.m * 0.15) + rand(0, L.m * 0.05), r: rand(0.9, 2.1) * rs });
+      drop(rand(-0.55, 0.4) * P.half * 2, rand(-0.1, 0.1) * P.len, S.mv.x * 0.3 + rand(-45, 45), S.mv.y * 0.3 + rand(-70, 10));
+    }
+    // a kick flicks a spray off the tail
+    if (thr > 0.3 && Math.sign(Math.sin(S.ph)) !== Math.sign(was)) {
+      const side = Math.sign(Math.sin(S.ph)) || 1;
+      for (let i = 0; i < Math.round(4 + 6 * thr); i++) drop(-P.half * rand(0.75, 1), rand(-0.05, 0.05) * P.len, -sa * side * rand(60, 200) * rs + S.mv.x * 0.2, ca * side * rand(60, 200) * rs - rand(40, 140));
     }
   }
 
@@ -1426,7 +1537,7 @@
     G.pend.a = clamp(Math.atan2(P.bob.x - P.tip.x, P.bob.y - P.tip.y), -1.1, 1.1); G.pend.v = 0;
     G.flexV -= L.m * 1.6;
     if (!Ld.calm) {
-      Ld.fly = { t0: G.t, from: { x: o.x, y: o.y, ang: P.ang, face: P.face, s: P.s }, light: lit };
+      Ld.fly = { t0: G.t, from: { x: o.x, y: o.y, ang: P.ang, face: P.face, s: P.s, sy: P.sy, bend: P.bend }, light: lit };
       Sound.play('swoop');
     }
     openReveal(Ld, 'catch');
@@ -1533,13 +1644,24 @@
       FishArt.aura(ctx, Ld.rarity, G.t, P.len * (0.55 + 0.08 * tier));
       ctx.restore();
     }
-    // still coming out nose first: what is under the surface is not seen yet
-    if (!Ld.calm && since < 0.2) { ctx.beginPath(); ctx.rect(0, 0, W, Ld.from.y + 1); ctx.clip(); }
-    ctx.translate(P.c.x, P.c.y); ctx.rotate(P.ang); ctx.scale(P.face, 1);
-    paintFish(ctx, Ld.id, Ld.ft, P.s, lit);
+    // still coming out nose first: what is under the surface beneath it is not seen yet, and the water
+    // foams where its body cuts through
+    const emerging = !Ld.calm && P.clear < showLen(Ld) * 1.1;
+    if (emerging) {
+      const bx = Math.cos(P.head + Math.PI), by = Math.sin(P.head + Math.PI);
+      const cut = by > 0.15 ? Math.max(0, (P.water - P.m.y) / by) : -1;
+      if (cut >= 0 && cut < P.half * 2.1) {
+        const fx = P.m.x + bx * cut, r = P.len * 0.16;
+        ctx.fillStyle = 'rgba(240,250,255,0.55)';
+        ctx.beginPath(); ctx.ellipse(fx, P.water, r * (1.2 + Math.sin(G.t * 40) * 0.15), r * 0.32, 0, 0, TAU); ctx.fill();
+      }
+      ctx.beginPath(); ctx.rect(0, 0, W, P.water + 1); ctx.clip();
+    }
+    ctx.translate(P.c.x, P.c.y); ctx.rotate(P.ang); ctx.scale(P.face, P.sy);
+    paintFish(ctx, Ld.id, Ld.ft, P.s, lit, P.bend);
     ctx.restore();
-    // a glint runs over it as it reaches the top
-    const gk = (G.pt - HOIST.peak + 0.08) / 0.42;
+    // a glint runs over it as it comes up to hang
+    const gk = (Ld.sim ? Ld.sim.tau - HC.reel + 0.12 : -1) / 0.42;
     if (!Ld.calm && gk > 0 && gk < 1) {
       const ca = Math.cos(P.ang), sa = Math.sin(P.ang), lx = P.face * lerp(-0.2, 0.28, gk) * P.len, ly = -0.1 * P.len;
       const gx = P.c.x + ca * lx - sa * ly, gy = P.c.y + sa * lx + ca * ly, r = P.len * 0.09 * Math.sin(gk * Math.PI);
@@ -1573,7 +1695,7 @@
     const A = F.from, lift = Math.sin(k * Math.PI) * Math.min(L.m * 0.1, Math.hypot(to.x - A.x, to.y - A.y) * 0.25);
     const px = lerp(A.x, to.x, e), py = lerp(A.y, to.y, e) - lift;
     const s = A.s * Math.pow(Math.max(0.01, to.s) / A.s, e);
-    const ang = A.ang * (1 - e) + Math.sin(G.t * 20) * 0.1 * (1 - e);
+    const ang = A.ang * (1 - e);
     const len = s * (FishArt.BOX[Ld.id][1] - FishArt.BOX[Ld.id][0]);
     // a soft trail of its colour
     const tier = RARITIES[Ld.rarity].tier;
@@ -1582,8 +1704,10 @@
       g.addColorStop(0, FishArt.hexA(RARITIES[Ld.rarity].color, 0.3 * (1 - e))); g.addColorStop(1, FishArt.hexA(RARITIES[Ld.rarity].color, 0));
       x.globalCompositeOperation = 'lighter'; x.fillStyle = g; x.fillRect(px - len, py - len, len * 2, len * 2); x.globalCompositeOperation = 'source-over';
     }
-    x.translate(px, py); x.rotate(ang); x.scale(A.face, 1);
-    paintFish(x, Ld.id, Ld.ft, s, flyLight(F.light, e));
+    // it straightens out and stops twisting as it goes
+    const bend = A.bend && { curl: A.bend.curl * (1 - e), amp: A.bend.amp * (1 - e), wave: Ld.ft * TAU * 1.6 };
+    x.translate(px, py); x.rotate(ang); x.scale(A.face, lerp(A.sy || 1, 1, e));
+    paintFish(x, Ld.id, Ld.ft, s, flyLight(F.light, e), bend);
   }
   // from the lake's light into the card's soft studio light
   const STUDIO_FISH = { dir: [-0.5, 0.62, 0.72], key: [1, 1, 1], amb: [0.64, 0.64, 0.64] };
