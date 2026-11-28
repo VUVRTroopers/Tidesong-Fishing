@@ -1307,6 +1307,39 @@
   .sync-pop p.sp-got { gap: 6px; font-size: 12.5px; font-weight: 800; color: var(--brass); }
   .sp-got .pearl { width: 12px; height: 12px; }
   .sp-who .sync-ico { width: 26px; height: 26px; color: var(--ink-soft); }
+  .sp-save { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 2px; padding-top: 10px; border-top: 1px solid rgba(214, 222, 255, 0.1); justify-self: stretch; }
+  .sp-save .text-btn { display: inline-flex; align-items: center; gap: 6px; padding: 4px 0; font-size: 13px; }
+  .sp-save .ln-ico { width: 16px; height: 16px; }
+  .sp-inapp { font-size: 12.5px !important; font-weight: 700; line-height: 1.45; color: var(--ink-soft) !important; }
+  .sync-out { display: inline-flex; align-items: center; gap: 7px; text-decoration: none; }
+  .sync-out .ln-ico { width: 16px; height: 16px; }
+  /* moving a save by hand */
+  .sio-card { width: min(100%, 460px); padding: 22px; display: grid; gap: 10px; }
+  .sio-close { position: absolute; top: 14px; right: 14px; }
+  .sio-body { display: grid; gap: 10px; }
+  .sio-body h2 { margin: 0 44px 0 0; display: flex; align-items: center; gap: 9px; font-family: var(--display); font-weight: 600; font-size: 21px; }
+  .sio-body h2 .ln-ico { width: 22px; height: 22px; color: var(--brass); }
+  .sio-note { margin: 0; font-size: 13.5px; color: var(--ink-soft); line-height: 1.5; }
+  .sio-code {
+    width: 100%; box-sizing: border-box; min-height: 92px; resize: vertical; padding: 10px 12px; border: 0; border-radius: 12px;
+    font: 600 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); word-break: break-all;
+    background: var(--well-fill); box-shadow: var(--well-edge); user-select: text; -webkit-user-select: text; -webkit-touch-callout: default;
+  }
+  .sio-code:focus { outline: 2px solid rgba(232, 196, 108, 0.6); outline-offset: 1px; }
+  .sio-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+  .sio-acts .primary-btn, .sio-acts .secondary-btn { display: inline-flex; align-items: center; gap: 7px; text-decoration: none; }
+  .sio-acts .ln-ico { width: 17px; height: 17px; }
+  .sio-status { font-size: 13px; font-weight: 800; color: var(--ink-faint); }
+  .sio-status.ok { color: var(--reed); }
+  .sio-found { animation: unfold 0.32s var(--ease) both; }
+  .sio-cmp { display: flex; align-items: stretch; gap: 8px; }
+  .sio-cmp > span { flex: 1; display: grid; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--well-fill); box-shadow: var(--well-edge); }
+  .sio-cmp > span.new { box-shadow: var(--well-edge), inset 0 0 0 1px rgba(232, 196, 108, 0.5); }
+  .sio-cmp small { font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-faint); }
+  .sio-cmp b { font-size: 17px; }
+  .sio-cmp i { font-style: normal; display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .sio-cmp .pearl { width: 12px; height: 12px; }
+  .sio-cmp > span.sio-arrow { flex: none; align-self: center; padding: 0; background: none; box-shadow: none; color: var(--ink-faint); font-size: 18px; }
   .sync-card { width: min(100%, 560px); padding: 24px; text-align: center; }
   .sync-card h2 { margin: 0 0 16px; font-family: var(--display); font-weight: 600; font-size: 22px; }
   .sync-saves { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
@@ -1543,6 +1576,14 @@
       </ol>
       <button class="primary-btn" id="intro-go" type="button" data-autofocus>Start fishing</button>
       <div class="sync-row" id="intro-sync" hidden></div>
+    </div>
+  </div>
+
+  <!-- moving a save by hand: its code to copy, or one to paste -->
+  <div class="modal" id="save-io" hidden role="dialog" aria-modal="true" aria-label="Save code">
+    <div class="card sio-card">
+      <button class="close-btn sio-close" type="button" data-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <div class="sio-body"></div>
     </div>
   </div>
 

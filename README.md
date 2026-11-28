@@ -1065,6 +1065,23 @@ sign-in window) is picked up when the page comes back.
   (`vuvrtroopers.github.io`) under Authentication → Settings → Authorized domains, create the Firestore
   database and paste `firestore.rules` into its Rules tab.
 
+### Moving a save by hand
+
+Google won't sign in inside an app's own browser (Snapchat's, Instagram's, Facebook's, TikTok's and
+the like), so a game opened from a link in one of those apps can't be saved to an account there. The
+cloud panel in the scrapbook has **Copy save** and **Paste a save** for that, and in an app's browser
+it says so in place of the sign-in buttons (the welcome card offers **Open in browser**).
+
+- **Copy save** shows the whole save as one dense code (compressed and written in letters and
+  digits, starting `TS1.`) and copies it; where an app's browser won't let a page copy, the code is
+  selected for you to copy from the menu. In an app's browser it also offers **Open in browser**,
+  which hands the game to the phone's own browser (Safari on iOS 17 and later, the default browser
+  on Android).
+- **Paste a save**, in the other browser, reads the code, shows the progress it holds beside what is
+  here (level, pearls, fish), and loads it with **Load this save**. A code that was cut short is
+  caught and you are asked to copy it again. Once loaded, signing in keeps it safe in the cloud; if
+  that browser is already signed in, the loaded save goes up to the account at once.
+
 ## Gift links
 
 `claim/` is a link for rewarding players: https://vuvrtroopers.github.io/Tidesong-Fishing/claim/ shows
