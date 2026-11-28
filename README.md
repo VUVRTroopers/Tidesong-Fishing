@@ -279,6 +279,15 @@ count (one more badge, a few more pearls) keeps its place in the queue; one that
 full sand, new mates) starts sooner. With reduced motion the glow holds steady and a nudge is a
 brightening instead of a hop.
 
+**New friends and mates are always told.** When fish in your tanks become friends, best friends or
+mates while you are not watching them (while you fish, or while the game was closed), a little **+**
+floats up beside the Aquarium button and fades: with a heart for mates (the button swells to take it
+in and keeps its pink glow until you visit them), and with two fish for friends, a gold twinkle on
+them for best friends. Several at once rise one after another, side by side ("+2" for two pairs),
+each with a soft chime from that side. They wait for a calm moment (no fish on the line, no menu
+open). Watching in the aquarium as two fish become friends, the + rises over the pair instead; new
+mates there dance, as before.
+
 - **Decorations:** twelve pieces for the aquariums, from a teacup to a sleeping stone giant, that
   please the fish of the tank they stand in (so they make more pearls) and give them somewhere to
   hide, nap, gather, ride bubbles or swim through. Buy as many as you like (see
@@ -370,8 +379,9 @@ goldfish in a bowl, with how many fish you keep). The first fish you keep shows 
 gathers itself into that button, which swells to take it in, and a note points at it ("Your fish live
 here"). Opening it is a visit: the card grows out of the button, and the tank comes into focus as you
 reach the glass, a glint runs across it and the water stirs with a rush of bubbles; walking to another
-tank (a tab, a fish's friend or mate, a tank in the list) sends this one back and aside while the next
-comes forward from its side, its name sliding in. Tap a fish to
+tank (a tab, a fish's friend or mate, a tank in the list) is a walk along a gallery: this one drifts
+aside and fades as the next glides in from its side at the same time (so the glass is never empty),
+its name sliding in, and it settles without any bounce, with just a glint and a few bubbles. Tap a fish to
 follow it with a card showing its weight, length, temperament and friendships, and to star, sell,
 move or release it. The card never hops about: it keeps its place (the bottom corner, or across the
 top of a phone screen over a low-sitting bowl, and slimmer in a short tank, such as a phone held

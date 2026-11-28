@@ -107,7 +107,37 @@ const Tank = (() => {
       badge('couple', { id: a.id });
       if (live) celebrate(a, b);
       else S.news = (S.news || []).concat([[a.uid, b.uid]]).slice(-6);
-    }
+      heard('mates', a, b, live);
+    } else if (cur < 80 && nv >= 80) heard('best', a, b, live);
+    else if (cur < 50 && nv >= 50) heard('friends', a, b, live);
+  }
+  /* New friends, best friends and mates are always told about: right there in the tank when you are
+     watching them become so (mates dance, friends get a little + over them), otherwise by a little
+     float beside the Aquarium button at the next calm moment (game.js takes them with takeNews). */
+  let fresh = [];
+  function heard(kind, a, b, live) {
+    if (live && isOpen) { if (kind !== 'mates') bondPop(kind, a, b); return; }
+    fresh.push(kind);
+    if (fresh.length > 40) fresh.shift();
+  }
+  function takeNews() {
+    if (!fresh.length) return null;
+    const out = { mates: 0, best: 0, friends: 0 };
+    for (const k of fresh) out[k] += 1;
+    fresh = [];
+    return out;
+  }
+  function bondPop(kind, a, b) {
+    if (view !== 'tank' || !sc) return;
+    const el = document.createElement('div'), x = clamp((a.x + b.x) / 2, 24, W - 24), y = clamp(Math.min(a.y, b.y) - Math.max(a.len, b.len) * 0.85, 22, H - 22);
+    el.className = `bond-pop in-tank ${kind}`;
+    el.setAttribute('aria-hidden', 'true');
+    el.innerHTML = `<b>+</b>${FRIENDS_SVG}`;
+    el.style.left = `${x}px`; el.style.top = `${y}px`;
+    $('#tank-stage').appendChild(el);
+    setTimeout(() => el.remove(), 2700);
+    if (kind === 'best') sparkle(x, y, '#ffe7a0', 4, 0.8);
+    play('bond', kind);
   }
   function forget(uid) {
     compDirty = true;
@@ -2599,6 +2629,9 @@ const Tank = (() => {
     $('#pearl-hint').hidden = true;
     api.openModal('#m-tank');
     play('tankOpen');
+    // the header, tabs and bar first, so the tank is sized for the room they leave (and does not change
+    // size the first time you switch tanks)
+    renderHead(); renderTabs(); renderBar();
     layout();
     popBorn();
     renderUI();
@@ -2610,19 +2643,63 @@ const Tank = (() => {
     api.refresh();
   }
   /* Visiting a tank: you walk up to the glass and it comes into focus, a glint runs across it, and the
-     water stirs with a rush of bubbles from the sand. */
-  function arrive() {
+     water stirs with a rush of bubbles from the sand. Walking along to the next tank (focus false), it
+     slides into place instead (see visitTank), with just the glint and the bubbles, so it never
+     zooms again once it has settled. */
+  function arrive(focus = true) {
     const st = $('#tank-stage');
-    if (!UIFX.reduced()) { st.classList.remove('arrive'); void st.offsetWidth; st.classList.add('arrive'); clearTimeout(st._arT); st._arT = setTimeout(() => st.classList.remove('arrive'), 1500); }
+    if (!UIFX.reduced()) {
+      const c = focus ? 'arrive' : 'glint';
+      st.classList.remove('arrive', 'glint'); void st.offsetWidth; st.classList.add(c);
+      clearTimeout(st._arT); st._arT = setTimeout(() => st.classList.remove(c), 1500);
+    }
     if (!sc || view !== 'tank') return;
-    for (let i = 0; i < 22; i++) {
+    for (let i = 0; i < (focus ? 22 : 14); i++) {
       const x = sc.ix0 + sc.iw * (0.05 + 0.9 * Math.random());
       TankEnv.bubble(sc, x, Math.min(sc.floor(x), sc.iy1) - U * rand(0.5, 3), U * rand(0.15, 0.5), { z: rand(0.2, 0.9) });
     }
   }
-  // walking along to another of your tanks
+  /* Walking along to another of your tanks, as along a gallery: a picture of the tank you were looking at
+     drifts away to one side and fades as the next glides in from the other, so the glass is never
+     empty, and the next settles without any bounce. The name and description slide in to match. */
+  function snapshot() {
+    const g = document.createElement('canvas');
+    g.className = 'tank-ghost'; g.setAttribute('aria-hidden', 'true');
+    g.width = cv.width; g.height = cv.height;
+    const x = g.getContext('2d');
+    render();
+    // (the GPU's picture can only be copied in the same moment it is drawn)
+    if (sc.gl && glOn && TankGL.render(cv, T, ptr)) x.drawImage(glc, 0, 0, g.width, g.height);
+    else x.drawImage(cv, 0, 0);
+    return g;
+  }
   const visitTank = (t, after, dir = Math.sign(t - here) || 1) => {
-    UIFX.visit($('#m-tank .card'), $('#tank-stage'), () => { if (t !== here) switchTank(t); renderUI(); if (after) after(); arrive(); play('glass'); }, dir, [$('#tank-title'), $('#tank-sub')]);
+    const st = $('#tank-stage'), card = $('#m-tank .card'), go = () => { if (t !== here) switchTank(t); renderUI(); if (after) after(); };
+    if (st._ghost) { st._ghost.remove(); st._ghost = null; }
+    if (UIFX.reduced() || view !== 'tank' || !sc || card.closest('[hidden]')) { go(); play('glass'); return; }
+    let ghost = null;
+    try { ghost = snapshot(); } catch (e) { ghost = null; }
+    const D = dir < 0 ? -1 : 1, ease = 'cubic-bezier(.3, .7, .25, 1)';
+    // the picture starts drifting away at once (this motion carries on smoothly even while the next
+    // tank is being built), and the live glass waits hidden behind it
+    const old = sc.gl ? glc : cv;
+    if (ghost) {
+      cv.after(ghost); st._ghost = ghost; old.style.opacity = '0';
+      const a = ghost.animate([{ transform: 'none', opacity: 1 }, { opacity: 0.9, offset: 0.3 }, { transform: `translateX(${-D * 12}%) scale(0.97)`, opacity: 0 }], { duration: 460, easing: ease, fill: 'forwards' });
+      a.onfinish = () => { ghost.remove(); if (st._ghost === ghost) st._ghost = null; };
+    }
+    play('glass');
+    // then, a moment later, the next tank is built and glides in from the other side
+    requestAnimationFrame(() => {
+      old.style.opacity = '';
+      if (!isOpen) return;
+      UIFX.morph(card, go);
+      for (const el of [$('#tank-title'), $('#tank-sub')]) { el.classList.remove('swap-in', 'swap-in-l', 'swap-in-r'); void el.offsetWidth; el.classList.add(dir < 0 ? 'swap-in-l' : 'swap-in-r'); }
+      arrive(false);
+      if (view !== 'tank') return;
+      const shown = sc && sc.gl ? glc : cv;
+      shown.animate([{ transform: `translateX(${D * 9}%) scale(0.97)`, opacity: 0 }, { opacity: 1, offset: 0.45 }, { transform: 'none', opacity: 1 }], { duration: 560, easing: ease });
+    });
   };
   function onClosed() {
     if (!isOpen) return;
@@ -2775,10 +2852,11 @@ const Tank = (() => {
   }
 
   return {
-    init, open, onClosed, frame, settle, pending, preview, homeFor, addDecor, decoCap, tipsOn, hideTip, dropTip,
+    init, open, onClosed, frame, settle, pending, preview, homeFor, addDecor, decoCap, tipsOn, hideTip, dropTip, takeNews,
+    icons: { get heart() { return heartSVG(false); }, friends: FRIENDS_SVG },
     decosIn: t => decosIn(t),
     get isOpen() { return isOpen; },
     /* for tests and the console */
-    _debug: { get fish() { return fish; }, get sel() { return sel; }, get zone() { return cardZone; }, get sc() { return sc; }, get parts() { return parts; }, reactTo, startInteraction, select, feed, tapAt, collect, settle, pearlPos, sweep, accrue, bedValue, bedCap, tankRate, pending, baseYield, pearlSprite, moveFish, swapFish, switchTank, fishIn, placeDecor, decoJoy, get decor() { return sc && sc.decos; }, get here() { return here; }, get falling() { return falling.size; }, get lifted() { return lifted.size; } },
+    _debug: { bond: (u1, u2, v) => { const a = byUid(u1), b = byUid(u2); if (a && b) addBond(a, b, v, true); }, get fish() { return fish; }, get sel() { return sel; }, get zone() { return cardZone; }, get sc() { return sc; }, get parts() { return parts; }, reactTo, startInteraction, select, feed, tapAt, collect, settle, pearlPos, sweep, accrue, bedValue, bedCap, tankRate, pending, baseYield, pearlSprite, moveFish, swapFish, switchTank, fishIn, placeDecor, decoJoy, get decor() { return sc && sc.decos; }, get here() { return here; }, get falling() { return falling.size; }, get lifted() { return lifted.size; } },
   };
 })();

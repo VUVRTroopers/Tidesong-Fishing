@@ -796,6 +796,23 @@ const Sound = (() => {
       bell(midi(tr(a)), { t: 0.06, a: 0.005, gain: 0.012, dur: 1.2, partials: GLASS, pan, wet: 0.34, beat: false });
       bell(midi(tr(b)), { t: 0.16, a: 0.005, gain: 0.009, dur: 1.4, partials: GLASS, pan, wet: 0.38, beat: false });
     },
+    /* New friends or mates in the aquarium, told beside the Aquarium button (or over the pair in the
+       tank): a bubble and a soft rising pair of harp notes for friends (a glass chime over them for best
+       friends), and a warmer three-note rise with a bell for mates. In the water's key. */
+    bond(kind) {
+      const pan = -0.45;
+      if (kind === 'mates') {
+        const v = [[76, 81, 84], [74, 79, 83], [72, 76, 79]][pickV('bondM', 3)];
+        v.forEach((n, i) => pluck(midi(tr(n)), { t: i * 0.12, gain: 0.03, dur: 1.6, bright: 0.22, pan, wet: 0.34 }));
+        bell(midi(tr(v[2] + 12)), { t: 0.38, a: 0.006, gain: 0.011, dur: 2, partials: GLASS, pan, wet: 0.45, beat: false });
+        return;
+      }
+      const [a, b] = [[79, 84], [76, 81], [74, 79]][pickV('bondF', 3)];
+      bubble(rand(700, 1000), { gain: 0.012, dur: 0.05, rise: 1.8, pan, wet: 0.3 });
+      pluck(midi(tr(a)), { t: 0.05, gain: 0.022, dur: 1.1, bright: 0.22, pan, wet: 0.3 });
+      pluck(midi(tr(b)), { t: 0.17, gain: 0.02, dur: 1.4, bright: 0.22, pan, wet: 0.32 });
+      if (kind === 'best') bell(midi(tr(b + 12)), { t: 0.3, a: 0.005, gain: 0.008, dur: 1.6, partials: GLASS, pan, wet: 0.42, beat: false });
+    },
     /* turning a page of the scrapbook */
     page() { noise({ type: 'bandpass', f: 1700, f1: 3400, fTime: 0.2, q: 0.7, a: 0.03, d: 0.17, gain: 0.02, wet: 0.12 }); },
 
@@ -1467,7 +1484,7 @@ const Sound = (() => {
   /* How far (in cents) each effect's take may wander in pitch: most a little, small clicks and splashes
      more, and anything tuned to a melody (the singing geodes) not at all. */
   // the music that answers the water's pad (bites, the meter, landings, rewards) stays in tune with it
-  const SPREAD = { geode: 0, blessing: 4, gate: 6, landed: 0, levelUp: 0, unlock: 0, badge: 0, meterSet: 0, nudge: 0, deco: 0, decoPlace: 3, escape: 2, bite: 3, coin: 2, buy: 2, release: 3, open: 3, equip: 3,
+  const SPREAD = { bond: 0, geode: 0, blessing: 4, gate: 6, landed: 0, levelUp: 0, unlock: 0, badge: 0, meterSet: 0, nudge: 0, deco: 0, decoPlace: 3, escape: 2, bite: 3, coin: 2, buy: 2, release: 3, open: 3, equip: 3,
     click: 30, glass: 20, plop: 20, splashIn: 25, burst: 20, heave: 18, swoop: 16, thud: 22, gulp: 30, boop: 25, flakes: 25, pebbles: 25 };
   const play = (name, ...args) => {
     if (!ctx || !enabled || !S[name]) return;

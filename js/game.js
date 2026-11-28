@@ -147,7 +147,7 @@
     ringFill: $('#ring-fill'), ringNotch: $('#ring-notch'), ring: $('#reel .ring'), ringHead: $('#ring-head'), reelHint: $('#reel-hint'),
     track: $('#track'), mkTrail: $('#mk-trail'), mkAura: $('#mk-aura'),
     placeName: $('#place-name'), placeTime: $('#place-time'), lvl: $('#lvl-num'), xpFill: $('#xp-fill'), xpText: $('#xp-text'),
-    sound: $('#btn-sound'), toasts: $('#toasts'), veil: $('#veil'), rvCanvas: $('#rv-canvas'),
+    sound: $('#btn-sound'), toasts: $('#toasts'), bondLive: $('#bond-live'), veil: $('#veil'), rvCanvas: $('#rv-canvas'),
     pearls: $('#pearl-count'), pearlBtn: $('#btn-pearls'), netBtn: $('#btn-net'), netCount: $('#net-count'), tankDot: $('#tank-dot'),
     baitBtn: $('#btn-bait'), baitLabel: $('#bait-label'), baitDot: $('#bait-dot'),
   };
@@ -912,12 +912,53 @@
 
     if (!modalOpen() || G.phase === 'landing') updatePhase(dt);
     nudges(dt);
+    bondNews(dt);
     // the meter's entrance is over a second after it began
     if (G.enterAt != null && G.t - G.enterAt > 1.05 && ui.reel.classList.contains('enter')) ui.reel.classList.remove('enter');
     animateRod(dt);
     physics(dt);
     updateShoal(dt);
     Flourish.update(dt, L, G.t);
+  }
+
+  /* ================= Bond news =================
+     When fish in your tanks become friends, best friends or mates while you are not watching them
+     (while you fish, or while the game was closed), a little + with a heart (mates) or with two fish
+     (friends; best friends with a twinkle) floats up beside the Aquarium button at the next calm moment
+     (no fish on the line, no menu open), one after another, with a soft chime from that side. New mates
+     also leave the button glowing pink until you visit them (see updateHUD). */
+  let bondT = 0, bondBusy = 0;
+  function bondNews(dt) {
+    if ((bondT -= dt) > 0) return;
+    bondT = 0.5;
+    if (G.t < 1.8 || G.t < bondBusy || modalOpen() || Tank.isOpen || !NUDGE_CALM.includes(G.phase)) return;
+    const n = Tank.takeNews();
+    if (!n) return;
+    const list = [['mates', n.mates], ['best', n.best], ['friends', n.friends]].filter(([, c]) => c > 0);
+    // one after another, each in its own place along a short row, like bubbles rising side by side
+    list.forEach(([kind, c], i) => setTimeout(() => bondFloat(kind, c, i), i * 900));
+    bondBusy = G.t + list.length * 0.9 + 2;
+  }
+  const BOND_SAY = {
+    mates: n => n > 1 ? `${n} pairs of your fish became mates` : 'Two of your fish became mates',
+    best: n => n > 1 ? `${n} pairs of your fish became best friends` : 'Two of your fish became best friends',
+    friends: n => n > 1 ? `${n} pairs of your fish became friends` : 'Two of your fish became friends',
+  };
+  function bondFloat(kind, n, slot = 0) {
+    const btn = ui.netBtn, r = btn.getBoundingClientRect();
+    if (!r.width || modalOpen()) return;
+    const el = document.createElement('div');
+    el.className = `bond-pop ${kind}`;
+    el.setAttribute('role', 'img');
+    el.setAttribute('aria-label', BOND_SAY[kind](n));
+    el.innerHTML = `<b>+${n > 1 ? n : ''}</b>${kind === 'mates' ? Tank.icons.heart : Tank.icons.friends}`;
+    document.body.appendChild(el);
+    el.style.left = `${Math.round(Math.min(window.innerWidth - el.offsetWidth - 8, r.right + 8 + slot * (el.offsetWidth + 10)))}px`;
+    el.style.top = `${Math.round(r.top + r.height / 2 - el.offsetHeight / 2)}px`;
+    setTimeout(() => el.remove(), 2800);
+    ui.bondLive.textContent = BOND_SAY[kind](n) + '.';
+    Sound.play('bond', kind);
+    if (kind === 'mates') bump(btn);
   }
 
   /* ================= Nudges =================
