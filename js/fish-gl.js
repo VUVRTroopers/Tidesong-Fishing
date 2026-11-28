@@ -196,7 +196,9 @@ void main() {
         gl.uniform1f(pr.u('uNorm'), M.norm); gl.uniform1f(pr.u('uDetail'), M.detail);
         gl.uniform1f(pr.u('uDel'), Math.max(1.5, rad * 0.45));
         gl.uniform1f(pr.u('uScaleSize'), Math.max(4, Math.min(w, h) * 0.05));
-        gl.uniform3fv(pr.u('uRim'), Lt.rim || M.rim);
+        // rimTo blends a scene's rim light toward the material's own (a fish carried from the lake into a menu)
+        const rim = Lt.rim && Lt.rimTo != null ? Lt.rim.map((v, i) => v + (M.rim[i] - v) * Lt.rimTo) : Lt.rim || M.rim;
+        gl.uniform3fv(pr.u('uRim'), rim);
         gl.uniform3f(pr.u('uLightDir'), d[0] + sway, d[1], d[2]);
         gl.uniform3fv(pr.u('uKey'), Lt.key); gl.uniform3fv(pr.u('uAmb'), Lt.amb);
       });

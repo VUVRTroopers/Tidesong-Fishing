@@ -88,7 +88,19 @@ Then visit `http://localhost:8000`.
    giving off sparks, with a pulse of light on each step the ring fills; outside it cools back to plain
    gold. All of this follows how the line actually moves, so a calm fish looks calm and a wild one
    looks wild, without giving its rarity away.
-4. **Keep, sell or release.** Every catch has a weight, a length and a price.
+4. **The landing.** Fill the ring and the rod hauls back and bends hard, the line snaps bar-taut and
+   the water boils where it goes in. Then the fish bursts out nose first, in a crown of spray with a
+   column of white water chasing it up. A big fish shakes the view a little; Epic and rarer fish flash
+   their colour as they break out, and an Extreme one lights the whole sky for a moment. It comes up
+   on the line by its mouth, with the float riding the line above it, and toward you, so it grows as
+   it nears, thrashing and shedding drops. It swings below the rod tip in its rarity's glow, and a
+   glint runs over it at the top. The music of the catch climbs as it rises and lands its chord as it
+   gets there. Then the fish leaves the line (the float springs back up to the rod tip) and flies into
+   the catch card, levelling out and taking on the card's light, as the card grows around it from
+   where it hung. The card's details settle in one after another: the rarity is stamped on first,
+   then the name and each figure. The whole landing takes a little over a second, a beat longer for
+   rarer fish. A tap during it hurries the fish to the card.
+5. **Keep, sell or release.** Every catch has a weight, a length and a price.
 
 A bite never announces its rarity: the cue and the slider look the same for every fish, and a shadow
 shows only how big a fish is (a big carp and a small legend can look alike). You learn what you have
@@ -241,10 +253,11 @@ the catch screen or later from your aquarium, and spend them on:
 
 **One scene, not windows over it.** Every menu grows out of the spot you pressed (the market from its
 button, or from your pearls; the scrapbook, the journal, the map, the aquarium from theirs) and
-gathers itself back into that button when it closes. A catch's card rises out of the water where the
-fish came up, and when you decide, it goes where the fish went: into the Aquarium button if you keep
+gathers itself back into that button when it closes. A catch's card grows from where the fish hung on
+the line, with the fish flying into it, and when you decide, it goes where the fish went: into the Aquarium button if you keep
 it (the button swells to take it in), into the pearls in your wallet if you sell it, or back into the
-water if you let it go. With reduced motion, menus simply fade.
+water if you let it go. With reduced motion, menus simply fade, and a landed fish simply appears on
+the line, with no burst, shaking or flight.
 
 **Notifications glow, and now and then nudge.** A notification waiting behind a button lights a soft
 glow around it that breathes slowly: gold on the scrapbook for new badges, moonlight on the aquarium
@@ -931,8 +944,12 @@ they never stutter), coasting down when you let go and clicking faster as drag w
   climbing the water's scale as the ring fills; a soft drone that leans in as the ring fills and
   eases back (never drops out) while the fish slips out of the band; and a soft heartbeat when the
   fish is about to escape.
-- **The catch blooms:** the drone brightens and lingers a moment, and the backdrop itself swells and
-  opens for a few seconds. A harp runs up the scale, quickening a little and growing louder as it
+- **The landing:** the line hisses bar-taut and the rod groans as it hauls back; the fish breaks the
+  surface with a deep gulp, a rushing sheet of spray and a patter of drops falling back from it as
+  it rises (heavier for bigger and rarer fish); and it leaves the line for the catch card on a soft
+  rush of air.
+- **The catch blooms:** as the fish rises, the drone brightens and lingers a moment, and the backdrop
+  itself swells and opens for a few seconds. A harp runs up the scale, quickening a little and growing louder as it
   climbs, and settles on a note of the backdrop's chord; then that chord rings out, rolled on the
   harp over a soft glow (single round tones that swell in and settle away, so nothing pulses or
   buzzes). Rarer fish add a chime, then a low root and a cascade of chimes, and the rarest a deep
@@ -1108,6 +1125,7 @@ In the browser console:
 | --- | --- |
 | `Tidesong.hook('dolphin')` | The next bite is that species (any id from `SPECIES`) |
 | `Tidesong.hookRarity('epic')` | The next bite is a random species of that rarity |
+| `Tidesong.land()` | Wins the fight on the line now, to see a landing |
 | `Tidesong.aim()` | The next cast comes down on something floating in this water; `Tidesong.aim(0.6, 0.3)` aims it at a point (across, and down from the horizon) |
 | `Tidesong.addXp(500)` | Grants XP |
 | `Tidesong.addPearls(1000)` | Grants Moonpearls |

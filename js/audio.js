@@ -614,8 +614,9 @@ const Sound = (() => {
        runs up the water's scale, quickening a little as it climbs, and lands on a note of the pad's
        chord; then that chord rings out, rolled on the harp over a soft glow. Rarer fish add a chime,
        then a cascade of chimes and a low root, and the rarest a deep bell and a rumble of water. */
-    landed(rarity) {
-      splashFx(1.3);
+    landed(rarity, dry) {
+      // (dry: the fish's own burst out of the water already made the splash)
+      if (!dry) splashFx(1.3);
       const tier = RARITIES[rarity].tier, H = harmony(), n = 4 + tier * 2;
       bloomPad(tier, 1.2 + tier * 0.5);
       const sc = H.scale(48, 108), from = sc.findIndex(x => x >= tr(64));
@@ -653,6 +654,32 @@ const Sound = (() => {
         const hi = H.scale(tr(84), tr(103));
         for (let i = 0; i < 8; i++) bell(midi(hi[(i * 3) % hi.length]), { t: at + 1.4 + i * 0.13, a: 0.006, gain: 0.016, dur: 2.6, partials: GLASS, pan: Math.cos(i) * 0.7, wet: 0.45 });
       }
+    },
+
+    /* The heave as a fish is landed: the line hissing bar-taut and the rod groaning under the load. */
+    heave(size = 0.4) {
+      noise({ type: 'bandpass', f: 2400, f1: 4200, fTime: 0.2, q: 5, a: 0.03, d: 0.16, gain: 0.05, pan: -0.15, wet: 0.08 });
+      noise({ kind: 'brown', type: 'bandpass', f: 180, f1: 120, fTime: 0.25, q: 2.2, a: 0.04, d: 0.22, gain: 0.05 + 0.03 * size, pan: -0.3, wet: 0.06 });
+      wood(midi(40), { t: 0.04, gain: 0.012, dur: 0.18, wet: 0.05 });
+    },
+
+    /* The fish bursting out of the water on the line: a deep gulp as the surface breaks, a rushing sheet
+       of spray and fizz, then a patter of drops falling back from it as it rises. Bigger and rarer fish,
+       heavier. */
+    burst(size = 0.4, tier = 0) {
+      const s = clamp(0.8 + size * 0.5 + tier * 0.08, 0.6, 1.5);
+      osc(96, { a: 0.004, d: 0.2, glide: 50, glideTime: 0.18, gain: 0.085 * s, lp: 420, wet: 0.08 });
+      noise({ type: 'lowpass', f: 4600, f1: 600, fTime: 0.55, q: 0.5, a: 0.005, d: 0.5 + 0.2 * s, gain: 0.12 * s, wet: 0.25 });
+      noise({ t: 0.01, type: 'highpass', f: 3200, q: 0.5, a: 0.008, d: 0.24, gain: 0.05 * s, pan: 0.15, wet: 0.2 });
+      splashFx(0.9 * s, { t: 0.02 });
+      for (let i = 0; i < 14; i++) {
+        bubble(rand(1100, 2800), { t: 0.25 + Math.random() * 0.65, dur: rand(0.015, 0.035), rise: rand(1.4, 2.2), gain: rand(0.006, 0.016), pan: rand(-0.6, 0.6), wet: 0.3, lp: 6000 });
+      }
+    },
+
+    /* The fish leaving the line for the catch card: a soft rush of air rising into the card. */
+    swoop() {
+      noise({ type: 'bandpass', f: 450, f1: 1700, fTime: 0.42, q: 1.1, a: 0.16, d: 0.32, gain: 0.07, pan: -0.2, panTo: 0.1, panTime: 0.45, wet: 0.28, lp2: 3000 });
     },
 
     levelUp() {
@@ -1441,7 +1468,7 @@ const Sound = (() => {
      more, and anything tuned to a melody (the singing geodes) not at all. */
   // the music that answers the water's pad (bites, the meter, landings, rewards) stays in tune with it
   const SPREAD = { geode: 0, blessing: 4, gate: 6, landed: 0, levelUp: 0, unlock: 0, badge: 0, meterSet: 0, nudge: 0, deco: 0, decoPlace: 3, escape: 2, bite: 3, coin: 2, buy: 2, release: 3, open: 3, equip: 3,
-    click: 30, glass: 20, plop: 20, splashIn: 25, thud: 22, gulp: 30, boop: 25, flakes: 25, pebbles: 25 };
+    click: 30, glass: 20, plop: 20, splashIn: 25, burst: 20, heave: 18, swoop: 16, thud: 22, gulp: 30, boop: 25, flakes: 25, pebbles: 25 };
   const play = (name, ...args) => {
     if (!ctx || !enabled || !S[name]) return;
     const sp = SPREAD[name] ?? 14;

@@ -528,6 +528,28 @@
   .rv-actions .primary-btn, .rv-actions .secondary-btn { display: inline-flex; align-items: center; gap: 7px; }
   .rv-actions .secondary-btn { padding: 13px 20px; font-size: 14.5px; }
   .rv-actions .primary-btn { padding: 13px 26px; }
+  /* a catch's card: the fish flies in from the line (on the layer below) as the card grows, and the
+     card's details settle in one after another, the rarity stamped on first */
+  .fly-layer { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 70; pointer-events: none; }
+  .reveal.arrive .rv-title, .reveal.arrive .rv-name, .reveal.arrive .rv-sub, .reveal.arrive .rv-xp,
+  .reveal.arrive .rv-blurb, .reveal.arrive .rv-net, .reveal.arrive .rv-actions { animation: rvIn 0.42s cubic-bezier(.2, .8, .3, 1) both; }
+  .reveal.arrive .rv-title { animation-delay: 0.08s; }
+  .reveal.arrive .rarity-pill { animation: rvStamp 0.5s cubic-bezier(.2, .9, .3, 1.35) 0.16s both; }
+  .reveal.arrive .new-pill { animation: rvStamp 0.5s cubic-bezier(.2, .9, .3, 1.35) 0.3s both; }
+  .reveal.arrive .rv-name { animation-delay: 0.22s; }
+  .reveal.arrive[data-tier="3"] .rv-name, .reveal.arrive[data-tier="4"] .rv-name { animation: rvIn 0.42s cubic-bezier(.2, .8, .3, 1) 0.22s both, sheen 3.2s linear infinite; }
+  .reveal.arrive .rv-sub { animation-delay: 0.27s; }
+  .reveal.arrive .rv-stats > div { animation: rvPop 0.46s cubic-bezier(.2, .9, .3, 1.25) both; }
+  .reveal.arrive .rv-stats > div:nth-child(1) { animation-delay: 0.3s; }
+  .reveal.arrive .rv-stats > div:nth-child(2) { animation-delay: 0.36s; }
+  .reveal.arrive .rv-stats > div:nth-child(3) { animation-delay: 0.42s; }
+  .reveal.arrive .rv-xp { animation-delay: 0.46s; }
+  .reveal.arrive .rv-blurb { animation-delay: 0.5s; }
+  .reveal.arrive .rv-net { animation-delay: 0.52s; }
+  .reveal.arrive .rv-actions { animation-delay: 0.4s; }
+  @keyframes rvIn { from { opacity: 0; transform: translateY(10px); } }
+  @keyframes rvPop { from { opacity: 0; transform: translateY(8px) scale(0.9); } }
+  @keyframes rvStamp { from { opacity: 0; transform: scale(1.6); } 60% { opacity: 1; } }
   .text-btn {
     border: 0; background: none; color: var(--ink-soft); font-weight: 700; font-size: 14px; padding: 12px 8px;
     text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(244, 239, 227, 0.3);
@@ -1276,6 +1298,7 @@
     .prompt.breathe, .ring-core svg, .demo .band, .demo .marker, .reel-label, .rv-name { animation: none !important; }
     .card, .modal.closing .card, .modal.open.behind .card { transition: none; }
     .swap-in, .swap-in-l, .swap-in-r { animation: none; }
+    .reveal.arrive *, .reveal.arrive .rv-stats > div { animation: none !important; }
   }
 
   /* signing in to play on every device: quiet, and out of the way */
