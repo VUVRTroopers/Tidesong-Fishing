@@ -21,11 +21,14 @@ const RARITIES = {
    wiggle: amplitude of constant small jitter.
    Legendary and extreme fish are tuned against the gear ladder in js/gear.js: with the starter kit they
    are a long shot, every tier of rod, bobber and line lifts the odds, and only a full Heirloom kit makes
-   the Dragon Fish a likely catch. */
+   the Dragon Fish a likely catch. Epic fish sit about two tiers of gear below legendary ones (most of the
+   way from rare to legendary in every setting): with the starter kit only a patient, practised angler
+   lands them (about half the time, in a fight of about a minute; a hurried one hardly ever), Tier I
+   makes them likely for most, and from Tier III nearly certain. */
 const REEL = {
   common:    { fill: 0.16,  drain: 0.07,  band: 0.30, interval: [1.2, 2.5],  stiff: [3, 6],    zeta: 0.9,  hold: 0.32, dart: 0.04, thrash: 0,    wiggle: 0.006 },
   rare:      { fill: 0.14,  drain: 0.08,  band: 0.27, interval: [0.9, 1.9],  stiff: [5, 10],   zeta: 0.78, hold: 0.26, dart: 0.1,  thrash: 0.03, wiggle: 0.01 },
-  epic:      { fill: 0.125, drain: 0.085, band: 0.25,  interval: [0.7, 1.45],  stiff: [7, 13],   zeta: 0.68, hold: 0.2,  dart: 0.17, thrash: 0.06, wiggle: 0.015 },
+  epic:      { fill: 0.112, drain: 0.087, band: 0.233, interval: [0.6, 1.28],  stiff: [8.4, 15.8], zeta: 0.61, hold: 0.18, dart: 0.205, thrash: 0.08, wiggle: 0.0185 },
   legendary: { fill: 0.106, drain: 0.088, band: 0.226, interval: [0.55, 1.2],  stiff: [9, 17],   zeta: 0.58, hold: 0.17, dart: 0.22, thrash: 0.09, wiggle: 0.02 },
   extreme:   { fill: 0.092, drain: 0.084, band: 0.212, interval: [0.5, 1.1],   stiff: [10, 19],  zeta: 0.52, hold: 0.15, dart: 0.24, thrash: 0.11, wiggle: 0.024 },
 };

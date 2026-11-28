@@ -297,6 +297,13 @@ careers, with three models of human play (casual, steady and focused):
   the long goal after that.
 - Each tier makes common fights shorter and lifts the odds on the hardest fish. A steady player lands
   a Legendary about half the time with Tier II in every slot, and nearly every time from Tier IV.
+- Epic fish sit about two tiers of gear below Legendary ones. With the starter kit a steady player
+  lands about half (each a fight of about a minute), a hurried one hardly ever (about one in five
+  hundred), and only a practised, patient angler nearly every time; Tier I makes them likely for most
+  (four in five for a steady player), and from Tier III they are all but certain. A casual player
+  needs about Tier III to land half. Against the career simulation this slows a casual player's climb
+  by about a day (Heirloom I on day 18 instead of 17) and steady and focused ones by half a day at
+  most.
 - The Dragon Fish is the real test. A steady player lands it about a quarter of the time with a full
   Tier V kit and two thirds of the time with Heirloom I. Only a full Heirloom III kit makes it close
   to certain, and a casual player still finds it a challenge even then.
